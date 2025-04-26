@@ -64,7 +64,6 @@ class Product(models.Model):
     karat = models.CharField(max_length=20, null=True, blank=True)
     material_color = models.CharField(max_length=20, null=True, blank=True)
 
-    # ✅ New field
     stones = models.ManyToManyField(Stone, blank=True, related_name='products', help_text="Helper field for quick reference to stones.")
 
     pendant_height = models.CharField(max_length=20, null=True, blank=True)
@@ -131,13 +130,15 @@ class Product(models.Model):
             "grand_total": grand_total,
             "gross_weight": self.gross_weight
         }
+    
+    def __str__(self):
+        return self.head
 
     @property
     def stone_names(self):
         return [ps.stone.name for ps in self.productstone_set.all()]
 
-    def __str__(self):
-        return self.head
+   
 
 
 class ProductStone(models.Model):

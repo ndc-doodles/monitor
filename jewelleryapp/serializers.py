@@ -83,6 +83,11 @@ class GenderSerializer(serializers.ModelSerializer):
 
 
 class ProductSerializer(serializers.ModelSerializer):
+    stone_names = serializers.SerializerMethodField()
+
     class Meta:
         model = Product
         fields = '__all__'
+    
+    def get_stone_names(self, obj):
+        return [stone.name for stone in obj.stones.all()]

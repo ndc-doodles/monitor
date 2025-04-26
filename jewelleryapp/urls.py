@@ -31,4 +31,6 @@ urlpatterns = [
     path('api/genders/<int:pk>/', GenderDetailAPIView.as_view()),
 
     path('api/products/filter/', views.ProductFilterAPIView.as_view(), name='product-filter'),
+    path('api/products/search/', ProductSearchAPIView.as_view(), name='product-search'),
+    path('api/products/<int:pk>/share/', ProductShareAPIView.as_view(), name='product-share'), 
 ]

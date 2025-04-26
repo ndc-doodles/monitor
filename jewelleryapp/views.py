@@ -2,7 +2,7 @@ from django.shortcuts import render,  get_object_or_404
 from . models import*
 
 # Create your views here.
-
+from django.db.models import Q
 
 from django.conf import settings
 from rest_framework.generics import ListAPIView
@@ -226,3 +226,44 @@ class ProductFilterAPIView(ListAPIView):
        
         # Return distinct products based on the applied filters
         return queryset.distinct()
+    
+
+
+class ProductSearchAPIView(ListAPIView):
+    serializer_class = ProductSerializer
+
+    def get_queryset(self):
+        query = self.request.query_params.get('q', None)
+        if query:
+            return Product.objects.filter(
+                Q(head__icontains=query) |
+                Q(description__icontains=query) |
+                Q(category__name__icontains=query) |
+                Q(metal__name__icontains=query) |
+                Q(metal__material__name__icontains=query) |
+                Q(gender__name__icontains=query) |
+                Q(occasions__name__icontains=query) |
+                Q(stones__name__icontains=query)  # 🔥 added search in stone names
+            ).distinct()
+        return Product.objects.none()
+    
+
+class ProductShareAPIView(APIView):
+    def get(self, request, pk):
+        product = get_object_or_404(Product, pk=pk)
+        product_url = request.build_absolute_uri(f'/product/{product.pk}/')  # Adjust path if needed
+        share_text = f"Check out this product: {product.head}"
+
+        share_links = {
+            "whatsapp": f"https://wa.me/?text={share_text} {product_url}",
+            "facebook": f"https://www.facebook.com/sharer/sharer.php?u={product_url}",
+            "telegram": f"https://t.me/share/url?url={product_url}&text={share_text}",
+            "instagram": "https://www.instagram.com/"  # Cannot share directly, provide profile or app link
+        }
+
+        return Response({
+            "product_id": product.pk,
+            "product_head": product.head,
+            "product_url": product_url,
+            "share_links": share_links
+        }, status=status.HTTP_200_OK)

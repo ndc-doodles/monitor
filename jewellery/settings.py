@@ -39,7 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'jewelleryapp',
-    'django.contrib.sites',
+
     'rest_framework',
     'rest_framework.authtoken',
     'dj_rest_auth',
@@ -59,7 +59,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    "allauth.account.middleware.AccountMiddleware",
+  
 ]
 SITE_ID = 1
 ROOT_URLCONF = 'jewellery.urls'

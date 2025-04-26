@@ -1,6 +1,7 @@
 from django.db import models
 from cloudinary.models import CloudinaryField
-
+from django.core.exceptions import ValidationError
+from django.contrib.auth.hashers import make_password
 # Base material like Gold, Silver, Diamond, etc.
 class Material(models.Model):
     name = models.CharField(max_length=50)
@@ -153,3 +154,23 @@ class ProductStone(models.Model):
 
     def __str__(self):
         return f"{self.product.head} - {self.stone.name}"
+
+
+class Register(models.Model):
+    username = models.CharField(max_length=150, unique=True)
+    password = models.CharField(max_length=128)
+    confirmpassword = models.CharField(max_length=128)
+    mobile = models.BigIntegerField()
+
+    def __str__(self):
+        return self.username
+
+    def save(self, *args, **kwargs):
+        # Ensure passwords match before saving
+        if self.password != self.confirmpassword:
+            raise ValidationError("Passwords do not match")
+        
+        # Hash the password before saving
+        self.password = make_password(self.password)
+        super().save(*args, **kwargs)
+        

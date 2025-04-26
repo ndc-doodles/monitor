@@ -91,3 +91,28 @@ class ProductSerializer(serializers.ModelSerializer):
     
     def get_stone_names(self, obj):
         return [stone.name for stone in obj.stones.all()]
+    
+
+
+    
+class RegisterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Register
+        fields = ['username', 'password', 'confirmpassword', 'mobile']
+    
+    def validate(self, data):
+        """
+        Validate that the password and confirm password match.
+        """
+        if data['password'] != data['confirmpassword']:
+            raise serializers.ValidationError("Passwords do not match")
+        return data
+        
+class LoginSerializer(serializers.Serializer):
+    username = serializers.CharField(max_length=150)
+    password = serializers.CharField(write_only=True)
+
+class MaterialSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Material
+        fields = '__all__'

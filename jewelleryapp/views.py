@@ -1,6 +1,8 @@
 from django.shortcuts import render,  get_object_or_404
 from . models import*
-
+from django.contrib.auth import logout
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth.hashers import check_password
 # Create your views here.
 from django.db.models import Q
 
@@ -267,3 +269,51 @@ class ProductShareAPIView(APIView):
             "product_url": product_url,
             "share_links": share_links
         }, status=status.HTTP_200_OK)
+    
+
+    
+class RegisterView(APIView):
+    def post(self, request, *args, **kwargs):
+        # Create the serializer instance with the request data
+        serializer = RegisterSerializer(data=request.data)
+        
+        # Check if the serializer is valid
+        if serializer.is_valid():
+            # Save the data (create the user) if valid
+            serializer.save()
+            return Response({"message": "User registered successfully"}, status=status.HTTP_201_CREATED)
+        
+        # Return validation errors if the data is not valid
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class LoginAPIView(APIView):
+    def post(self, request):
+        serializer = LoginSerializer(data=request.data)
+        if serializer.is_valid():
+            username = serializer.validated_data['username']
+            password = serializer.validated_data['password']
+            
+            # Check if the user exists
+            try:
+                user = Register.objects.get(username=username)
+                # Manually check the password hash
+                if check_password(password, user.password):  # Use check_password to validate hashed password
+                    # Generate JWT tokens on successful authentication
+                    refresh = RefreshToken.for_user(user)
+                    return Response({
+                        'refresh': str(refresh),
+                        'access': str(refresh.access_token),
+                    })
+                else:
+                    return Response({"detail": "Invalid password."}, status=status.HTTP_400_BAD_REQUEST)
+            except Register.DoesNotExist:
+                return Response({"detail": "Invalid username."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+class LogoutAPIView(APIView):
+    def post(self, request):
+        # Call Django's built-in logout function to clear the session
+        logout(request)
+        
+        # Return a success response
+        return Response({"message": "Logged out successfully."}, status=status.HTTP_200_OK)

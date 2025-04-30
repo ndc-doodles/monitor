@@ -1,8 +1,6 @@
 from rest_framework import serializers
 from .models import *
 
-from rest_framework import serializers
-from .models import *
 
 class MaterialSerializer(serializers.ModelSerializer):
     class Meta:
@@ -110,6 +108,18 @@ class RegisterSerializer(serializers.ModelSerializer):
         if data['password'] != data['confirmpassword']:
             raise serializers.ValidationError("Passwords do not match")
         return data
+    
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = ['full_name', 'address', 'date_of_birth', 'country', 'phone_number', 'email', 'image']
+
+    def create(self, validated_data):
+        # Link the user from Register model when creating a new profile
+        user_id = validated_data.pop('user')  # Get user data
+        user = Register.objects.get(id=user_id)  # Get the Register model object
+        user_profile = UserProfile.objects.create(user=user, **validated_data)
+        return user_profile    
         
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150)
@@ -119,3 +129,23 @@ class MaterialSerializer(serializers.ModelSerializer):
     class Meta:
         model = Material
         fields = '__all__'
+
+
+
+class ProductShortSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ['id', 'head', 'image', 'grand_total']
+
+class WishlistSerializer(serializers.ModelSerializer):
+    product = ProductShortSerializer(read_only=True)
+    product_id = serializers.PrimaryKeyRelatedField(
+        queryset=Product.objects.all(),
+        source='product',
+        write_only=True
+    )
+    user_id = serializers.IntegerField(write_only=True)
+
+    class Meta:
+        model = Wishlist
+        fields = ['id', 'user_id', 'product', 'product_id', 'added_at']     

@@ -4,6 +4,11 @@ from django.core.exceptions import ValidationError
 from django.contrib.auth.hashers import make_password
 from decimal import Decimal
 from cloudinary import uploader
+from django.core.exceptions import ValidationError
+from django.contrib.auth.hashers import make_password
+
+from django.contrib.auth import get_user_model
+User = get_user_model()
 # Base material like Gold, Silver, Diamond, etc.
 class Material(models.Model):
     name = models.CharField(max_length=50)
@@ -230,7 +235,7 @@ class Register(models.Model):
         # Hash the password before saving
         self.password = make_password(self.password)
         super().save(*args, **kwargs)
-
+    
 class UserVisit(models.Model):
     user = models.ForeignKey('Register', on_delete=models.CASCADE, null=True, blank=True)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
@@ -238,3 +243,35 @@ class UserVisit(models.Model):
 
     def __str__(self):
         return f"{self.user.username} visited {self.product.head}"
+        
+
+class UserProfile(models.Model):
+    # Link to the Register model (One-to-One relationship)
+    user = models.OneToOneField(Register, on_delete=models.CASCADE, related_name='profile')
+
+    # The fields in the UserProfile model
+    full_name = models.CharField(max_length=255)
+    address = models.TextField(blank=True, null=True)
+    date_of_birth = models.DateField(blank=True, null=True)
+    country = models.CharField(max_length=100, blank=True, null=True)
+    phone_number = models.BigIntegerField()  # You can fetch this from the Register model
+    email = models.EmailField(blank=True, null=True)
+    image = models.ImageField(upload_to='profile_images/', blank=True, null=True)
+
+    def __str__(self):
+        return self.full_name       
+
+
+# wishlist functioning
+
+
+class Wishlist(models.Model):
+    user = models.ForeignKey(Register, on_delete=models.CASCADE, related_name='wishlist_items')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='wishlisted_by')
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'product')  # A user can't wishlist the same product twice
+
+    def __str__(self):
+        return f"{self.user.username} -> {self.product.head}"

@@ -5,7 +5,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.hashers import check_password
 # Create your views here.
 from django.db.models import Q
-
+from rest_framework.exceptions import NotFound
 from django.conf import settings
 from rest_framework.generics import ListAPIView
 from urllib.parse import urljoin
@@ -24,6 +24,10 @@ from .serializers import *
 import cloudinary
 import cloudinary.uploader
 from rest_framework.filters import BaseFilterBackend
+import json
+
+from rest_framework.response import Response
+from rest_framework import status
 
 # class GoogleLogin(SocialLoginView):
 #     adapter_class = GoogleOAuth2Adapter
@@ -127,6 +131,82 @@ class BaseDetailAPIView(APIView):
         obj.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+class ProductListCreateAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        # Handle image upload
+        images = request.FILES.getlist('image')  # Ensure it's a list of files
+        image_urls = []
+
+        try:
+            for image in images[:5]:  # Limit to 5 images
+                upload_result = cloudinary.uploader.upload(image)
+                image_urls.append(upload_result["secure_url"])
+        except Exception as e:
+            return Response({"error": f"Image upload failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # Combine original request data with uploaded image URLs
+        data = request.data.copy()
+        data['images'] = image_urls  # 'images' must match your model field
+
+        serializer = ProductSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+    def get(self, request, *args, **kwargs):
+        products = Product.objects.all()
+        serializer = ProductSerializer(products, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+
+class ProductDetailAPIView(APIView):
+    def get_object(self, pk):
+        try:
+            return Product.objects.get(pk=pk)
+        except Product.DoesNotExist:
+            raise NotFound(detail="Product not found")
+
+    def put(self, request, pk, *args, **kwargs):
+        try:
+            product = Product.objects.get(pk=pk)
+        except Product.DoesNotExist:
+            return Response({"error": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        data = request.data.copy()
+        new_images = request.FILES.getlist('images')
+        uploaded_images = []
+
+        if new_images:
+            try:
+                for image in new_images[:5]:
+                    upload_result = cloudinary.uploader.upload(image)
+                    uploaded_images.append(upload_result["secure_url"])
+            except Exception as e:
+                return Response({"error": f"Image upload failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            existing_images = product.images if product.images else []
+            all_images = uploaded_images + existing_images
+            data['images'] = json.dumps(all_images[:5])  # Ensure valid JSON string
+
+        # Don't include 'images' in data if no new uploads and you want to leave existing images untouched
+        elif 'images' in data:
+            data.pop('images')  # Remove if user sent empty key
+
+        # Use serializer to update other fields too
+        serializer = ProductSerializer(product, data=data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
 # Material API
 class MaterialListCreateAPIView(BaseListCreateAPIView):
     model = Material
@@ -164,13 +244,11 @@ class StoneDetailAPIView(BaseDetailAPIView):
     serializer_class = StoneSerializer
 
 # Product API
-class ProductListCreateAPIView(BaseListCreateAPIView):
-    model = Product
-    serializer_class = ProductSerializer
 
-class ProductDetailAPIView(BaseDetailAPIView):
-    model = Product
-    serializer_class = ProductSerializer
+
+
+
+
 
 # Occasion API
 class OccasionListCreateAPIView(BaseListCreateAPIView):
@@ -317,3 +395,27 @@ class LogoutAPIView(APIView):
         
         # Return a success response
         return Response({"message": "Logged out successfully."}, status=status.HTTP_200_OK)
+    
+class RecommendProductsAPIView(APIView):
+    def get(self, request, *args, **kwargs):
+        username = request.query_params.get('username', None)
+
+        if username:
+            try:
+                user = Register.objects.get(username=username)
+                visits = UserVisit.objects.filter(user=user).order_by('-timestamp')[:5]
+                visited_products = Product.objects.filter(id__in=visits.values_list('product_id', flat=True))
+                if visited_products.exists():
+                    serializer = ProductSerializer(visited_products, many=True)
+                    return Response({"type": "related", "products": serializer.data})
+            except Register.DoesNotExist:
+                pass  # If user not found, treat as new user
+
+        # New visitor or username not provided
+        random_category = Category.objects.order_by('?').first()
+        if random_category:
+            products = Product.objects.filter(category=random_category)[:5]
+            serializer = ProductSerializer(products, many=True)
+            return Response({"type": "random_category", "category": random_category.name, "products": serializer.data})
+
+        return Response({"message": "No products found"})

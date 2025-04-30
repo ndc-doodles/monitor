@@ -40,25 +40,28 @@ class StoneSerializer(serializers.ModelSerializer):
         rep['image'] = instance.image.url if instance.image else None
         return rep
 
-class ProductStoneSerializer(serializers.ModelSerializer):
-    stone = StoneSerializer(read_only=True)
-    class Meta:
-        model = ProductStone
-        fields = '__all__'
 
 class ProductSerializer(serializers.ModelSerializer):
-    productstone_set = ProductStoneSerializer(many=True, read_only=True)
     category = CategorySerializer(read_only=True)
     metal = MetalSerializer(read_only=True)
+    productstone_set = StoneSerializer(many=True, read_only=True)
+    image = serializers.ListField(child=serializers.URLField())
+
 
     class Meta:
         model = Product
         fields = '__all__'
 
     def to_representation(self, instance):
+        # Calculate grand total and other dynamic values
         instance.calculate_grand_total()
+
+        # Get the original representation
         rep = super().to_representation(instance)
-        rep['image'] = instance.image if instance.image else []
+
+        # Add image URLs from the Cloudinary URL field (assuming your image field is a list of Cloudinary data)
+        rep['image'] = [img['url'] for img in instance.image] if instance.image else []
+
         return rep
 
 class OccasionSerializer(serializers.ModelSerializer):

@@ -219,3 +219,12 @@ cloudinary.config(
   api_key = "619665329545319", 
   api_secret = "MKWJwARG2buK0YwGjAsYbi4SCkQ", 
 )
+
+
+
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+}

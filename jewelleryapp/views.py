@@ -25,6 +25,16 @@ import cloudinary
 import cloudinary.uploader
 from rest_framework.filters import BaseFilterBackend
 
+from rest_framework import status, permissions
+
+
+
+from rest_framework import generics
+
+from django.contrib.auth import authenticate
+
+from rest_framework_simplejwt.tokens import RefreshToken
+
 # class GoogleLogin(SocialLoginView):
 #     adapter_class = GoogleOAuth2Adapter
 #     callback_url = settings.GOOGLE_OAUTH_CALLBACK_URL
@@ -285,7 +295,37 @@ class RegisterView(APIView):
         
         # Return validation errors if the data is not valid
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
+
+
+class UserProfileCreateView(generics.CreateAPIView):
+    queryset = UserProfile.objects.all()
+    serializer_class = UserProfileSerializer
+
+    def perform_create(self, serializer):
+        # Get the user (Register model) ID from the request data
+        user_id = self.request.data.get('user') # Get the 'user' field from the request body (which should be an ID)
+        user_id = int(user_id)
+        print("sangu mon",type(user_id))
+        # Fetch the Register instance using the provided user ID
+        user = get_object_or_404(Register, id=user_id)
+        print('the user is',user)
+        username = user.username
+        
+        # Save the UserProfile with the user (Register model)
+        serializer.save(user=username)
+
+class UserProfileUpdateView(generics.UpdateAPIView):
+    queryset = UserProfile.objects.all()
+    serializer_class = UserProfileSerializer
+
+    def get_object(self):
+        # Get the UserProfile instance by ID from the URL
+        obj = UserProfile.objects.get(id=self.kwargs["id"])
+        return obj
+
+
+
 class LoginAPIView(APIView):
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -317,3 +357,91 @@ class LogoutAPIView(APIView):
         
         # Return a success response
         return Response({"message": "Logged out successfully."}, status=status.HTTP_200_OK)
+    
+
+# wishlist functioning
+
+
+class WishlistAPIView(APIView):
+    # ✅ GET all wishlist items for a user
+    def get(self, request, user_id):
+        try:
+            user = Register.objects.get(id=user_id)
+            wishlist = Wishlist.objects.filter(user=user)
+            serializer = WishlistSerializer(wishlist, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Register.DoesNotExist:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    # ✅ POST (Add product to wishlist)
+    def post(self, request):
+        serializer = WishlistSerializer(data=request.data)
+        if serializer.is_valid():
+            user_id = serializer.validated_data.get('user_id').id
+            product = serializer.validated_data.get('product')
+
+            user = Register.objects.get(id=user_id)
+            wishlist_item, created = Wishlist.objects.get_or_create(user=user, product=product)
+
+            if created:
+                return Response({"message": "Product added to wishlist"}, status=status.HTTP_201_CREATED)
+            else:
+                return Response({"message": "Product already in wishlist"}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # ✅ DELETE wishlist item
+    def delete(self, request, wishlist_id):
+        try:
+            wishlist_item = Wishlist.objects.get(id=wishlist_id)
+            wishlist_item.delete()
+            return Response({"message": "Removed from wishlist"}, status=status.HTTP_204_NO_CONTENT)
+        except Wishlist.DoesNotExist:
+            return Response({"error": "Wishlist item not found"}, status=status.HTTP_404_NOT_FOUND)
+        
+
+
+User = get_user_model()
+
+def get_tokens_for_user(user):
+    refresh = RefreshToken.for_user(user)
+    return {
+        'refresh': str(refresh),
+        'access': str(refresh.access_token),
+    }
+
+class UserLoginView(APIView):
+    permission_classes = []  # No authentication required for login
+
+    def post(self, request):
+        username = request.data.get("username")
+        password = request.data.get("password")
+
+        if not username or not password:
+            return Response({"error": "Please provide both username and password"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Authenticate securely
+        user = authenticate(request, username=username, password=password)
+
+        if user is None:
+            return Response({"error": "Invalid username or password"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if not user.is_active:
+            return Response({"error": "User account is disabled"}, status=status.HTTP_403_FORBIDDEN)
+
+        # Identify user type
+        user_type = "customer"
+        if user.is_superuser:
+            user_type = "superuser"
+
+        # Generate JWT tokens manually
+        tokens = get_tokens_for_user(user)
+
+        response_data = {
+            "message": "Login successful",
+            "access_token": tokens["access"],
+            "refresh_token": tokens["refresh"],
+            "username": user.username,
+            "user_type": user_type,
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)

@@ -27,6 +27,9 @@ urlpatterns = [
     path('api/occasions/', OccasionListCreateAPIView.as_view()),
     path('api/occasions/<int:pk>/', OccasionDetailAPIView.as_view()),
 
+    path('api/contact/', ContactListCreateAPIView.as_view()),
+    path('api/contact/<int:pk>/', ContactDetailAPIView.as_view()),
+
     path('api/genders/', GenderListCreateAPIView.as_view()),
     path('api/genders/<int:pk>/', GenderDetailAPIView.as_view()),
 

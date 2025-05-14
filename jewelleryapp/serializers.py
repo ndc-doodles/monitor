@@ -100,6 +100,11 @@ class HeaderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Header
         fields = ['id', 'images'] 
+
+class ContactSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Contact
+        fields = '__all__'
     
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:

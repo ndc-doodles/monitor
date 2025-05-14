@@ -207,6 +207,16 @@ class ProductStone(models.Model):
 class Header(models.Model):
     images = models.JSONField(default=list, null=True, blank=True)
 
+    def __str__(self):
+        return self.images
+
+class Contact(models.Model):
+    number = models.CharField(max_length=50)
+    email = models.CharField(max_length=50)
+    address = models.CharField(max_length=100)
+
+    def __str__(self):
+        return self.number
 
 class Register(models.Model):
     username = models.CharField(max_length=150, unique=True)

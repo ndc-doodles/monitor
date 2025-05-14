@@ -285,7 +285,14 @@ class GenderDetailAPIView(BaseDetailAPIView):
     model = Gender
     serializer_class = GenderSerializer
 
+class ContactListCreateAPIView(BaseListCreateAPIView):
+    model = Contact
+    serializer_class = ContactSerializer
 
+class ContactDetailAPIView(BaseDetailAPIView):
+    model = Contact
+    serializer_class = ContactSerializer
+    
 class ProductFilterAPIView(ListAPIView):
     serializer_class = ProductSerializer
 

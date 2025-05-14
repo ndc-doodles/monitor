@@ -6,16 +6,18 @@ from decimal import Decimal
 from cloudinary import uploader
 from django.core.exceptions import ValidationError
 from django.contrib.auth.hashers import make_password
-
+from django.utils import timezone 
 from django.contrib.auth import get_user_model
 User = get_user_model()
-# Base material like Gold, Silver, Diamond, etc.
+from decimal import Decimal, ROUND_HALF_UP
+# Base material like Gold
+# , Silver, Diamond, etc.
 class Material(models.Model):
     name = models.CharField(max_length=50)
+    image = CloudinaryField('image', folder="Material/")
 
     def __str__(self):
         return self.name
-
 
 class Category(models.Model):
     name = models.CharField(max_length=50)
@@ -24,7 +26,6 @@ class Category(models.Model):
     def __str__(self):
         return self.name
 
-
 class Occasion(models.Model):
     name = models.CharField(max_length=50)
     image = CloudinaryField('image', folder='Occasions')
@@ -32,167 +33,78 @@ class Occasion(models.Model):
     def __str__(self):
         return self.name
 
-
 class Gender(models.Model):
     name = models.CharField(max_length=20)  # e.g., Men, Women, Unisex
     image = CloudinaryField('image', folder='gender')
-    
+
     def __str__(self):
         return self.name
-
 
 class Metal(models.Model):
     material = models.ForeignKey(Material, on_delete=models.CASCADE)
-    name = models.CharField(max_length=50, blank=True)
-    image = CloudinaryField('image', folder="Metal/")
-    karat = models.CharField(max_length=20)  # e.g., 22K
-    unit_price = models.FloatField(help_text="Price per gram")
+    name = models.CharField(max_length=100)
+    image = CloudinaryField('image', folder='metal')
+    karat = models.FloatField()
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
 
     def __str__(self):
-        return f"{self.material.name} {self.karat}"
-
+        return f"{self.name} ({self.karat}K)"
 
 class Stone(models.Model):
-    name = models.CharField(max_length=50)
-    unit_price = models.FloatField(help_text="Base price per carat")
-    discount = models.FloatField(default=0.0, blank=True)  # in percentage
-    gemstone_type = models.CharField(max_length=50, blank=True, null=True)  # e.g., Diamond, Emerald
-    color_grade = models.CharField(max_length=10, blank=True, null=True)  # e.g., D, E, F
-    clarity_grade = models.CharField(max_length=10, blank=True, null=True)  # e.g., VVS1, VS2
-    cut_grade = models.CharField(max_length=20, blank=True, null=True)  # e.g., Excellent, Good
-    carat_weight = models.FloatField(help_text="Carat weight of the gemstone")  # Actual weight of the gemstone
-    image = CloudinaryField('image', folder="Stone/")
+    name = models.CharField(max_length=100)
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    image = CloudinaryField('image', folder='stones')
+
+    def calculate_price(self, weight):
+        return weight * self.unit_price
 
     def __str__(self):
         return self.name
 
-    def calculate_price(self):
-        """
-        Calculate the price of the stone based on its attributes:
-        - base price per carat (unit_price)
-        - gemstone type
-        - color grade
-        - clarity grade
-        - cut grade
-        """
-        price = self.unit_price * self.carat_weight  # Initial price based on weight
-
-        # Adjust price based on gemstone type (example: diamond is more expensive than emerald)
-        if self.gemstone_type == "Diamond":
-            price *= Decimal('2.0')  # Example multiplier for Diamond
-
-        # Adjust price based on color grade (e.g., D is more valuable than F)
-        if self.color_grade == "D":
-            price *= Decimal('1.5')  # Example multiplier for Color Grade D
-
-        # Adjust price based on clarity grade
-        if self.clarity_grade == "VVS1":
-            price *= Decimal('1.2')  # Example multiplier for VVS1 clarity
-        elif self.clarity_grade == "VS2":
-            price *= Decimal('1.1')  # Example multiplier for VS2 clarity
-
-        # Adjust price based on cut grade
-        if self.cut_grade == "Excellent":
-            price *= Decimal('1.3')  # Example multiplier for Excellent cut
-        elif self.cut_grade == "Good":
-            price *= Decimal('1.1')  # Example multiplier for Good cut
-
-        # Apply discount if applicable
-        price -= (price * self.discount / Decimal('100.0'))
-
-        return price
-
-
+# --- Product Model ---
 class Product(models.Model):
-    head = models.CharField(max_length=100)
+    head = models.CharField(max_length=255)
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
+    occasion = models.ForeignKey(Occasion, on_delete=models.CASCADE)
+    gender = models.ForeignKey(Gender, on_delete=models.CASCADE)
     metal = models.ForeignKey(Metal, on_delete=models.CASCADE)
-    gender = models.ForeignKey(Gender, on_delete=models.SET_NULL, null=True, blank=True)
-    occasions = models.ManyToManyField(Occasion, blank=True, related_name="products")
-    metal_weight = models.DecimalField(max_digits=10, decimal_places=2, help_text="Metal weight in grams")
-    karat = models.FloatField(null=True, blank=True)
-    material_color = models.CharField(max_length=20, null=True, blank=True)
-    stones = models.ManyToManyField(Stone, blank=True, related_name='products', help_text="Helper field for quick reference to stones.")
-    pendant_height = models.CharField(max_length=20, null=True, blank=True)
-    pendant_width = models.CharField(max_length=20, null=True, blank=True)
-    gross_weight = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Total weight (auto-calculated)")
-    making_charge = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.0'))
-    making_discount = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('0.0'), help_text="Discount on making charge %")
-    product_discount = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('0.0'), help_text="Overall discount %")
-    sub_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    gst = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('3.0'))
-    grand_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    star_rating = models.DecimalField(max_digits=2, decimal_places=1, default=Decimal('0.0'))
-    images = models.JSONField(default=list,blank=True)
-    description = models.TextField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    total_stone_weight = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, help_text="Total stone weight (in carats)")
-    total_stone_count = models.IntegerField(null=True, blank=True, help_text="Total number of stones")
+    metal_weight = models.DecimalField(max_digits=10, decimal_places=4)
+    karat = models.FloatField()
+    images = models.JSONField(blank=True, null=True)
+    ar_model_glb = models.URLField(blank=True, null=True)
+    ar_model_gltf = models.URLField(blank=True, null=True)
 
-    def calculate_grand_total(self):
-        metal_price = self.metal.unit_price * self.metal_weight
-        stone_items = self.productstone_set.all()
-        total_stone_price = Decimal('0.0')
-        total_stone_weight = Decimal('0.0')
+    # Instead of metal.unit_price directly, we freeze the unit price on creation
+    frozen_unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    making_charge = models.DecimalField(max_digits=10, decimal_places=2)
+    making_discount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    product_discount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    gst = models.DecimalField(max_digits=10, decimal_places=2, default=3)
+    handcrafted_charge = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    is_handcrafted = models.BooleanField(default=False)
 
-        for stone in stone_items:
-            total_stone_price += stone.get_stone_price()  # Use the get_stone_price method
-            total_stone_weight += stone.weight * stone.count
+    stones = models.ManyToManyField(Stone, related_name="products", blank=True)
 
-        making_charge_price = self.making_charge - (self.making_charge * self.making_discount / Decimal('100.0'))
+    @property
+    def subtotal(self):
+        # Calculate subtotal including metal weight, stone prices
+        stone_price_total = sum(stone.price for stone in self.stones.all())
+        subtotal = (self.metal_weight * self.frozen_unit_price) + self.making_charge - self.making_discount - self.product_discount + stone_price_total
+        return subtotal.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
-        sub_total = metal_price + total_stone_price + making_charge_price
-        sub_total -= (sub_total * self.product_discount / Decimal('100.0'))
-
-        gst_amount = sub_total * self.gst / Decimal('100.0')
-        grand_total = sub_total + gst_amount
-
-        self.sub_total = sub_total
-        self.gst = self.gst
-        self.grand_total = grand_total
-        self.gross_weight = self.metal_weight + (total_stone_weight * Decimal('0.2'))
-        self.total_stone_weight = total_stone_weight
-        self.total_stone_count = sum(stone.count for stone in stone_items)
-
-        self.save()
-
-        return {
-            "metal_price": metal_price,
-            "stone_price": total_stone_price,  
-            "making_charge_after_discount": making_charge_price,
-            "sub_total": sub_total,
-            "gst": gst_amount,
-            "grand_total": grand_total,
-            "gross_weight": self.gross_weight,
-            "total_stone_weight": total_stone_weight,
-            "total_stone_count": self.total_stone_count
-        }
-
-    # def save(self, *args, **kwargs):
-    #     """Override save method to handle multiple image uploads and deletion of old images"""
-    #     if self.images:
-    #         # If images exist and have changed, delete old images from Cloudinary
-    #         if hasattr(self, '_old_image') and self._old_image != self.images:
-    #             for old_image_url in self._old_image:
-    #                 public_id = old_image_url.split("/")[7]  # Extract public_id from the URL
-    #                 if public_id:
-    #                     try:
-    #                         uploader.destroy(public_id)  # Delete old image from Cloudinary
-    #                     except Exception as e:
-    #                         print(f"Error deleting old image: {e}")
-
-    #     # If new images are provided, upload them to Cloudinary
-    #     if self.image:
-    #         uploaded_images = []
-    #         for img_data in self.image:
-    #             if 'file' in img_data:
-    #                 upload_result = uploader.upload(img_data['file'])
-    #                 uploaded_images.append(upload_result["secure_url"])  # Store only the URL
-
-    #         self.image = uploaded_images  # Store only URLs in the image field
-
-    #     super().save(*args, **kwargs)
+    @property
+    def grand_total(self):
+        # Calculate grand total, including the stone price
+        subtotal = self.subtotal
+        total_with_gst = subtotal * (1 + (self.gst / 100))
+        if self.is_handcrafted:
+            total_with_gst += self.handcrafted_charge
+        return total_with_gst.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    
+    # Property to count the stones
+    @property
+    def stone_count(self):
+        return self.stones.count()
 
     def __str__(self):
         return self.head
@@ -201,21 +113,99 @@ class Product(models.Model):
 class ProductStone(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     stone = models.ForeignKey(Stone, on_delete=models.CASCADE)
-    count = models.IntegerField()
-    weight = models.FloatField(help_text="Weight of one stone in carat")
+    count = models.PositiveIntegerField(default=1)
+    weight = models.DecimalField(max_digits=6, decimal_places=3, help_text="Weight of one stone in carats")
 
-    def get_formatted_single_stone_weight(self):
-        gram = self.weight * 0.2
-        return f"1 stone: {self.weight:.3f} ct / {gram:.3f} g"
+    def get_formatted_weight(self):
+        grams = self.weight * Decimal('0.2')  # Convert carat to grams
+        return f"1 stone: {self.weight:.3f} ct / {grams:.3f} g"
 
     def get_stone_price(self):
-        """Calculate the total price of the stones based on the unit price and count."""
-        stone_price = self.stone.calculate_price()
-        total_price = stone_price * self.count  # Multiply by count of stones
-        return total_price
+        total_weight = self.weight * self.count
+        return self.stone.calculate_price(total_weight)
 
     def __str__(self):
-        return f"{self.product.head} - {self.stone.name}"
+        return f"{self.product.head} - {self.stone.name} x {self.count}"
+
+#     head = models.CharField(max_length=255)
+#     metal = models.ForeignKey(Metal, on_delete=models.CASCADE)
+#     metal_weight = models.DecimalField(max_digits=10, decimal_places=2)
+#     karat = models.FloatField()
+#     making_charge = models.DecimalField(max_digits=10, decimal_places=2, default=0, null=True, blank=True)
+#     making_discount = models.DecimalField(max_digits=5, decimal_places=2, default=0, null=True, blank=True)
+#     product_discount = models.DecimalField(max_digits=5, decimal_places=2, default=0, null=True, blank=True)
+#     gst = models.DecimalField(max_digits=5, decimal_places=2, default=3.0)
+#     handcrafted_charge = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+#     is_handcrafted = models.BooleanField(default=False)
+#     images = models.JSONField(default=list, null=True, blank=True)
+#     ar_model_glb = models.CharField(max_length=255, null=True, blank=True)
+#     ar_model_gltf = models.CharField(max_length=255, null=True, blank=True)
+#     created_at = models.DateTimeField(default=timezone.now)
+#     updated_at = models.DateTimeField(auto_now=True)
+
+#     # NEW FIELDS (store in DB)
+#     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+#     grand_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
+#     @property
+#     def total_stone_weight(self):
+#         total = sum([ps.count * ps.weight for ps in self.productstone_set.all()])
+#         return round(total, 2) if total else None
+
+#     @property
+#     def total_stone_count(self):
+#         count = sum([ps.count for ps in self.productstone_set.all()])
+#         return count if count else None
+
+#     def calculate_subtotal(self):
+#         metal_cost = self.metal.calculate_price_per_gram() * self.metal_weight
+#         making_cost = self.making_charge
+#         stone_total = sum([ps.get_stone_price() for ps in self.productstone_set.all()])
+
+#         total = metal_cost + Decimal(stone_total) + making_cost
+#         if self.is_handcrafted:
+#             total += self.handcrafted_charge
+
+#         if self.making_discount:
+#             total -= (making_cost * (self.making_discount / Decimal(100)))
+#         if self.product_discount:
+#             total -= (total * (self.product_discount / Decimal(100)))
+
+#         return total.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+#     def calculate_grand_total(self):
+#         subtotal = self.calculate_subtotal()
+#         gst_amount = subtotal * (self.gst / Decimal(100))
+#         return (subtotal + gst_amount).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+#     def save(self, *args, **kwargs):
+#         self.subtotal = self.calculate_subtotal()
+#         self.grand_total = self.calculate_grand_total()
+#         super().save(*args, **kwargs)
+
+#     def __str__(self):
+#         return self.head
+
+
+# class ProductStone(models.Model):
+#     product = models.ForeignKey(Product, on_delete=models.CASCADE)
+#     stone = models.ForeignKey(Stone, on_delete=models.CASCADE)
+#     count = models.IntegerField()
+#     weight = models.FloatField(help_text="Weight of one stone in carat")
+
+#     def get_formatted_single_stone_weight(self):
+#         gram = self.weight * 0.2  # Convert carat to grams
+#         return f"1 stone: {self.weight:.3f} ct / {gram:.3f} g"
+
+#     def get_stone_price(self):
+#         stone_price = self.stone.calculate_price()
+#         return stone_price * self.count
+
+#     def __str__(self):
+#         return f"{self.product.head} - {self.stone.name}"
+
+class Header(models.Model):
+    images = models.JSONField(default=list, null=True, blank=True)
 
 
 class Register(models.Model):
@@ -275,3 +265,4 @@ class Wishlist(models.Model):
 
     def __str__(self):
         return f"{self.user.username} -> {self.product.head}"
+

@@ -9,7 +9,8 @@ from rest_framework.exceptions import NotFound
 from django.conf import settings
 from rest_framework.generics import ListAPIView
 from urllib.parse import urljoin
-
+from rest_framework.parsers import MultiPartParser, FormParser
+from cloudinary.uploader import upload
 import requests
 from django.urls import reverse
 from rest_framework import status
@@ -135,20 +136,31 @@ class BaseDetailAPIView(APIView):
 
 class ProductListCreateAPIView(APIView):
     def post(self, request, *args, **kwargs):
-        # Handle image upload
-        images = request.FILES.getlist('image')  # Ensure it's a list of files
+        images = request.FILES.getlist('images')
         image_urls = []
 
         try:
-            for image in images[:5]:  # Limit to 5 images
-                upload_result = cloudinary.uploader.upload(image)
+            for image in images[:5]:
+                upload_result = uploader.upload(image)
                 image_urls.append(upload_result["secure_url"])
         except Exception as e:
-            return Response({"error": f"Image upload failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"error": f"Image upload failed: {str(e)}"},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        # Combine original request data with uploaded image URLs
-        data = request.data.copy()
-        data['images'] = image_urls  # 'images' must match your model field
+        data = dict(request.data)
+        data['images'] = image_urls
+
+        # Handle AR model uploads
+        if 'ar_model_glb' in request.FILES:
+            glb_upload = uploader.upload(request.FILES['ar_model_glb'], resource_type='raw')
+            cloud_name = 'dvllntzo0'
+            public_id = glb_upload['public_id']
+            version = glb_upload['version']
+            data['ar_model_glb'] = f"https://res.cloudinary.com/{cloud_name}/raw/upload/v{version}/{public_id}"
+
+        if 'ar_model_gltf' in request.FILES:
+            gltf_upload = uploader.upload(request.FILES['ar_model_gltf'], resource_type='raw')
+            data['ar_model_gltf'] = gltf_upload['public_id']
 
         serializer = ProductSerializer(data=data)
         if serializer.is_valid():
@@ -156,7 +168,6 @@ class ProductListCreateAPIView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
 
     def get(self, request, *args, **kwargs):
         products = Product.objects.all()
@@ -164,51 +175,55 @@ class ProductListCreateAPIView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-
-
 class ProductDetailAPIView(APIView):
     def get_object(self, pk):
         try:
             return Product.objects.get(pk=pk)
         except Product.DoesNotExist:
-            raise NotFound(detail="Product not found")
+            raise NotFound("Product not found")
+
+    def get(self, request, pk, *args, **kwargs):
+        product = self.get_object(pk)
+        serializer = ProductSerializer(product)
+        return Response(serializer.data)
 
     def put(self, request, pk, *args, **kwargs):
-        try:
-            product = Product.objects.get(pk=pk)
-        except Product.DoesNotExist:
-            return Response({"error": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
+        product = self.get_object(pk)
+        data = dict(request.data)
 
-        data = request.data.copy()
+        # Handling image uploads
         new_images = request.FILES.getlist('images')
         uploaded_images = []
-
         if new_images:
             try:
                 for image in new_images[:5]:
-                    upload_result = cloudinary.uploader.upload(image)
+                    upload_result = uploader.upload(image)
                     uploaded_images.append(upload_result["secure_url"])
+                data['images'] = uploaded_images
             except Exception as e:
-                return Response({"error": f"Image upload failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                return Response({"error": f"Image upload failed: {str(e)}"},
+                                status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            data.pop('images', None)
 
-            existing_images = product.images if product.images else []
-            all_images = uploaded_images + existing_images
-            data['images'] = json.dumps(all_images[:5])  # Ensure valid JSON string
+        if 'ar_model_glb' in request.FILES:
+            glb_upload = uploader.upload(request.FILES['ar_model_glb'], resource_type='raw')
+            cloud_name = 'dvllntzo0'
+            public_id = glb_upload['public_id']
+            version = glb_upload['version']
+            data['ar_model_glb'] = f"https://res.cloudinary.com/{cloud_name}/raw/upload/v{version}/{public_id}"
 
-        # Don't include 'images' in data if no new uploads and you want to leave existing images untouched
-        elif 'images' in data:
-            data.pop('images')  # Remove if user sent empty key
+        if 'ar_model_gltf' in request.FILES:
+            gltf_upload = uploader.upload(request.FILES['ar_model_gltf'], resource_type='raw')
+            data['ar_model_gltf'] = gltf_upload['public_id']
 
-        # Use serializer to update other fields too
         serializer = ProductSerializer(product, data=data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
 # Material API
 class MaterialListCreateAPIView(BaseListCreateAPIView):
     model = Material
@@ -219,7 +234,7 @@ class MaterialDetailAPIView(BaseDetailAPIView):
     serializer_class = MaterialSerializer
 
 # Category API
-class CategoryListCreateAPIView(BaseListCreateAPIView):
+class CategoryListCreateAPIView(BaseListCreateAPIView):                                          
     model = Category
     serializer_class = CategorySerializer
 
@@ -286,6 +301,7 @@ class ProductFilterAPIView(ListAPIView):
         price_min = self.request.query_params.get('price_min')
         price_max = self.request.query_params.get('price_max')
         stone = self.request.query_params.get('stone')
+        is_handcrafted = self.request.query_params.get('is_handcrafted')
 
         # Apply filters based on the query parameters
         if category:
@@ -304,6 +320,11 @@ class ProductFilterAPIView(ListAPIView):
             queryset = queryset.filter(grand_total__lte=price_max)
         if stone:
             queryset = queryset.filter(productstone__stone__name__iexact=stone)
+        if is_handcrafted is not None:
+            if is_handcrafted.lower() == 'true':
+                queryset = queryset.filter(is_handcrafted=True)
+            elif is_handcrafted.lower() == 'false':
+                queryset = queryset.filter(is_handcrafted=False)
 
        
         # Return distinct products based on the applied filters
@@ -316,6 +337,8 @@ class ProductSearchAPIView(ListAPIView):
 
     def get_queryset(self):
         query = self.request.query_params.get('q', None)
+        is_handcrafted = self.request.query_params.get('is_handcrafted', None)
+
         if query:
             return Product.objects.filter(
                 Q(head__icontains=query) |
@@ -327,8 +350,16 @@ class ProductSearchAPIView(ListAPIView):
                 Q(occasions__name__icontains=query) |
                 Q(stones__name__icontains=query)  # 🔥 added search in stone names
             ).distinct()
-        return Product.objects.none()
-    
+        else:
+             queryset = Product.objects.all()
+
+            # Apply handcrafted filter if provided
+        if is_handcrafted is not None:
+                if is_handcrafted.lower() == 'true':
+                    queryset = queryset.filter(is_handcrafted=True)
+                elif is_handcrafted.lower() == 'false':
+                    queryset = queryset.filter(is_handcrafted=False)
+        return queryset
 
 class ProductShareAPIView(APIView):
     def get(self, request, pk):
@@ -535,3 +566,77 @@ class RecommendProductsAPIView(APIView):
             return Response({"type": "random_category", "category": random_category.name, "products": serializer.data})
 
         return Response({"message": "No products found"})
+    
+
+class HeaderListCreateAPIView(APIView):
+    parser_classes = (MultiPartParser, FormParser)  # Allows file uploads
+
+    # POST method to create a new header with uploaded images
+    def post(self, request, *args, **kwargs):
+        images = request.FILES.getlist('images')  # Get list of images from request
+        uploaded_images = []
+
+        # Upload each image to Cloudinary and get the URL
+        for image in images:
+            cloudinary_response = upload(image)
+            uploaded_images.append(cloudinary_response['url'])  # Get the URL of uploaded image
+
+        # Store the uploaded image URLs in the Header model as JSON
+        header = Header.objects.create(images=uploaded_images)
+        serializer = HeaderSerializer(header)
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    # GET method to list all headers
+    def get(self, request, *args, **kwargs):
+        headers = Header.objects.all()  # Retrieve all headers
+        serializer = HeaderSerializer(headers, many=True)  # Serialize all headers
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class HeaderDetailAPIView(APIView):
+    # GET method to retrieve an existing header by its ID
+    def get(self, request, pk, *args, **kwargs):
+        try:
+            header = Header.objects.get(pk=pk)  # Retrieve the Header instance by primary key
+        except Header.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Serialize and return the header instance
+        serializer = HeaderSerializer(header)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    # PUT method to update an existing header's images
+    def put(self, request, pk, *args, **kwargs):
+        try:
+            header = Header.objects.get(pk=pk)  # Retrieve the Header instance by primary key
+        except Header.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Get the new list of images from the request
+        images = request.FILES.getlist('images')
+        uploaded_images = []
+
+        # Upload each image to Cloudinary and get the URLs
+        for image in images:
+            cloudinary_response = upload(image)
+            uploaded_images.append(cloudinary_response['url'])
+
+        # Update the header's images field
+        header.images = uploaded_images
+        header.save()
+
+        # Serialize and return the updated header
+        serializer = HeaderSerializer(header)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    # DELETE method to delete an existing header by its ID
+    def delete(self, request, pk, *args, **kwargs):
+        try:
+            header = Header.objects.get(pk=pk)  # Retrieve the Header instance by primary key
+        except Header.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Delete the header instance
+        header.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

@@ -1,5 +1,8 @@
 from rest_framework import serializers
 from .models import *
+from django.conf import settings
+from cloudinary.utils import cloudinary_url
+from decimal import Decimal, ROUND_HALF_UP
 
 
 class MaterialSerializer(serializers.ModelSerializer):
@@ -31,36 +34,35 @@ class MetalSerializer(serializers.ModelSerializer):
 class StoneSerializer(serializers.ModelSerializer):
     class Meta:
         model = Stone
-        fields = '__all__'
+        fields = ['id', 'name', 'price']
+# Serializer for related stones
+class ProductStoneSerializer(serializers.ModelSerializer):
+    stone_name = serializers.CharField(source='stone.name')
 
-    def to_representation(self, instance):
-        rep = super().to_representation(instance)
-        rep['image'] = instance.image.url if instance.image else None
-        return rep
+    class Meta:
+        model = ProductStone
+        fields = ['stone_name', 'quantity', 'price']  # Use the correct field names from your model
 
 
+# Serializer for Product with dynamic subtotal, grand_total, and stones
 class ProductSerializer(serializers.ModelSerializer):
-    category = CategorySerializer(read_only=True)
-    metal = MetalSerializer(read_only=True)
-    productstone_set = StoneSerializer(many=True, read_only=True)
-    image = serializers.ListField(child=serializers.URLField())
-
+    subtotal = serializers.SerializerMethodField()
+    grand_total = serializers.SerializerMethodField()
+    stone_count = serializers.SerializerMethodField()
+    stones = StoneSerializer(many=True)
 
     class Meta:
         model = Product
-        fields = '__all__'
+        fields = '__all__'  # You can specify the fields you need if not all are required
 
-    def to_representation(self, instance):
-        # Calculate grand total and other dynamic values
-        instance.calculate_grand_total()
+    def get_subtotal(self, obj):
+        return obj.subtotal  # Calls the property in Product model
 
-        # Get the original representation
-        rep = super().to_representation(instance)
+    def get_grand_total(self, obj):
+        return obj.grand_total  # Calls the property in Product model
 
-        # Add image URLs from the Cloudinary URL field (assuming your image field is a list of Cloudinary data)
-        rep['image'] = [img['url'] for img in instance.image] if instance.image else []
-
-        return rep
+    def get_stone_count(self, obj):
+        return obj.stone_count 
 
 class OccasionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -83,18 +85,21 @@ class GenderSerializer(serializers.ModelSerializer):
         return rep
 
 
-class ProductSerializer(serializers.ModelSerializer):
-    stone_names = serializers.SerializerMethodField()
+# class ProductSerializer(serializers.ModelSerializer):
+#     stone_names = serializers.SerializerMethodField()
 
+#     class Meta:
+#         model = Product
+#         fields = '__all__'
+    
+#     def get_stone_names(self, obj):
+#         return [stone.name for stone in obj.stones.all()]
+
+ 
+class HeaderSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Product
-        fields = '__all__'
-    
-    def get_stone_names(self, obj):
-        return [stone.name for stone in obj.stones.all()]
-    
-
-
+        model = Header
+        fields = ['id', 'images'] 
     
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:

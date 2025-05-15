@@ -36,7 +36,7 @@ urlpatterns = [
     path('api/products/filter/', views.ProductFilterAPIView.as_view(), name='product-filter'),
     path('api/products/search/', ProductSearchAPIView.as_view(), name='product-search'),
     path('api/products/<int:pk>/share/', ProductShareAPIView.as_view(), name='product-share'), 
-    path('api/products/`recommend`/', RecommendProductsAPIView.as_view(), name='product-recommend'),
+    path('api/products/recommend/', RecommendProductsAPIView.as_view(), name='product-recommend'),
     
     path('api/login/', LoginAPIView.as_view(), name='login'),
     path('api/register/', RegisterView.as_view(), name='register'),
@@ -53,4 +53,7 @@ urlpatterns = [
 
     path('api/headers/', HeaderListCreateAPIView.as_view(), name='header-list-create'),  # POST for creating, GET for listing headers
     path('api/headers/<int:pk>/', HeaderDetailAPIView.as_view(), name='header-detail'),
+
+    path('api/product-stones/', views.ProductStoneListCreateAPIView.as_view(), name='productstone-list-create'),
+    path('api/product-stones/<int:pk>/', views.ProductStoneDetailAPIView.as_view(), name='productstone-detail'),
 ]

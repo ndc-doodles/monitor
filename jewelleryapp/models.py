@@ -68,64 +68,65 @@ class Product(models.Model):
     occasion = models.ForeignKey(Occasion, on_delete=models.CASCADE)
     gender = models.ForeignKey(Gender, on_delete=models.CASCADE)
     metal = models.ForeignKey(Metal, on_delete=models.CASCADE)
-    metal_weight = models.DecimalField(max_digits=10, decimal_places=4)
+    
+    metal_weight = models.DecimalField(max_digits=10, decimal_places=3, default=0)
     karat = models.FloatField()
     images = models.JSONField(blank=True, null=True)
     ar_model_glb = models.URLField(blank=True, null=True)
     ar_model_gltf = models.URLField(blank=True, null=True)
 
     # Instead of metal.unit_price directly, we freeze the unit price on creation
-    frozen_unit_price = models.DecimalField(max_digits=10, decimal_places=2)
-    making_charge = models.DecimalField(max_digits=10, decimal_places=2)
+    frozen_unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    making_charge = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     making_discount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     product_discount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     gst = models.DecimalField(max_digits=10, decimal_places=2, default=3)
     handcrafted_charge = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     is_handcrafted = models.BooleanField(default=False)
 
+
     stones = models.ManyToManyField(Stone, related_name="products", blank=True)
 
     @property
+    def stone_price_total(self):
+        total = sum(
+            ps.get_stone_price() or Decimal('0.00')
+            for ps in self.productstone_set.all()
+            if ps.stone is not None
+        )
+        return total.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    @property
     def subtotal(self):
-        # Calculate subtotal including metal weight, stone prices
-        stone_price_total = sum(stone.price for stone in self.stones.all())
-        subtotal = (self.metal_weight * self.frozen_unit_price) + self.making_charge - self.making_discount - self.product_discount + stone_price_total
+        subtotal = (
+            self.metal_weight * self.frozen_unit_price
+            + self.making_charge
+            + self.stone_price_total
+            - self.making_discount
+            - self.product_discount
+        )
         return subtotal.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
     @property
     def grand_total(self):
-        # Calculate grand total, including the stone price
         subtotal = self.subtotal
         total_with_gst = subtotal * (1 + (self.gst / 100))
         if self.is_handcrafted:
             total_with_gst += self.handcrafted_charge
         return total_with_gst.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-    
-    # Property to count the stones
-    @property
-    def stone_count(self):
-        return self.stones.count()
 
-    def __str__(self):
-        return self.head
 
 
 class ProductStone(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    stone = models.ForeignKey(Stone, on_delete=models.CASCADE)
+    stone = models.ForeignKey(Stone, on_delete=models.CASCADE, null=True, blank=True)
     count = models.PositiveIntegerField(default=1)
-    weight = models.DecimalField(max_digits=6, decimal_places=3, help_text="Weight of one stone in carats")
-
-    def get_formatted_weight(self):
-        grams = self.weight * Decimal('0.2')  # Convert carat to grams
-        return f"1 stone: {self.weight:.3f} ct / {grams:.3f} g"
+    weight = models.DecimalField(max_digits=10, decimal_places=3, default=0)
 
     def get_stone_price(self):
-        total_weight = self.weight * self.count
-        return self.stone.calculate_price(total_weight)
-
-    def __str__(self):
-        return f"{self.product.head} - {self.stone.name} x {self.count}"
+        if self.stone and self.weight and self.stone.unit_price:
+            return (self.weight * self.stone.unit_price).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        return None
 
 #     head = models.CharField(max_length=255)
 #     metal = models.ForeignKey(Metal, on_delete=models.CASCADE)

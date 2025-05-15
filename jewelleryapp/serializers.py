@@ -3,7 +3,7 @@ from .models import *
 from django.conf import settings
 from cloudinary.utils import cloudinary_url
 from decimal import Decimal, ROUND_HALF_UP
-
+# from rest_framework import generics
 
 class MaterialSerializer(serializers.ModelSerializer):
     class Meta:
@@ -34,36 +34,43 @@ class MetalSerializer(serializers.ModelSerializer):
 class StoneSerializer(serializers.ModelSerializer):
     class Meta:
         model = Stone
-        fields = ['id', 'name', 'price']
+        fields = ['id', 'name', 'unit_price']
+
+
 # Serializer for related stones
 class ProductStoneSerializer(serializers.ModelSerializer):
-    stone_name = serializers.CharField(source='stone.name')
+    stone = StoneSerializer(read_only=True)
+    stone_price = serializers.SerializerMethodField()
 
     class Meta:
         model = ProductStone
-        fields = ['stone_name', 'quantity', 'price']  # Use the correct field names from your model
+        fields = ['id', 'product', 'stone', 'count', 'weight', 'stone_price']
+
+    def get_stone_price(self, obj):
+        price = obj.get_stone_price()
+        return str(price) if price else None
 
 
 # Serializer for Product with dynamic subtotal, grand_total, and stones
 class ProductSerializer(serializers.ModelSerializer):
+    stone_price_total = serializers.SerializerMethodField()
     subtotal = serializers.SerializerMethodField()
     grand_total = serializers.SerializerMethodField()
-    stone_count = serializers.SerializerMethodField()
-    stones = StoneSerializer(many=True)
+    stones = ProductStoneSerializer(source='productstone_set', many=True, read_only=True)
 
     class Meta:
         model = Product
-        fields = '__all__'  # You can specify the fields you need if not all are required
+        fields = '__all__'
+
+    def get_stone_price_total(self, obj):
+        return str(obj.stone_price_total)
 
     def get_subtotal(self, obj):
-        return obj.subtotal  # Calls the property in Product model
+        return str(obj.subtotal)
 
     def get_grand_total(self, obj):
-        return obj.grand_total  # Calls the property in Product model
-
-    def get_stone_count(self, obj):
-        return obj.stone_count 
-
+        return str(obj.grand_total)
+    
 class OccasionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Occasion
@@ -159,3 +166,11 @@ class WishlistSerializer(serializers.ModelSerializer):
     class Meta:
         model = Wishlist
         fields = ['id', 'user_id', 'product', 'product_id', 'added_at']     
+
+# class ProductStoneListCreateAPIView(generics.ListCreateAPIView):
+#     queryset = ProductStone.objects.all()
+#     serializer_class = ProductStoneSerializer
+
+# class ProductStoneDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+#     queryset = ProductStone.objects.all()
+#     serializer_class = ProductStoneSerializer

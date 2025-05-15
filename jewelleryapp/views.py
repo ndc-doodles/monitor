@@ -1,3 +1,4 @@
+from rest_framework import generics
 from django.shortcuts import render,  get_object_or_404
 from . models import*
 from django.contrib.auth import logout
@@ -16,6 +17,8 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+
 
 from django.conf import settings
 from django.views import View
@@ -190,10 +193,9 @@ class ProductDetailAPIView(APIView):
     def put(self, request, pk, *args, **kwargs):
         product = self.get_object(pk)
         data = dict(request.data)
-
-        # Handling image uploads
         new_images = request.FILES.getlist('images')
         uploaded_images = []
+
         if new_images:
             try:
                 for image in new_images[:5]:
@@ -222,6 +224,7 @@ class ProductDetailAPIView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     
     
 # Material API
@@ -389,7 +392,15 @@ class ProductShareAPIView(APIView):
         }, status=status.HTTP_200_OK)
     
 
-    
+class ProductStoneListCreateAPIView(generics.ListCreateAPIView):
+    queryset = ProductStone.objects.all()
+    serializer_class = ProductStoneSerializer
+
+
+class ProductStoneDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = ProductStone.objects.all()
+    serializer_class = ProductStoneSerializer
+
 class RegisterView(APIView):
     def post(self, request, *args, **kwargs):
         # Create the serializer instance with the request data

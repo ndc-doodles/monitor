@@ -53,8 +53,8 @@ INSTALLED_APPS = [
 
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",   # e.g., if you're using React or other frontend
-    "https://yourfrontend.com",
+    "http://localhost:5173",   # e.g., if you're using React or other frontend
+    "http://127.0.0.1:8000", 
 ]
 
 MIDDLEWARE = [

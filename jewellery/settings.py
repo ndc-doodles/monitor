@@ -43,12 +43,18 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'dj_rest_auth',
- 
+    'corsheaders',
 
     "cloudinary",
     "cloudinary_storage", 
     
 
+]
+
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",   # e.g., if you're using React or other frontend
+    "https://yourfrontend.com",
 ]
 
 MIDDLEWARE = [
@@ -59,6 +65,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.common.CommonMiddleware',
   
 ]
 SITE_ID = 1

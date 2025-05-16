@@ -92,7 +92,7 @@ class Product(models.Model):
     @property
     def stone_price_total(self):
         total = sum(
-            (Decimal(ps.stone_price or 0) for ps in self.productstone_set.all()),
+            (ps.get_stone_price() or Decimal('0.00') for ps in self.productstone_set.all()),
             Decimal('0.00')
         )
         return total.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)

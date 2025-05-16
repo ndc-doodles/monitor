@@ -56,4 +56,10 @@ urlpatterns = [
 
     path('api/product-stones/', views.ProductStoneListCreateAPIView.as_view(), name='productstone-list-create'),
     path('api/product-stones/<int:pk>/', views.ProductStoneDetailAPIView.as_view(), name='productstone-detail'),
+    path('api/products/recent-with-fallback/', RecentProductsWithFallbackAPIView.as_view(), name='recent-products-fallback'),
+    path('api/products/by-gender/', ProductListByGender.as_view(), name='product-list-by-gender'),
+    path('api/products/non-classic/', ProductListAPIView.as_view(), name='product-non-classic'),  # GET non-classic only
+    path('api/products/classic/', ClassicProductListAPIView.as_view(), name='product-classic'),  # GET classic only
+    path('api/categories/seven/', SevenCategoriesAPIView.as_view(), name='seven-categories'),
+    path('api/products/related/', RelatedProductsAPIView.as_view(), name='related-products'),
 ]

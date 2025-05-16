@@ -17,7 +17,8 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-
+from django.utils import timezone
+from datetime import timedelta
 
 
 from django.conf import settings
@@ -150,18 +151,17 @@ class ProductListCreateAPIView(APIView):
             return Response({"error": f"Image upload failed: {str(e)}"},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        data = dict(request.data)
+        data = request.data.copy()
         data['images'] = image_urls
 
-        # Handle AR model uploads
-        if 'ar_model_glb' in request.FILES:
+        if request.FILES.get('ar_model_glb'):
             glb_upload = uploader.upload(request.FILES['ar_model_glb'], resource_type='raw')
             cloud_name = 'dvllntzo0'
             public_id = glb_upload['public_id']
             version = glb_upload['version']
             data['ar_model_glb'] = f"https://res.cloudinary.com/{cloud_name}/raw/upload/v{version}/{public_id}"
 
-        if 'ar_model_gltf' in request.FILES:
+        if request.FILES.get('ar_model_gltf'):
             gltf_upload = uploader.upload(request.FILES['ar_model_gltf'], resource_type='raw')
             data['ar_model_gltf'] = gltf_upload['public_id']
 
@@ -173,10 +173,16 @@ class ProductListCreateAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def get(self, request, *args, **kwargs):
-        products = Product.objects.all()
-        serializer = ProductSerializer(products, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        classic_products = Product.objects.filter(is_classic=True)
+        other_products = Product.objects.filter(is_classic=False)
 
+        classic_data = ProductSerializer(classic_products, many=True).data
+        other_data = ProductSerializer(other_products, many=True).data
+
+        return Response({
+            "classic_products": classic_data,
+            "other_products": other_data
+        }, status=status.HTTP_200_OK)
 
 class ProductDetailAPIView(APIView):
     def get_object(self, pk):
@@ -225,7 +231,23 @@ class ProductDetailAPIView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    
+
+class ProductListAPIView(APIView):
+    def get(self, request, *args, **kwargs):
+        products = Product.objects.filter(is_classic=False)
+        serializer = ProductSerializer(products, many=True)
+        return Response({
+            "products": serializer.data
+        }, status=status.HTTP_200_OK)
+
+class ClassicProductListAPIView(APIView):
+    def get(self, request, *args, **kwargs):
+        products = Product.objects.filter(is_classic=True)
+        serializer = ProductSerializer(products, many=True)
+        return Response({
+            "classic_products": serializer.data
+        }, status=status.HTTP_200_OK)
+
     
 # Material API
 class MaterialListCreateAPIView(BaseListCreateAPIView):
@@ -244,6 +266,15 @@ class CategoryListCreateAPIView(BaseListCreateAPIView):
 class CategoryDetailAPIView(BaseDetailAPIView):
     model = Category
     serializer_class = CategorySerializer
+
+class SevenCategoriesAPIView(APIView):
+    def get(self, request, *args, **kwargs):
+        categories = Category.objects.order_by('?')[:7]
+        serializer = CategorySerializer(categories, many=True)
+        return Response({
+            "categories": serializer.data
+        }, status=status.HTTP_200_OK)
+
 
 # Metal API
 class MetalListCreateAPIView(BaseListCreateAPIView):
@@ -561,29 +592,55 @@ class UserLoginView(APIView):
 
         return Response(response_data, status=status.HTTP_200_OK) 
     
+
 class RecommendProductsAPIView(APIView):
     def get(self, request, *args, **kwargs):
-        username = request.query_params.get('username', None)
+        username = request.query_params.get('username')
 
+        # Step 1: Try to fetch user visits if username is provided
         if username:
             try:
                 user = Register.objects.get(username=username)
                 visits = UserVisit.objects.filter(user=user).order_by('-timestamp')[:5]
                 visited_products = Product.objects.filter(id__in=visits.values_list('product_id', flat=True))
+
                 if visited_products.exists():
                     serializer = ProductSerializer(visited_products, many=True)
-                    return Response({"type": "related", "products": serializer.data})
+                    return Response({
+                        "type": "related",
+                        "products": serializer.data
+                    }, status=status.HTTP_200_OK)
+
             except Register.DoesNotExist:
-                pass  # If user not found, treat as new user
+                pass  # If user doesn't exist, proceed to random category fallback
 
-        # New visitor or username not provided
-        random_category = Category.objects.order_by('?').first()
-        if random_category:
-            products = Product.objects.filter(category=random_category)[:5]
-            serializer = ProductSerializer(products, many=True)
-            return Response({"type": "random_category", "category": random_category.name, "products": serializer.data})
+        # Step 2: Fallback - pick a random category that has products
+        categories_with_products = Category.objects.filter(product__isnull=False).distinct()
 
-        return Response({"message": "No products found"})
+        if categories_with_products.exists():
+            for category in categories_with_products.order_by('?'):
+                products = Product.objects.filter(category=category)[:5]
+                if products.exists():
+                    serializer = ProductSerializer(products, many=True)
+                    return Response({
+                        "type": "random_category",
+                        "category": category.name,
+                        "products": serializer.data
+                    }, status=status.HTTP_200_OK)
+
+        # Step 3: Final fallback - get any products if nothing above works
+        fallback_products = Product.objects.all()[:5]
+        if fallback_products.exists():
+            serializer = ProductSerializer(fallback_products, many=True)
+            return Response({
+                "type": "fallback_all",
+                "products": serializer.data
+            }, status=status.HTTP_200_OK)
+
+        # Step 4: No products at all
+        return Response({
+            "message": "No products found"
+        }, status=status.HTTP_404_NOT_FOUND)
     
 
 class HeaderListCreateAPIView(APIView):
@@ -658,3 +715,65 @@ class HeaderDetailAPIView(APIView):
         # Delete the header instance
         header.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+    
+
+class RecentProductsWithFallbackAPIView(ListAPIView):
+    serializer_class = RecentProductSerializer
+
+    def get_queryset(self):
+        limit = int(self.request.query_params.get('limit', 20))
+        days = int(self.request.query_params.get('days', 15))
+        cutoff_date = timezone.now() - timedelta(days=days)
+
+        recent_qs = Product.objects.filter(created_at__gte=cutoff_date).order_by('-id')[:limit]
+        if recent_qs.exists():
+            self.from_fallback = False
+            return recent_qs
+        fallback_qs = Product.objects.all().order_by('-id')[:limit]
+        self.from_fallback = True
+        return fallback_qs
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            "from_fallback": self.from_fallback,
+            "count": len(serializer.data),
+            "products": serializer.data
+        })
+    
+
+class ProductListByGender(ListAPIView):
+    serializer_class = ProductSerializer
+
+    def get_queryset(self):
+        gender_id = self.request.query_params.get('gender')
+        if gender_id:
+            return Product.objects.filter(gender_id=gender_id)
+        return Product.objects.all()
+    
+class SevenCategoriesAPIView(APIView):
+    def get(self, request, *args, **kwargs):
+        categories = Category.objects.order_by('?')[:7]  # Get 7 random categories
+        serializer = CategorySerializer(categories, many=True)
+        return Response({
+            "categories": serializer.data
+        },status=status.HTTP_200_OK)
+    
+class RelatedProductsAPIView(APIView):
+    def get(self, request, *args, **kwargs):
+        product_id = request.query_params.get('product_id')
+
+        if not product_id:
+            return Response({"error": "product_id query param is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            return Response({"error": "Product not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Get related products in the same category but exclude the current product
+        related_products = Product.objects.filter(category=product.category).exclude(id=product.id)[:10]
+
+        serializer = ProductSerializer(related_products, many=True)
+        return Response({"related_products": serializer.data}, status=status.HTTP_200_OK)

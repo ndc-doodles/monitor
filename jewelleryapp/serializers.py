@@ -174,3 +174,28 @@ class WishlistSerializer(serializers.ModelSerializer):
 # class ProductStoneDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
 #     queryset = ProductStone.objects.all()
 #     serializer_class = ProductStoneSerializer
+
+
+class RecentProductSerializer(serializers.ModelSerializer):
+    stone_price_total = serializers.SerializerMethodField()
+    subtotal = serializers.SerializerMethodField()
+    grand_total = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Product
+        fields = [
+            'id', 'head', 'category', 'occasion', 'gender', 'metal',
+            'metal_weight', 'karat', 'images', 'ar_model_glb', 'ar_model_gltf',
+            'frozen_unit_price', 'making_charge', 'making_discount', 'product_discount',
+            'gst', 'handcrafted_charge', 'is_handcrafted', 'stones',
+            'stone_price_total', 'subtotal', 'grand_total', 'created_at'
+        ]
+
+    def get_stone_price_total(self, obj):
+        return float(obj.stone_price_total)
+
+    def get_subtotal(self, obj):
+        return float(obj.subtotal)
+
+    def get_grand_total(self, obj):
+        return float(obj.grand_total)

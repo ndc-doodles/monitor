@@ -74,7 +74,7 @@ class Product(models.Model):
     images = models.JSONField(blank=True, null=True)
     ar_model_glb = models.URLField(blank=True, null=True)
     ar_model_gltf = models.URLField(blank=True, null=True)
-    description = models.TextField(blank=True, null=True)
+    description = models.CharField( max_length=50,blank=True, null=True)
     pendant_width = models.CharField(max_length=20,blank=True, null=True)
     pendant_height = models.CharField(max_length=20,blank=True, null=True)
     frozen_unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)

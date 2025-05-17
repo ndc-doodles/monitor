@@ -4,6 +4,7 @@ from django.conf import settings
 from cloudinary.utils import cloudinary_url
 from decimal import Decimal, ROUND_HALF_UP
 # from rest_framework import generics
+import json
 
 class MaterialSerializer(serializers.ModelSerializer):
     class Meta:
@@ -184,8 +185,7 @@ class ProductSerializer(serializers.ModelSerializer):
     subtotal = serializers.SerializerMethodField()
     grand_total = serializers.SerializerMethodField()
     stones = ProductStoneSerializer(source='productstone_set', many=True, read_only=True)
-
-    average_rating = serializers.SerializerMethodField()  # Add this
+    average_rating = serializers.SerializerMethodField()
 
     description = serializers.CharField(
         max_length=1550, allow_blank=True, allow_null=True, required=False
@@ -193,7 +193,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Product
-        fields = '__all__'  # includes average_rating because it's a SerializerMethodField
+        fields = '__all__'
 
     def get_stone_price_total(self, obj):
         return str(obj.stone_price_total)
@@ -205,25 +205,22 @@ class ProductSerializer(serializers.ModelSerializer):
         return str(obj.grand_total)
 
     def get_average_rating(self, obj):
-        # Assuming Product model has an average_rating property as defined earlier
-        return obj.average_rating
+        return getattr(obj, 'average_rating', None)
 
     def validate_description(self, value):
         if value is None:
             return value
         return str(value)
 
+    def validate_images(self, value):
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                raise serializers.ValidationError("Value must be valid JSON.")
+        return value
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['images'] = data.get('images') or []
         return data
-    
-class ProductRatingSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ProductRating
-        fields = ['id', 'product', 'rating', 'created_at']
-
-    def validate_rating(self, value):
-        if not (1 <= value <= 5):
-            raise serializers.ValidationError("Rating must be between 1 and 5.")
-        return value

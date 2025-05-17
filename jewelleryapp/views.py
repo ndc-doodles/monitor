@@ -475,27 +475,29 @@ class ProductSearchAPIView(ListAPIView):
         is_handcrafted = self.request.query_params.get('is_handcrafted', None)
 
         if query:
-            return Product.objects.filter(
+            queryset = Product.objects.filter(
                 Q(head__icontains=query) |
                 Q(description__icontains=query) |
                 Q(category__name__icontains=query) |
                 Q(metal__name__icontains=query) |
                 Q(metal__material__name__icontains=query) |
                 Q(gender__name__icontains=query) |
-                Q(occasions__name__icontains=query) |
-                Q(stones__name__icontains=query)  # 🔥 added search in stone names
+                Q(occasion__name__icontains=query) |  # fixed field name here
+                Q(stones__name__icontains=query)
             ).distinct()
         else:
-             queryset = Product.objects.all()
+            queryset = Product.objects.all()
 
-            # Apply handcrafted filter if provided
+        # Apply handcrafted filter if provided
         if is_handcrafted is not None:
-                if is_handcrafted.lower() == 'true':
-                    queryset = queryset.filter(is_handcrafted=True)
-                elif is_handcrafted.lower() == 'false':
-                    queryset = queryset.filter(is_handcrafted=False)
-        return queryset
+            if is_handcrafted.lower() == 'true':
+                queryset = queryset.filter(is_handcrafted=True)
+            elif is_handcrafted.lower() == 'false':
+                queryset = queryset.filter(is_handcrafted=False)
 
+        return queryset
+    
+    
 class ProductShareAPIView(APIView):
     def get(self, request, pk):
         product = get_object_or_404(Product, pk=pk)

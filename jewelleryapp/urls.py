@@ -62,4 +62,4 @@ urlpatterns = [
     path('api/products/classic/', ClassicProductListAPIView.as_view(), name='product-classic'),  # GET classic only
     path('api/categories/seven/', SevenCategoriesAPIView.as_view(), name='seven-categories'),
     path('api/products/related/', RelatedProductsAPIView.as_view(), name='related-products'),
-]
+] 

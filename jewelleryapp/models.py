@@ -74,7 +74,9 @@ class Product(models.Model):
     images = models.JSONField(blank=True, null=True)
     ar_model_glb = models.URLField(blank=True, null=True)
     ar_model_gltf = models.URLField(blank=True, null=True)
-
+    description = models.TextField(blank=True, null=True)
+    pendant_width = models.CharField(max_length=20,blank=True, null=True)
+    pendant_height = models.CharField(max_length=20,blank=True, null=True)
     frozen_unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     making_charge = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     making_discount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -140,7 +142,9 @@ class ProductStone(models.Model):
         if self.stone and self.weight and self.stone.unit_price:
             return (self.weight * self.stone.unit_price).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         return None
-
+    
+    def __str__(self):
+        return self.product.head  
 
 class Header(models.Model):
     images = models.JSONField(default=list, null=True, blank=True)

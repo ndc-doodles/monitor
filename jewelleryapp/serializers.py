@@ -52,25 +52,7 @@ class ProductStoneSerializer(serializers.ModelSerializer):
 
 
 # Serializer for Product with dynamic subtotal, grand_total, and stones
-class ProductSerializer(serializers.ModelSerializer):
-    stone_price_total = serializers.SerializerMethodField()
-    subtotal = serializers.SerializerMethodField()
-    grand_total = serializers.SerializerMethodField()
-    stones = ProductStoneSerializer(source='productstone_set', many=True, read_only=True)
 
-    class Meta:
-        model = Product
-        fields = '__all__'
-
-    def get_stone_price_total(self, obj):
-        return str(obj.stone_price_total)
-
-    def get_subtotal(self, obj):
-        return str(obj.subtotal)
-
-    def get_grand_total(self, obj):
-        return str(obj.grand_total)
-    
 class OccasionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Occasion
@@ -199,3 +181,28 @@ class RecentProductSerializer(serializers.ModelSerializer):
 
     def get_grand_total(self, obj):
         return float(obj.grand_total)
+    
+
+class ProductSerializer(serializers.ModelSerializer):
+    stone_price_total = serializers.SerializerMethodField()
+    subtotal = serializers.SerializerMethodField()
+    grand_total = serializers.SerializerMethodField()
+    stones = ProductStoneSerializer(source='productstone_set', many=True, read_only=True)
+
+    class Meta:
+        model = Product
+        fields = '__all__'
+
+    def get_stone_price_total(self, obj):
+        return str(obj.stone_price_total)
+
+    def get_subtotal(self, obj):
+        return str(obj.subtotal)
+
+    def get_grand_total(self, obj):
+        return str(obj.grand_total)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['images'] = data.get('images') or []
+        return data

@@ -159,28 +159,24 @@ class WishlistSerializer(serializers.ModelSerializer):
 
 
 class RecentProductSerializer(serializers.ModelSerializer):
-    stone_price_total = serializers.SerializerMethodField()
-    subtotal = serializers.SerializerMethodField()
+    first_image = serializers.SerializerMethodField()
+    average_rating = serializers.SerializerMethodField()
     grand_total = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
-        fields = [
-            'id', 'head', 'category', 'occasion', 'gender', 'metal',
-            'metal_weight', 'karat', 'images', 'ar_model_glb', 'ar_model_gltf',
-            'frozen_unit_price', 'making_charge', 'making_discount', 'product_discount',
-            'gst', 'handcrafted_charge', 'is_handcrafted', 'stones',
-            'stone_price_total', 'subtotal', 'grand_total', 'created_at'
-        ]
+        fields = ['id', 'head', 'description', 'first_image', 'average_rating', 'grand_total']
 
-    def get_stone_price_total(self, obj):
-        return float(obj.stone_price_total)
+    def get_first_image(self, obj):
+        if obj.images and isinstance(obj.images, list):
+            return obj.images[0] if obj.images else None
+        return None
 
-    def get_subtotal(self, obj):
-        return float(obj.subtotal)
+    def get_average_rating(self, obj):
+        return obj.average_rating if hasattr(obj, 'average_rating') else None
 
     def get_grand_total(self, obj):
-        return float(obj.grand_total)
+        return str(obj.grand_total) if hasattr(obj, 'grand_total') else None
     
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -189,9 +185,15 @@ class ProductSerializer(serializers.ModelSerializer):
     grand_total = serializers.SerializerMethodField()
     stones = ProductStoneSerializer(source='productstone_set', many=True, read_only=True)
 
+    average_rating = serializers.SerializerMethodField()  # Add this
+
+    description = serializers.CharField(
+        max_length=1550, allow_blank=True, allow_null=True, required=False
+    )
+
     class Meta:
         model = Product
-        fields = '__all__'
+        fields = '__all__'  # includes average_rating because it's a SerializerMethodField
 
     def get_stone_price_total(self, obj):
         return str(obj.stone_price_total)
@@ -202,7 +204,26 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_grand_total(self, obj):
         return str(obj.grand_total)
 
+    def get_average_rating(self, obj):
+        # Assuming Product model has an average_rating property as defined earlier
+        return obj.average_rating
+
+    def validate_description(self, value):
+        if value is None:
+            return value
+        return str(value)
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['images'] = data.get('images') or []
         return data
+    
+class ProductRatingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductRating
+        fields = ['id', 'product', 'rating', 'created_at']
+
+    def validate_rating(self, value):
+        if not (1 <= value <= 5):
+            raise serializers.ValidationError("Rating must be between 1 and 5.")
+        return value

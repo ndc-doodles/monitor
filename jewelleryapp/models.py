@@ -10,6 +10,8 @@ from django.utils import timezone
 from django.contrib.auth import get_user_model
 User = get_user_model()
 from decimal import Decimal, ROUND_HALF_UP
+from rest_framework import serializers
+from django.db.models import Avg
 # Base material like Gold
 # , Silver, Diamond, etc.
 class Material(models.Model):
@@ -74,7 +76,7 @@ class Product(models.Model):
     images = models.JSONField(blank=True, null=True)
     ar_model_glb = models.URLField(blank=True, null=True)
     ar_model_gltf = models.URLField(blank=True, null=True)
-    description = models.CharField( max_length=50,blank=True, null=True)
+    description = models.CharField(max_length=1550, blank=True, null=True)
     pendant_width = models.CharField(max_length=20,blank=True, null=True)
     pendant_height = models.CharField(max_length=20,blank=True, null=True)
     frozen_unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -129,6 +131,12 @@ class Product(models.Model):
 
         return total_with_gst.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
+    @property
+    def average_rating(self):
+        avg = self.ratings.aggregate(avg_rating=Avg('rating')).get('avg_rating')
+        if avg is None:
+            return 0.0
+        return round(avg, 2)
 
 
 
@@ -145,6 +153,15 @@ class ProductStone(models.Model):
     
     def __str__(self):
         return self.product.head  
+
+class ProductRating(models.Model):
+    product = models.ForeignKey(Product, related_name='ratings', on_delete=models.CASCADE)
+    rating = models.PositiveSmallIntegerField()  # 1 to 5 stars, you can add validation
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Rating {self.rating} for {self.product.head}"
+
 
 class Header(models.Model):
     images = models.JSONField(default=list, null=True, blank=True)

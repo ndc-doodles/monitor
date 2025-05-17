@@ -144,7 +144,7 @@ class ProductListCreateAPIView(APIView):
         image_urls = []
 
         try:
-            for image in images[:5]:
+            for image in images[:5]:  # Limit upload to 5 images max
                 upload_result = uploader.upload(image)
                 image_urls.append(upload_result["secure_url"])
         except Exception as e:
@@ -154,16 +154,16 @@ class ProductListCreateAPIView(APIView):
         data = request.data.copy()
         data['images'] = image_urls
 
-        if request.FILES.get('ar_model_glb'):
+        if 'ar_model_glb' in request.FILES:
             glb_upload = uploader.upload(request.FILES['ar_model_glb'], resource_type='raw')
             cloud_name = 'dvllntzo0'
             public_id = glb_upload['public_id']
             version = glb_upload['version']
             data['ar_model_glb'] = f"https://res.cloudinary.com/{cloud_name}/raw/upload/v{version}/{public_id}"
 
-        if request.FILES.get('ar_model_gltf'):
+        if 'ar_model_gltf' in request.FILES:
             gltf_upload = uploader.upload(request.FILES['ar_model_gltf'], resource_type='raw')
-            data['ar_model_gltf'] = gltf_upload['public_id']
+            data['ar_model_gltf'] = gltf_upload['secure_url']  # Use secure_url here for consistency
 
         serializer = ProductSerializer(data=data)
         if serializer.is_valid():
@@ -184,6 +184,7 @@ class ProductListCreateAPIView(APIView):
             "other_products": other_data
         }, status=status.HTTP_200_OK)
 
+
 class ProductDetailAPIView(APIView):
     def get_object(self, pk):
         try:
@@ -198,11 +199,13 @@ class ProductDetailAPIView(APIView):
 
     def put(self, request, pk, *args, **kwargs):
         product = self.get_object(pk)
-        data = dict(request.data)
-        new_images = request.FILES.getlist('images')
-        uploaded_images = []
 
+        # Copy request data, but convert QueryDict to dict
+        data = request.data.copy()
+
+        new_images = request.FILES.getlist('images')
         if new_images:
+            uploaded_images = []
             try:
                 for image in new_images[:5]:
                     upload_result = uploader.upload(image)
@@ -212,6 +215,7 @@ class ProductDetailAPIView(APIView):
                 return Response({"error": f"Image upload failed: {str(e)}"},
                                 status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
+            # If no new images provided, remove images from update data
             data.pop('images', None)
 
         if 'ar_model_glb' in request.FILES:
@@ -223,12 +227,13 @@ class ProductDetailAPIView(APIView):
 
         if 'ar_model_gltf' in request.FILES:
             gltf_upload = uploader.upload(request.FILES['ar_model_gltf'], resource_type='raw')
-            data['ar_model_gltf'] = gltf_upload['public_id']
+            data['ar_model_gltf'] = gltf_upload['secure_url']  # Use secure_url
 
         serializer = ProductSerializer(product, data=data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -741,6 +746,7 @@ class RecentProductsWithFallbackAPIView(ListAPIView):
             "count": len(serializer.data),
             "products": serializer.data
         })
+
     
 
 class ProductListByGender(ListAPIView):
@@ -777,3 +783,30 @@ class RelatedProductsAPIView(APIView):
 
         serializer = ProductSerializer(related_products, many=True)
         return Response({"related_products": serializer.data}, status=status.HTTP_200_OK)
+    
+class ProductRatingAPIView(APIView):
+
+    def post(self, request):
+        serializer = ProductRatingSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def get(self, request, pk=None):
+        if pk:
+            rating = get_object_or_404(ProductRating, pk=pk)
+            serializer = ProductRatingSerializer(rating)
+            return Response(serializer.data)
+        else:
+            ratings = ProductRating.objects.all()
+            serializer = ProductRatingSerializer(ratings, many=True)
+            return Response(serializer.data)
+
+    def put(self, request, pk):
+        rating = get_object_or_404(ProductRating, pk=pk)
+        serializer = ProductRatingSerializer(rating, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

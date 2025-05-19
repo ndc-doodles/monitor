@@ -180,6 +180,18 @@ class RecentProductSerializer(serializers.ModelSerializer):
         return str(obj.grand_total) if hasattr(obj, 'grand_total') else None
     
 
+class ProductRatingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductRating
+        fields = ['id', 'product', 'rating', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+    def validate_rating(self, value):
+        if not 1 <= value <= 5:
+            raise serializers.ValidationError("Rating must be between 1 and 5.")
+        return value
+
+
 class ProductSerializer(serializers.ModelSerializer):
     stone_price_total = serializers.SerializerMethodField()
     subtotal = serializers.SerializerMethodField()

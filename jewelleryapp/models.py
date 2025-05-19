@@ -162,12 +162,13 @@ class ProductRating(models.Model):
     def __str__(self):
         return f"Rating {self.rating} for {self.product.head}"
 
-
 class Header(models.Model):
-    images = models.JSONField(default=list, null=True, blank=True)
+    slider_images = models.JSONField(default=list, null=True, blank=True)
+    main_mobile_img = models.JSONField(default=list, null=True, blank=True)
+    main_img = models.JSONField(default=list, null=True, blank=True)
 
     def __str__(self):
-        return self.images
+        return f"Header with {len(self.slider_images)} images" if self.slider_images else "Empty Header"
 
 class Contact(models.Model):
     number = models.CharField(max_length=50)

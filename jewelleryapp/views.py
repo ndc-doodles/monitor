@@ -805,75 +805,89 @@ class RecommendProductsAPIView(APIView):
     
 
 class HeaderListCreateAPIView(APIView):
-    parser_classes = (MultiPartParser, FormParser)  # Allows file uploads
+    parser_classes = (MultiPartParser, FormParser)
 
-    # POST method to create a new header with uploaded images
     def post(self, request, *args, **kwargs):
-        images = request.FILES.getlist('images')  # Get list of images from request
-        uploaded_images = []
+        slider_images = request.FILES.getlist('slider_images')
+        main_imgs = request.FILES.getlist('main_img')
+        main_mobile_imgs = request.FILES.getlist('main_mobile_img')
 
-        # Upload each image to Cloudinary and get the URL
-        for image in images:
-            cloudinary_response = upload(image)
-            uploaded_images.append(cloudinary_response['url'])  # Get the URL of uploaded image
+        uploaded_slider_images = []
+        uploaded_main_imgs = []
+        uploaded_main_mobile_imgs = []
 
-        # Store the uploaded image URLs in the Header model as JSON
-        header = Header.objects.create(images=uploaded_images)
+        for img in slider_images:
+            uploaded_slider_images.append(upload(img)['url'])
+
+        for img in main_imgs:
+            uploaded_main_imgs.append(upload(img)['url'])
+
+        for img in main_mobile_imgs:
+            uploaded_main_mobile_imgs.append(upload(img)['url'])
+
+        header = Header.objects.create(
+            slider_images=uploaded_slider_images,
+            main_img=uploaded_main_imgs,
+            main_mobile_img=uploaded_main_mobile_imgs
+        )
         serializer = HeaderSerializer(header)
-
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    # GET method to list all headers
     def get(self, request, *args, **kwargs):
-        headers = Header.objects.all()  # Retrieve all headers
-        serializer = HeaderSerializer(headers, many=True)  # Serialize all headers
+        headers = Header.objects.all()
+        serializer = HeaderSerializer(headers, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class HeaderDetailAPIView(APIView):
-    # GET method to retrieve an existing header by its ID
+    parser_classes = (MultiPartParser, FormParser)
+
     def get(self, request, pk, *args, **kwargs):
         try:
-            header = Header.objects.get(pk=pk)  # Retrieve the Header instance by primary key
+            header = Header.objects.get(pk=pk)
         except Header.DoesNotExist:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Serialize and return the header instance
         serializer = HeaderSerializer(header)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    # PUT method to update an existing header's images
     def put(self, request, pk, *args, **kwargs):
         try:
-            header = Header.objects.get(pk=pk)  # Retrieve the Header instance by primary key
+            header = Header.objects.get(pk=pk)
         except Header.DoesNotExist:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Get the new list of images from the request
-        images = request.FILES.getlist('images')
-        uploaded_images = []
+        slider_images = request.FILES.getlist('slider_images')
+        main_imgs = request.FILES.getlist('main_img')
+        main_mobile_imgs = request.FILES.getlist('main_mobile_img')
 
-        # Upload each image to Cloudinary and get the URLs
-        for image in images:
-            cloudinary_response = upload(image)
-            uploaded_images.append(cloudinary_response['url'])
+        uploaded_slider_images = []
+        uploaded_main_imgs = []
+        uploaded_main_mobile_imgs = []
 
-        # Update the header's images field
-        header.images = uploaded_images
+        for img in slider_images:
+            uploaded_slider_images.append(upload(img)['url'])
+
+        for img in main_imgs:
+            uploaded_main_imgs.append(upload(img)['url'])
+
+        for img in main_mobile_imgs:
+            uploaded_main_mobile_imgs.append(upload(img)['url'])
+
+        header.slider_images = uploaded_slider_images
+        header.main_img = uploaded_main_imgs
+        header.main_mobile_img = uploaded_main_mobile_imgs
         header.save()
 
-        # Serialize and return the updated header
         serializer = HeaderSerializer(header)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    # DELETE method to delete an existing header by its ID
     def delete(self, request, pk, *args, **kwargs):
         try:
-            header = Header.objects.get(pk=pk)  # Retrieve the Header instance by primary key
+            header = Header.objects.get(pk=pk)
         except Header.DoesNotExist:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Delete the header instance
         header.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
     

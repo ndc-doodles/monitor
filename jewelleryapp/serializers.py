@@ -89,8 +89,8 @@ class GenderSerializer(serializers.ModelSerializer):
 class HeaderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Header
-        fields = ['id', 'images'] 
-
+        fields = ['id', 'slider_images', 'main_img', 'main_mobile_img']
+        
 class ContactSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contact

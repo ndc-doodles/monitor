@@ -19,7 +19,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.utils import timezone
 from datetime import timedelta
-
+from rest_framework.permissions import IsAuthenticated  
 
 from django.conf import settings
 from django.views import View
@@ -275,42 +275,98 @@ class ProductListAPIView(APIView):
 
 class ClassicProductListAPIView(APIView):
     def get(self, request, *args, **kwargs):
+        user_id = request.query_params.get('user_id')  # Optional
+
+        # Try to get user only if user_id is provided
+        user = None
+        if user_id:
+            if not user_id.isdigit():
+                return Response({"error": "Invalid user_id. Must be a number."}, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                user = Register.objects.get(id=int(user_id))
+            except Register.DoesNotExist:
+                return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Fetch classic products
         products = Product.objects.filter(is_classic=True)
-        serializer = ProductSerializer(products, many=True)
+        serializer = ClassicProductListSerializer(products, many=True)
         products_data = serializer.data
 
+        # If user is found, check wishlist products
+        wishlist_product_ids = set()
+        if user:
+            wishlist_product_ids = set(
+                Wishlist.objects.filter(user=user).values_list('product_id', flat=True)
+            )
+
+        # Add detail_url and wishlist status
         for product in products_data:
-            product['detail_url'] = request.build_absolute_uri(f'/api/products/classic/{product["id"]}/')
+            product_id = product["id"]
+            product['detail_url'] = request.build_absolute_uri(f'/api/products/classic/{product_id}/')
+            product['wishlist'] = product_id in wishlist_product_ids
 
         return Response({
             "classic_products": products_data
         }, status=status.HTTP_200_OK)
 
-    
-
 class ClassicProductDetailAPIView(APIView):
+
     def get_object(self, pk):
         try:
             return Product.objects.get(pk=pk, is_classic=True)
         except Product.DoesNotExist:
             raise NotFound("Classic product not found")
 
+    # ✅ POST: Create a new classic product
+    def post(self, request, *args, **kwargs):
+        data = request.data.copy()
+        data['is_classic'] = True  # Force it to be a classic product
+
+        new_images = request.FILES.getlist('images')
+        if new_images:
+            uploaded_images = []
+            try:
+                for image in new_images[:5]:  # Limit to 5
+                    upload_result = uploader.upload(image)
+                    uploaded_images.append(upload_result['secure_url'])
+                data['images'] = uploaded_images
+            except Exception as e:
+                return Response({"error": f"Image upload failed: {str(e)}"},
+                                status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        if 'ar_model_glb' in request.FILES:
+            glb_upload = uploader.upload(request.FILES['ar_model_glb'], resource_type='raw')
+            version = glb_upload['version']
+            public_id = glb_upload['public_id']
+            cloud_name = 'dvllntzo0'
+            data['ar_model_glb'] = f"https://res.cloudinary.com/{cloud_name}/raw/upload/v{version}/{public_id}"
+
+        if 'ar_model_gltf' in request.FILES:
+            gltf_upload = uploader.upload(request.FILES['ar_model_gltf'], resource_type='raw')
+            data['ar_model_gltf'] = gltf_upload['secure_url']
+
+        serializer = ProductSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # ✅ GET: Get classic product by ID
     def get(self, request, pk, *args, **kwargs):
         product = self.get_object(pk)
         serializer = ProductSerializer(product)
         return Response(serializer.data)
 
+    # ✅ PUT: Update classic product
     def put(self, request, pk, *args, **kwargs):
         product = self.get_object(pk)
-
         data = request.data.copy()
 
-        # ✅ Handle images upload
         new_images = request.FILES.getlist('images')
         if new_images:
             uploaded_images = []
             try:
-                for image in new_images[:5]:  # Limit to 5 images
+                for image in new_images[:5]:
                     upload_result = uploader.upload(image)
                     uploaded_images.append(upload_result['secure_url'])
                 data['images'] = uploaded_images
@@ -320,9 +376,8 @@ class ClassicProductDetailAPIView(APIView):
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
         else:
-            data.pop('images', None)  # Prevent "Value must be valid JSON"
+            data.pop('images', None)
 
-        # ✅ Handle AR model GLB
         if 'ar_model_glb' in request.FILES:
             glb_upload = uploader.upload(request.FILES['ar_model_glb'], resource_type='raw')
             version = glb_upload['version']
@@ -330,17 +385,22 @@ class ClassicProductDetailAPIView(APIView):
             cloud_name = 'dvllntzo0'
             data['ar_model_glb'] = f"https://res.cloudinary.com/{cloud_name}/raw/upload/v{version}/{public_id}"
 
-        # ✅ Handle AR model GLTF
         if 'ar_model_gltf' in request.FILES:
             gltf_upload = uploader.upload(request.FILES['ar_model_gltf'], resource_type='raw')
             data['ar_model_gltf'] = gltf_upload['secure_url']
 
-        # ✅ Serialize and update
         serializer = ProductSerializer(product, data=data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # ✅ DELETE: Delete classic product
+    def delete(self, request, pk, *args, **kwargs):
+        product = self.get_object(pk)
+        product.delete()
+        return Response({"detail": "Classic product deleted."}, status=status.HTTP_204_NO_CONTENT)
+
     
 
 # Material API
@@ -604,25 +664,41 @@ class LogoutAPIView(APIView):
         # Return a success response
         return Response({"message": "Logged out successfully."}, status=status.HTTP_200_OK)
    
+User = get_user_model()
+
+def get_tokens_for_user(user):
+    refresh = RefreshToken.for_user(user)
+    return {
+        'refresh': str(refresh),
+        'access': str(refresh.access_token),
+    }
+
 class WishlistAPIView(APIView):
     # ✅ GET all wishlist items for a user
-    def get(self, request, user_id):
+    def get(self, request):
+        user_id = request.query_params.get("user_id")
+        if not user_id:
+            return Response({"error": "user_id query parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
+            user_id = int(user_id)  # Validate and sanitize input
             user = Register.objects.get(id=user_id)
-            wishlist = Wishlist.objects.filter(user=user)
-            serializer = WishlistSerializer(wishlist, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+        except ValueError:
+            return Response({"error": "Invalid user_id. Must be a number."}, status=status.HTTP_400_BAD_REQUEST)
         except Register.DoesNotExist:
             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        wishlist = Wishlist.objects.filter(user=user)
+        serializer = WishlistSerializer(wishlist, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     # ✅ POST (Add product to wishlist)
     def post(self, request):
         serializer = WishlistSerializer(data=request.data)
         if serializer.is_valid():
-            user_id = serializer.validated_data.get('user_id').id
+            user = serializer.validated_data.get('user_id')  # This will be a Register object due to serializer
             product = serializer.validated_data.get('product')
 
-            user = Register.objects.get(id=user_id)
             wishlist_item, created = Wishlist.objects.get_or_create(user=user, product=product)
 
             if created:
@@ -639,17 +715,6 @@ class WishlistAPIView(APIView):
             return Response({"message": "Removed from wishlist"}, status=status.HTTP_204_NO_CONTENT)
         except Wishlist.DoesNotExist:
             return Response({"error": "Wishlist item not found"}, status=status.HTTP_404_NOT_FOUND)
-        
-
-
-User = get_user_model()
-
-def get_tokens_for_user(user):
-    refresh = RefreshToken.for_user(user)
-    return {
-        'refresh': str(refresh),
-        'access': str(refresh.access_token),
-    }
 
 class UserLoginView(APIView):
     permission_classes = []  # No authentication required for login

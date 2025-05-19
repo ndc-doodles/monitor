@@ -192,6 +192,12 @@ class ProductRatingSerializer(serializers.ModelSerializer):
         return value
 
 
+class ClassicProductListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ['id', 'head', 'images', 'grand_total']
+
+
 class ProductSerializer(serializers.ModelSerializer):
     stone_price_total = serializers.SerializerMethodField()
     subtotal = serializers.SerializerMethodField()

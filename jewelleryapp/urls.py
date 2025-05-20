@@ -14,8 +14,8 @@ urlpatterns = [
     path('api/metals/<int:pk>/', MetalDetailAPIView.as_view()),
 
     # Stone
-    path('api/stones/', StoneListCreateAPIView.as_view()),
-    path('api/stones/<int:pk>/', StoneDetailAPIView.as_view()),
+    path('api/gemstone/', StoneListCreateAPIView.as_view()),
+    path('api/gemstone/<int:pk>/', StoneDetailAPIView.as_view()),
 
     path('api/materials/', MaterialListCreateAPIView.as_view()),
     path('api/materials/<int:pk>/', MaterialDetailAPIView.as_view()),
@@ -65,4 +65,7 @@ urlpatterns = [
     path('api/products/related/', RelatedProductsAPIView.as_view(), name='related-products'),
     path('api/ratings/', ProductRatingAPIView.as_view(), name='rating-list-create'),        # POST, GET all
     path('api/ratings/<int:pk>/', ProductRatingAPIView.as_view(), name='rating-detail'),
+    path('api/navbar-categories/', NavbarCategoryListCreateAPIView.as_view(), name='navbarcategory-list-create'),
+    path('api/navbar-categories/<int:pk>/', NavbarCategoryRetrieveUpdateDestroyAPIView.as_view(), name='navbarcategory-detail'),
+
 ] 

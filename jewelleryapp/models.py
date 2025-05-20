@@ -46,13 +46,13 @@ class Metal(models.Model):
     material = models.ForeignKey(Material, on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
     image = CloudinaryField('image', folder='metal')
-    karat = models.FloatField()
+    karat = models.FloatField(null=True, blank=True)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
 
     def __str__(self):
         return f"{self.name} ({self.karat}K)"
 
-class Stone(models.Model):
+class Gemstone(models.Model):
     name = models.CharField(max_length=100)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
     image = CloudinaryField('image', folder='stones')
@@ -72,7 +72,7 @@ class Product(models.Model):
     metal = models.ForeignKey(Metal, on_delete=models.CASCADE)
     
     metal_weight = models.DecimalField(max_digits=10, decimal_places=3, default=0)
-    karat = models.FloatField()
+    karat = models.FloatField(null=True, blank=True)
     images = models.JSONField(blank=True, null=True)
     ar_model_glb = models.URLField(blank=True, null=True)
     ar_model_gltf = models.URLField(blank=True, null=True)
@@ -90,7 +90,7 @@ class Product(models.Model):
     is_classic = models.BooleanField(default=False)  # ✅ New field
     designing_charge = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # ✅ New field
 
-    stones = models.ManyToManyField(Stone, related_name="products", blank=True)
+    stones = models.ManyToManyField(Gemstone, related_name="products", blank=True)
     created_at = models.DateTimeField(auto_now_add=True) 
 
     @property
@@ -142,7 +142,7 @@ class Product(models.Model):
 
 class ProductStone(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    stone = models.ForeignKey(Stone, on_delete=models.CASCADE, null=True, blank=True)
+    stone = models.ForeignKey(Gemstone, on_delete=models.CASCADE, null=True, blank=True)
     count = models.PositiveIntegerField(default=1)
     weight = models.DecimalField(max_digits=10, decimal_places=3, default=0)
 
@@ -236,3 +236,54 @@ class Wishlist(models.Model):
     def __str__(self):
         return f"{self.user.username} -> {self.product.head}"
 
+class NavbarCategory(models.Model):
+    category = models.ForeignKey('Category', on_delete=models.SET_NULL, null=True, blank=True)
+    material = models.ForeignKey('Material', on_delete=models.SET_NULL, null=True, blank=True)
+    occasion = models.ForeignKey('Occasion', on_delete=models.SET_NULL, null=True, blank=True)
+    gemstone = models.ForeignKey('Gemstone', on_delete=models.SET_NULL, null=True, blank=True)
+    is_handcrafted = models.BooleanField(default=False)
+    handcrafted_image = CloudinaryField('image', folder='handcrafted/', null=True, blank=True)
+    is_all_jewellery = models.BooleanField(default=False)
+    all_jewellery_image = CloudinaryField('image', folder='all_jewellery/', null=True, blank=True)
+    order = models.PositiveIntegerField(default=0)
+
+    def clean(self):
+        fields = [self.category, self.material, self.occasion, self.gemstone, self.is_handcrafted, self.is_all_jewellery]
+        count = sum(bool(f) for f in fields)
+        if count == 0:
+            raise ValidationError("At least one type (category/material/occasion/gemstone/handcrafted/all) must be selected.")
+        if count > 1:
+            raise ValidationError("Only one type can be selected at a time.")
+
+    def __str__(self):
+        return self.get_name() or "Unnamed NavbarItem"
+
+    def get_name(self):
+        if self.category:
+            return self.category.name
+        if self.material:
+            return self.material.name
+        if self.occasion:
+            return self.occasion.name
+        if self.gemstone:
+            return "Gemstone"
+        if self.is_handcrafted:
+            return "Handcrafted"
+        if self.is_all_jewellery:
+            return "All Jewellery"
+        return None
+
+    def get_image(self):
+        if self.category and hasattr(self.category, 'image'):
+            return self.category.image.url
+        if self.material and hasattr(self.material, 'image'):
+            return self.material.image.url
+        if self.occasion and hasattr(self.occasion, 'image'):
+            return self.occasion.image.url
+        if self.gemstone and hasattr(self.gemstone, 'image'):
+            return self.gemstone.image.url
+        if self.is_handcrafted and self.handcrafted_image:
+            return self.handcrafted_image.url
+        if self.is_all_jewellery and self.all_jewellery_image:
+            return self.all_jewellery_image.url
+        return None

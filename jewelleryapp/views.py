@@ -441,18 +441,21 @@ class MetalDetailAPIView(BaseDetailAPIView):
 
 # Stone API
 class StoneListCreateAPIView(BaseListCreateAPIView):
-    model = Stone
+    model = Gemstone
     serializer_class = StoneSerializer
 
 class StoneDetailAPIView(BaseDetailAPIView):
-    model = Stone
+    model = Gemstone
     serializer_class = StoneSerializer
 
-# Product API
+class NavbarCategoryListCreateAPIView(generics.ListCreateAPIView):
+    queryset = NavbarCategory.objects.all().order_by('order')
+    serializer_class = NavbarCategorySerializer
 
-
-
-
+class NavbarCategoryRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = NavbarCategory.objects.all()
+    serializer_class = NavbarCategorySerializer
+    lookup_field = 'pk'
 
 
 # Occasion API

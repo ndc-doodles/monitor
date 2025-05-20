@@ -62,6 +62,7 @@ urlpatterns = [
     path('api/products/classic/', ClassicProductListAPIView.as_view(), name='product-classic'),  # GET classic only
     path('api/products/classic/<int:pk>/', ClassicProductDetailAPIView.as_view(), name='product-classic-detail'),
     path('api/categories/seven/', SevenCategoriesAPIView.as_view(), name='seven-categories'),
+    path('api/categories/seven/<int:pk>/', CategoryDetailAPIView.as_view(), name='category-detail'),
     path('api/products/related/', RelatedProductsAPIView.as_view(), name='related-products'),
     path('api/ratings/', ProductRatingAPIView.as_view(), name='rating-list-create'),        # POST, GET all
     path('api/ratings/<int:pk>/', ProductRatingAPIView.as_view(), name='rating-detail'),

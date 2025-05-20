@@ -931,13 +931,30 @@ class ProductListByGender(ListAPIView):
             return Product.objects.filter(gender_id=gender_id)
         return Product.objects.all()
     
+# class SevenCategoriesAPIView(APIView):
+#     def get(self, request, *args, **kwargs):
+#         categories = Category.objects.order_by('?')[:7]  # Get 7 random categories
+#         serializer = CategorySerializer(categories, many=True)
+#         return Response({
+#             "categories": serializer.data
+#         },status=status.HTTP_200_OK)
+
+
 class SevenCategoriesAPIView(APIView):
     def get(self, request, *args, **kwargs):
-        categories = Category.objects.order_by('?')[:7]  # Get 7 random categories
+        categories = Category.objects.order_by('?')[:7]  # 7 random categories
         serializer = CategorySerializer(categories, many=True)
+        return Response({"categories": serializer.data}, status=status.HTTP_200_OK)
+
+class CategoryDetailAPIView(APIView):
+    def get(self, request, pk, *args, **kwargs):
+        category = get_object_or_404(Category, pk=pk)
+        products = Product.objects.filter(category=category)
+        serializer = FinestProductSerializer(products, many=True)
         return Response({
-            "categories": serializer.data
-        },status=status.HTTP_200_OK)
+            "category": category.name,
+            "products": serializer.data
+        }, status=status.HTTP_200_OK)
     
 class RelatedProductsAPIView(APIView):
     def get(self, request, *args, **kwargs):

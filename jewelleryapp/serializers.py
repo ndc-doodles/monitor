@@ -281,3 +281,21 @@ class NavbarCategorySerializer(serializers.ModelSerializer):
         if obj.is_all_jewellery and obj.all_jewellery_image:
             return obj.all_jewellery_image.url
         return None
+    
+
+class FinestProductSerializer(serializers.ModelSerializer):
+    first_image = serializers.SerializerMethodField()
+    average_rating = serializers.SerializerMethodField()
+    grand_total = serializers.DecimalField(max_digits=10, decimal_places=2)
+
+    class Meta:
+        model = Product
+        fields = ['id', 'head', 'description', 'first_image', 'average_rating', 'grand_total']
+
+    def get_first_image(self, obj):
+        if obj.images and isinstance(obj.images, list) and len(obj.images) > 0:
+            return obj.images[0]
+        return None
+
+    def get_average_rating(self, obj):
+        return obj.average_rating

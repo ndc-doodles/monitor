@@ -243,45 +243,63 @@ class ProductSerializer(serializers.ModelSerializer):
         data['images'] = data.get('images') or []
         return data
     
+# class NavbarCategorySerializer(serializers.ModelSerializer):
+#     index = serializers.IntegerField(source='id')
+#     name = serializers.SerializerMethodField()
+#     image = serializers.SerializerMethodField()
+
+#     class Meta:
+#         model = NavbarCategory
+#         fields = ['index', 'name', 'image']  # Only these fields
+
+#     def get_name(self, obj):
+#         if obj.category:
+#             return obj.category.name
+#         if obj.material:
+#             return obj.material.name
+#         if obj.occasion:
+#             return obj.occasion.name
+#         if obj.gemstone:
+#             return "Gemstone"
+#         if obj.is_handcrafted:
+#             return "Handcrafted"
+#         if obj.is_all_jewellery:
+#             return "All Jewellery"
+#         return None
+
+#     def get_image(self, obj):
+#         if obj.category and hasattr(obj.category, 'image'):
+#             return obj.category.image.url
+#         if obj.material and hasattr(obj.material, 'image'):
+#             return obj.material.image.url
+#         if obj.occasion and hasattr(obj.occasion, 'image'):
+#             return obj.occasion.image.url
+#         if obj.gemstone and hasattr(obj.gemstone, 'image'):
+#             return obj.gemstone.image.url
+#         if obj.is_handcrafted and obj.handcrafted_image:
+#             return obj.handcrafted_image.url
+#         if obj.is_all_jewellery and obj.all_jewellery_image:
+#             return obj.all_jewellery_image.url
+#         return None
+
+
+
 class NavbarCategorySerializer(serializers.ModelSerializer):
-    index = serializers.IntegerField(source='id')
     name = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
 
     class Meta:
         model = NavbarCategory
-        fields = ['index', 'name', 'image']  # Only these fields
+        fields = ['id', 'name', 'image', 'order', 'category', 'material', 'occasion',
+                  'gemstone', 'is_handcrafted', 'handcrafted_image',
+                  'is_all_jewellery', 'all_jewellery_image',
+                  'is_gemstone', 'gemstone_image']
 
     def get_name(self, obj):
-        if obj.category:
-            return obj.category.name
-        if obj.material:
-            return obj.material.name
-        if obj.occasion:
-            return obj.occasion.name
-        if obj.gemstone:
-            return "Gemstone"
-        if obj.is_handcrafted:
-            return "Handcrafted"
-        if obj.is_all_jewellery:
-            return "All Jewellery"
-        return None
+        return obj.get_name()
 
     def get_image(self, obj):
-        if obj.category and hasattr(obj.category, 'image'):
-            return obj.category.image.url
-        if obj.material and hasattr(obj.material, 'image'):
-            return obj.material.image.url
-        if obj.occasion and hasattr(obj.occasion, 'image'):
-            return obj.occasion.image.url
-        if obj.gemstone and hasattr(obj.gemstone, 'image'):
-            return obj.gemstone.image.url
-        if obj.is_handcrafted and obj.handcrafted_image:
-            return obj.handcrafted_image.url
-        if obj.is_all_jewellery and obj.all_jewellery_image:
-            return obj.all_jewellery_image.url
-        return None
-    
+        return obj.get_image()
 
 class FinestProductSerializer(serializers.ModelSerializer):
     first_image = serializers.SerializerMethodField()

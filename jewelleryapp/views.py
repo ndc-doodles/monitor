@@ -448,15 +448,37 @@ class StoneDetailAPIView(BaseDetailAPIView):
     model = Gemstone
     serializer_class = StoneSerializer
 
+# class NavbarCategoryListCreateAPIView(generics.ListCreateAPIView):
+#     queryset = NavbarCategory.objects.all().order_by('order')
+#     serializer_class = NavbarCategorySerializer
+
+# class NavbarCategoryRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+#     queryset = NavbarCategory.objects.all()
+#     serializer_class = NavbarCategorySerializer
+#     lookup_field = 'pk'
+
+
 class NavbarCategoryListCreateAPIView(generics.ListCreateAPIView):
     queryset = NavbarCategory.objects.all().order_by('order')
     serializer_class = NavbarCategorySerializer
 
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        data = []
+        for index, item in enumerate(queryset, start=1):
+            name = item.get_name()
+            image = item.get_image()
+            if name and image:
+                data.append({
+                    "index": index,
+                    "name": name,
+                    "image": image
+                })
+        return Response(data)
+
 class NavbarCategoryRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = NavbarCategory.objects.all()
     serializer_class = NavbarCategorySerializer
-    lookup_field = 'pk'
-
 
 # Occasion API
 class OccasionListCreateAPIView(BaseListCreateAPIView):
@@ -946,7 +968,7 @@ class SevenCategoriesAPIView(APIView):
         serializer = CategorySerializer(categories, many=True)
         return Response({"categories": serializer.data}, status=status.HTTP_200_OK)
 
-class CategoryDetailAPIView(APIView):
+class SevenCategoryDetailAPIView(APIView):
     def get(self, request, pk, *args, **kwargs):
         category = get_object_or_404(Category, pk=pk)
         products = Product.objects.filter(category=category)

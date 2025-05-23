@@ -1103,22 +1103,22 @@ class MegaNavbar(APIView):
                     {
                         "id": cat.id,
                         "label": cat.name,
-                        "icon": "/public/assets/Images/subcategory/1.png"
+                        "icon": cat.image.url
                     } for cat in all_categories
                 ],
                 "Occasions": [
                     {
                         "id": occ.id,
                         "label": occ.name,
-                        "icon": f"/public/assets/Images/subcategory/occasions/o{occ.id}.png"
+                        "icon": occ.image.url
                     } for occ in all_occasions
                 ],
-                # "Price": price_ranges,
+                "Price": price_ranges,
                 "Gender": [
                     {
                         "id": g.id,
                         "label": g.name,
-                        "icon": f"/public/assets/Images/subcategory/gender/{g.name[0].lower()}.png"
+                        "icon": g.image.url
                     } for g in all_genders
                 ]
             }
@@ -1158,7 +1158,7 @@ class MegaNavbar(APIView):
                             "icon": occ.image.url
                         } for occ in related_occasions
                     ],
-                    # "Price": price_ranges,
+                    "Price": price_ranges,
                     "Gender": [
                         {
                             "id": g.id,
@@ -1172,3 +1172,5 @@ class MegaNavbar(APIView):
             response_data.append(material_data)
 
         return Response(response_data, status=status.HTTP_200_OK)
+    
+class Global_search(APIView):

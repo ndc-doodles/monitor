@@ -1073,3 +1073,102 @@ class NavbarCategorySubDataAPIView(APIView):
 
         # You can change the key from "All Jewellery" to something dynamic too.
         return Response({"All Jewellery": grouped_data})
+    
+
+
+class MegaNavbar(APIView):
+    def get(self, request):
+        response_data = []
+
+        # Static price ranges
+        price_ranges = [
+            { "id": 1, "label": "<25K", "icon": "/public/assets/Images/subcategory/rate/r1.png" },
+            { "id": 2, "label": "25K - 50K", "icon": "/public/assets/Images/subcategory/rate/r2.png" },
+            { "id": 3, "label": "50K - 1L", "icon": "/public/assets/Images/subcategory/rate/r3.png" },
+            { "id": 4, "label": "1L & Above", "icon": "/public/assets/Images/subcategory/rate/r4.png" },
+        ]
+
+        #  Special "All Jewellery" option
+        all_categories = Category.objects.all()
+        all_occasions = Occasion.objects.all()
+        all_genders = Gender.objects.all()
+
+        all_jewellery_data = {
+            "id": 0,
+            "title": "All Jewellery",
+            "image": "/icons/jewel.svg",
+            "description": "Elegant handcrafted gold jewelry.",
+            "mega": {
+                "Category": [
+                    {
+                        "id": cat.id,
+                        "label": cat.name,
+                        "icon": "/public/assets/Images/subcategory/1.png"
+                    } for cat in all_categories
+                ],
+                "Occasions": [
+                    {
+                        "id": occ.id,
+                        "label": occ.name,
+                        "icon": f"/public/assets/Images/subcategory/occasions/o{occ.id}.png"
+                    } for occ in all_occasions
+                ],
+                # "Price": price_ranges,
+                "Gender": [
+                    {
+                        "id": g.id,
+                        "label": g.name,
+                        "icon": f"/public/assets/Images/subcategory/gender/{g.name[0].lower()}.png"
+                    } for g in all_genders
+                ]
+            }
+        }
+        response_data.append(all_jewellery_data)
+
+        #  For each Material with linked Products
+        materials = Material.objects.all()
+        for material in materials:
+            products = Product.objects.filter(metal__material=material)
+
+            if not products.exists():
+                continue  # Skip materials with no products
+
+            # Extract related category/occasion/gender
+            related_categories = Category.objects.filter(product__in=products).distinct()
+            related_occasions = Occasion.objects.filter(product__in=products).distinct()
+            related_genders = Gender.objects.filter(product__in=products).distinct()
+
+            material_data = {
+                "id": material.id,
+                "title": material.name,
+                "image": "/icons/jewel.svg",
+                "description": f"{material.name} based elegant jewelry.",
+                "mega": {
+                    "Category": [
+                        {
+                            "id": cat.id,
+                            "label": cat.name,
+                            "icon": cat.image.url
+                        } for cat in related_categories
+                    ],
+                    "Occasions": [
+                        {
+                            "id": occ.id,
+                            "label": occ.name,
+                            "icon": occ.image.url
+                        } for occ in related_occasions
+                    ],
+                    # "Price": price_ranges,
+                    "Gender": [
+                        {
+                            "id": g.id,
+                            "label": g.name,
+                            "icon": g.image.url
+                        } for g in related_genders
+                    ]
+                }
+            }
+
+            response_data.append(material_data)
+
+        return Response(response_data, status=status.HTTP_200_OK)

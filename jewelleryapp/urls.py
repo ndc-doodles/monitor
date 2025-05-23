@@ -68,4 +68,6 @@ urlpatterns = [
     path('api/ratings/<int:pk>/', ProductRatingAPIView.as_view(), name='rating-detail'),
     path('api/navbar-categories/', NavbarCategoryListCreateAPIView.as_view(), name='navbarcategory-list-create'),
     path('api/navbar-categories/<int:pk>/', NavbarCategoryRetrieveUpdateDestroyAPIView.as_view(), name='navbarcategory-detail'),
+    path('api/navbar-category-subdata/', NavbarCategorySubDataAPIView.as_view(), name='navbarcategory-subdata'),
+     path('api/navbar-categories/mega/', NavbarCategoryListCreateAPIView.as_view(), name='navbar-categories-mega'),
 ] 

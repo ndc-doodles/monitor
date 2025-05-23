@@ -476,6 +476,11 @@ class NavbarCategoryListCreateAPIView(generics.ListCreateAPIView):
                 })
         return Response(data)
 
+
+class NavbarCategoryMegaAPIView(ListAPIView):
+    queryset = NavbarCategory.objects.all()
+    serializer_class = NavbarCategoryMegaSerializer
+
 class NavbarCategoryRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = NavbarCategory.objects.all()
     serializer_class = NavbarCategorySerializer
@@ -1022,3 +1027,49 @@ class ProductRatingAPIView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+class NavbarCategorySubDataAPIView(APIView):
+    def get(self, request):
+        data = {
+            "All Jewellery": {
+                "categories": [
+                    {"id": 1, "label": "All Jewellery", "icon": "/icons/jewel.svg"},
+                    {"id": 2, "label": "Bangles", "icon": "/icons/jewel.svg"},
+                    {"id": 3, "label": "Nose Pin", "icon": "/icons/jewel.svg"},
+                    {"id": 4, "label": "Finger Rings", "icon": "/icons/jewel.svg"}
+                ],
+                "occasions": [
+                    {"id": 1, "label": "Office wear", "icon": "/public/assets/Images/subcategory/occasions/o1.png"},
+                    {"id": 2, "label": "Casual wear", "icon": "/public/assets/Images/subcategory/occasions/o2.png"},
+                    {"id": 3, "label": "Modern wear", "icon": "/public/assets/Images/subcategory/occasions/o3.png"},
+                    {"id": 4, "label": "Traditional wear", "icon": "/public/assets/Images/subcategory/occasions/o4.png"}
+                ],
+                "price": [
+                    {"id": 1, "label": "<25K", "icon": "/public/assets/Images/subcategory/rate/r1.png"},
+                    {"id": 2, "label": "25K - 50K", "icon": "/public/assets/Images/subcategory/rate/r2.png"},
+                    {"id": 3, "label": "50K - 1L", "icon": "/public/assets/Images/subcategory/rate/r3.png"},
+                    {"id": 4, "label": "1L & Above", "icon": "/public/assets/Images/subcategory/rate/r4.png"}
+                ],
+                "gender": [
+                    {"id": 1, "label": "Women", "icon": "/public/assets/Images/subcategory/gender/f.png"},
+                    {"id": 2, "label": "Men", "icon": "/public/assets/Images/subcategory/gender/m.png"},
+                    {"id": 3, "label": "Kid", "icon": "/public/assets/Images/subcategory/gender/k.png"}
+                ]
+            }
+        }
+        return Response(data)
+    
+
+class NavbarCategorySubDataAPIView(APIView):
+    def get(self, request):
+        grouped_data = {}
+        all_types = ['categories', 'occasions', 'price', 'gender']
+
+        for category_type in all_types:
+            subcategories = SubCategory.objects.filter(type=category_type)
+            serialized = SubCategorySerializer(subcategories, many=True).data
+            grouped_data[category_type] = serialized
+
+        # You can change the key from "All Jewellery" to something dynamic too.
+        return Response({"All Jewellery": grouped_data})

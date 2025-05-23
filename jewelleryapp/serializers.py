@@ -74,17 +74,6 @@ class GenderSerializer(serializers.ModelSerializer):
         rep['image'] = instance.image.url if instance.image else None
         return rep
 
-
-# class ProductSerializer(serializers.ModelSerializer):
-#     stone_names = serializers.SerializerMethodField()
-
-#     class Meta:
-#         model = Product
-#         fields = '__all__'
-    
-#     def get_stone_names(self, obj):
-#         return [stone.name for stone in obj.stones.all()]
-
  
 class HeaderSerializer(serializers.ModelSerializer):
     class Meta:
@@ -149,14 +138,6 @@ class WishlistSerializer(serializers.ModelSerializer):
     class Meta:
         model = Wishlist
         fields = ['id', 'user_id', 'product', 'product_id', 'added_at']     
-
-# class ProductStoneListCreateAPIView(generics.ListCreateAPIView):
-#     queryset = ProductStone.objects.all()
-#     serializer_class = ProductStoneSerializer
-
-# class ProductStoneDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
-#     queryset = ProductStone.objects.all()
-#     serializer_class = ProductStoneSerializer
 
 
 class RecentProductSerializer(serializers.ModelSerializer):
@@ -243,46 +224,6 @@ class ProductSerializer(serializers.ModelSerializer):
         data['images'] = data.get('images') or []
         return data
     
-# class NavbarCategorySerializer(serializers.ModelSerializer):
-#     index = serializers.IntegerField(source='id')
-#     name = serializers.SerializerMethodField()
-#     image = serializers.SerializerMethodField()
-
-#     class Meta:
-#         model = NavbarCategory
-#         fields = ['index', 'name', 'image']  # Only these fields
-
-#     def get_name(self, obj):
-#         if obj.category:
-#             return obj.category.name
-#         if obj.material:
-#             return obj.material.name
-#         if obj.occasion:
-#             return obj.occasion.name
-#         if obj.gemstone:
-#             return "Gemstone"
-#         if obj.is_handcrafted:
-#             return "Handcrafted"
-#         if obj.is_all_jewellery:
-#             return "All Jewellery"
-#         return None
-
-#     def get_image(self, obj):
-#         if obj.category and hasattr(obj.category, 'image'):
-#             return obj.category.image.url
-#         if obj.material and hasattr(obj.material, 'image'):
-#             return obj.material.image.url
-#         if obj.occasion and hasattr(obj.occasion, 'image'):
-#             return obj.occasion.image.url
-#         if obj.gemstone and hasattr(obj.gemstone, 'image'):
-#             return obj.gemstone.image.url
-#         if obj.is_handcrafted and obj.handcrafted_image:
-#             return obj.handcrafted_image.url
-#         if obj.is_all_jewellery and obj.all_jewellery_image:
-#             return obj.all_jewellery_image.url
-#         return None
-
-
 
 class NavbarCategorySerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()
@@ -300,6 +241,89 @@ class NavbarCategorySerializer(serializers.ModelSerializer):
 
     def get_image(self, obj):
         return obj.get_image()
+    
+
+class SimpleLabelIconSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    label = serializers.CharField()
+    icon = serializers.CharField()
+
+class NavbarCategoryMegaSerializer(serializers.ModelSerializer):
+    title = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
+    description = serializers.SerializerMethodField()
+    mega = serializers.SerializerMethodField()
+
+    class Meta:
+        model = NavbarCategory
+        fields = ['id', 'title', 'image', 'description', 'mega']
+
+    def get_title(self, obj):
+        return obj.get_name()
+
+    def get_image(self, obj):
+        return obj.get_image()
+
+    def get_description(self, obj):
+        # Customize description as needed
+        return "Elegant handcrafted gold jewelry."
+
+    def get_mega(self, obj):
+        # Return subcategory lists depending on obj id or other fields
+        if obj.id == 1:  # For example, "All Jewelry"
+            return {
+                "Category": [
+                    { "id": 1, "label": "All Jewellery", "icon": "/public/assets/Images/subcategory/1.png" },
+                    { "id": 2, "label": "Bangles", "icon": "/public/assets/Images/subcategory/1.png" },
+                    { "id": 3, "label": "Nose Pin", "icon": "/public/assets/Images/subcategory/1.png" },
+                    { "id": 4, "label": "Finger Rings", "icon": "/public/assets/Images/subcategory/1.png" }
+                ],
+                "Occasions": [
+                    { "id": 1, "label": "Office wear", "icon": "/public/assets/Images/subcategory/occasions/o1.png" },
+                    { "id": 2, "label": "Casual wear", "icon": "/public/assets/Images/subcategory/occasions/o2.png" },
+                    { "id": 3, "label": "Modern wear", "icon": "/public/assets/Images/subcategory/occasions/o3.png" },
+                    { "id": 4, "label": "Traditional wear", "icon": "/public/assets/Images/subcategory/occasions/o4.png" }
+                ],
+                "Price": [
+                    { "id": 1, "label": "<25K", "icon": "/public/assets/Images/subcategory/rate/r1.png" },
+                    { "id": 2, "label": "25K - 50K", "icon": "/public/assets/Images/subcategory/rate/r2.png" },
+                    { "id": 3, "label": "50K - 1L", "icon": "/public/assets/Images/subcategory/rate/r3.png" },
+                    { "id": 4, "label": "1L & Above", "icon": "/public/assets/Images/subcategory/rate/r4.png" }
+                ],
+                "Gender": [
+                    { "id": 1, "label": "Women", "icon": "/public/assets/Images/subcategory/gender/f.png" },
+                    { "id": 2, "label": "Men", "icon": "/public/assets/Images/subcategory/gender/m.png" },
+                    { "id": 3, "label": "Kid", "icon": "/public/assets/Images/subcategory/gender/k.png" }
+                ]
+            }
+        elif obj.id == 2:  # "Gold"
+            return {
+                "Category": [
+                    { "id": 10, "label": "Gold Rings", "icon": "/public/assets/Images/subcategory/1.png" },
+                    { "id": 11, "label": "Gold Bangles", "icon": "/public/assets/Images/subcategory/1.png" }
+                ],
+                "Occasions": [
+                    { "id": 5, "label": "Wedding", "icon": "/public/assets/Images/subcategory/occasions/o5.png" }
+                ],
+                "Price": [
+                    { "id": 1, "label": "<25K", "icon": "/public/assets/Images/subcategory/rate/r1.png" },
+                    { "id": 2, "label": "25K - 50K", "icon": "/public/assets/Images/subcategory/rate/r2.png" },
+                    { "id": 3, "label": "50K - 1L", "icon": "/public/assets/Images/subcategory/rate/r3.png" },
+                    { "id": 4, "label": "1L & Above", "icon": "/public/assets/Images/subcategory/rate/r4.png" }
+                ],
+                "Gender": [
+                    { "id": 1, "label": "Women", "icon": "/public/assets/Images/subcategory/gender/f.png" },
+                    { "id": 2, "label": "Men", "icon": "/public/assets/Images/subcategory/gender/m.png" },
+                    { "id": 3, "label": "Kid", "icon": "/public/assets/Images/subcategory/gender/k.png" }
+                ]
+            }
+        else:
+            return {
+                "Category": [],
+                "Occasions": [],
+                "Price": [],
+                "Gender": []
+            }
 
 class FinestProductSerializer(serializers.ModelSerializer):
     first_image = serializers.SerializerMethodField()
@@ -317,3 +341,9 @@ class FinestProductSerializer(serializers.ModelSerializer):
 
     def get_average_rating(self, obj):
         return obj.average_rating
+
+# serializers.py
+class SubCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubCategory
+        fields = ['id', 'label', 'icon']

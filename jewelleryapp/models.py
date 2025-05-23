@@ -162,6 +162,69 @@ class ProductRating(models.Model):
     def __str__(self):
         return f"Rating {self.rating} for {self.product.head}"
 
+
+
+class NavbarCategory(models.Model):
+    category = models.ForeignKey('Category', on_delete=models.SET_NULL, null=True, blank=True)
+    material = models.ForeignKey('Material', on_delete=models.SET_NULL, null=True, blank=True)
+    occasion = models.ForeignKey('Occasion', on_delete=models.SET_NULL, null=True, blank=True)
+    gemstone = models.ForeignKey('Gemstone', on_delete=models.SET_NULL, null=True, blank=True)
+    is_handcrafted = models.BooleanField(default=False)
+    handcrafted_image = CloudinaryField('image', folder='handcrafted/', null=True, blank=True)
+    is_all_jewellery = models.BooleanField(default=False)
+    all_jewellery_image = CloudinaryField('image', folder='all_jewellery/', null=True, blank=True)
+    is_gemstone = models.BooleanField(default=False)
+    gemstone_image = CloudinaryField('image', folder='gemstone/', null=True, blank=True)
+    order = models.PositiveIntegerField(default=0)
+
+    def clean(self):
+        fields = [self.category, self.material, self.occasion, self.gemstone, self.is_handcrafted, self.is_all_jewellery, self.is_gemstone]
+        count = sum(bool(f) for f in fields)
+        if count == 0:
+            raise ValidationError("At least one type must be selected.")
+        if count > 1:
+            raise ValidationError("Only one type can be selected at a time.")
+
+    def __str__(self):
+        return self.get_name() or "Unnamed NavbarItem"
+
+    def get_name(self):
+        if self.category:
+            return self.category.name
+        if self.material:
+            return self.material.name
+        if self.occasion:
+            return self.occasion.name
+        if self.gemstone:
+            return self.gemstone.name
+        if self.is_handcrafted:
+            return "Handcrafted"
+        if self.is_all_jewellery:
+            return "All Jewellery"
+        if self.is_gemstone:
+            return "Gemstone"
+        return None
+
+    def get_image(self):
+        if self.category and hasattr(self.category, 'image'):
+            return self.category.image.url
+        if self.material and hasattr(self.material, 'image'):
+            return self.material.image.url
+        if self.occasion and hasattr(self.occasion, 'image'):
+            return self.occasion.image.url
+        if self.gemstone and hasattr(self.gemstone, 'image'):
+            return self.gemstone.image.url
+        if self.is_handcrafted and self.handcrafted_image:
+            return self.handcrafted_image.url
+        if self.is_all_jewellery and self.all_jewellery_image:
+            return self.all_jewellery_image.url
+        if self.is_gemstone and self.gemstone_image:
+            return self.gemstone_image.url
+        return None
+
+
+
+
 class Header(models.Model):
     slider_images = models.JSONField(default=list, null=True, blank=True)
     main_mobile_img = models.JSONField(default=list, null=True, blank=True)
@@ -236,63 +299,21 @@ class Wishlist(models.Model):
     def __str__(self):
         return f"{self.user.username} -> {self.product.head}"
 
-class NavbarCategory(models.Model):
-    category = models.ForeignKey('Category', on_delete=models.SET_NULL, null=True, blank=True)
-    material = models.ForeignKey('Material', on_delete=models.SET_NULL, null=True, blank=True)
-    occasion = models.ForeignKey('Occasion', on_delete=models.SET_NULL, null=True, blank=True)
-    gemstone = models.ForeignKey('Gemstone', on_delete=models.SET_NULL, null=True, blank=True)
-    is_handcrafted = models.BooleanField(default=False)
-    handcrafted_image = CloudinaryField('image', folder='handcrafted/', null=True, blank=True)
-    is_all_jewellery = models.BooleanField(default=False)
-    all_jewellery_image = CloudinaryField('image', folder='all_jewellery/', null=True, blank=True)
-    is_gemstone = models.BooleanField(default=False)
-    gemstone_image = CloudinaryField('image', folder='gemstone/', null=True, blank=True)
-    order = models.PositiveIntegerField(default=0)
-
-    def clean(self):
-        fields = [self.category, self.material, self.occasion, self.gemstone, self.is_handcrafted, self.is_all_jewellery, self.is_gemstone]
-        count = sum(bool(f) for f in fields)
-        if count == 0:
-            raise ValidationError("At least one type must be selected.")
-        if count > 1:
-            raise ValidationError("Only one type can be selected at a time.")
+class SubCategory(models.Model):
+    CATEGORY_TYPES = [
+        ('categories', 'Categories'),
+        ('occasions', 'Occasions'),
+        ('price', 'Price'),
+        ('gender', 'Gender'),
+    ]
+    type = models.CharField(max_length=20, choices=CATEGORY_TYPES)
+    label = models.CharField(max_length=100)
+    icon = models.URLField()
 
     def __str__(self):
-        return self.get_name() or "Unnamed NavbarItem"
+        return f"{self.type} - {self.label}"
 
-    def get_name(self):
-        if self.category:
-            return self.category.name
-        if self.material:
-            return self.material.name
-        if self.occasion:
-            return self.occasion.name
-        if self.gemstone:
-            return self.gemstone.name
-        if self.is_handcrafted:
-            return "Handcrafted"
-        if self.is_all_jewellery:
-            return "All Jewellery"
-        if self.is_gemstone:
-            return "Gemstone"
-        return None
 
-    def get_image(self):
-        if self.category and hasattr(self.category, 'image'):
-            return self.category.image.url
-        if self.material and hasattr(self.material, 'image'):
-            return self.material.image.url
-        if self.occasion and hasattr(self.occasion, 'image'):
-            return self.occasion.image.url
-        if self.gemstone and hasattr(self.gemstone, 'image'):
-            return self.gemstone.image.url
-        if self.is_handcrafted and self.handcrafted_image:
-            return self.handcrafted_image.url
-        if self.is_all_jewellery and self.all_jewellery_image:
-            return self.all_jewellery_image.url
-        if self.is_gemstone and self.gemstone_image:
-            return self.gemstone_image.url
-        return None
 
 
 # class NavbarCategory(models.Model):

@@ -3,6 +3,20 @@
 from django.urls import path
 from .views import *
 from . import views
+from .views import GifViewSet, CombinedSuggestionsView
+
+gif_list = GifViewSet.as_view({
+    'get': 'list',
+    'post': 'create'
+})
+
+gif_detail = GifViewSet.as_view({
+    'get': 'retrieve',
+    'put': 'update',
+    'patch': 'partial_update',
+    'delete': 'destroy'
+})
+
 
 urlpatterns = [
     path('', views.index),
@@ -71,5 +85,10 @@ urlpatterns = [
     path('api/navbar-category-subdata/', NavbarCategorySubDataAPIView.as_view(), name='navbarcategory-subdata'),
     path('api/navbar-categories/mega/', NavbarCategoryListCreateAPIView.as_view(), name='navbar-categories-mega'),
     path('api/MegaNavbar/', MegaNavbar.as_view(), name='MegaNavbar'),
+
+    # path('api/search-and-popular/', SearchAndPopularView.as_view(), name='search-and-popular'),
+    path('api/combined-suggestions/', CombinedSuggestionsView.as_view(), name='combined-suggestions'),
+    path('api/gif/', gif_list, name='gif-list'),
+    path('api/gif/<int:pk>/', gif_detail, name='gif-detail'),
 
 ] 

@@ -313,6 +313,49 @@ class SubCategory(models.Model):
     def __str__(self):
         return f"{self.type} - {self.label}"
 
+class UserVisit(models.Model):
+    user = models.ForeignKey('Register', on_delete=models.CASCADE, null=True, blank=True)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "User Visit"
+        verbose_name_plural = "User Visits"
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        if self.user:
+            return f"{self.user.username} visited {self.product.head} on {self.timestamp.strftime('%Y-%m-%d %H:%M')}"
+        return f"Anonymous visited {self.product.head} on {self.timestamp.strftime('%Y-%m-%d %H:%M')}"
+
+class SearchGif(models.Model):
+    image = models.ImageField(upload_to='gifs/', blank=True, null=True)
+
+    def __str__(self):
+        return self.image.name if self.image else 'No Image'
+
+
+# class CategorySearchHistory(models.Model):
+#     user = models.ForeignKey('Register', on_delete=models.CASCADE, related_name="search_history")
+#     category = models.ForeignKey('Category', on_delete=models.CASCADE)
+#     searched_at = models.DateTimeField(default=timezone.now)
+
+#     class Meta:
+#         ordering = ['-searched_at']
+#         unique_together = ('user', 'category')
+
+#     def __str__(self):
+#         return f"{self.user.username} searched {self.category.name}"
+
+
+# # Tracking visits to products (already in your project)
+# class UserVisit(models.Model):
+#     user = models.ForeignKey('Register', on_delete=models.CASCADE, null=True, blank=True)
+#     product = models.ForeignKey('Product', on_delete=models.CASCADE)
+#     timestamp = models.DateTimeField(auto_now_add=True)
+
+#     def __str__(self):
+#         return f"{self.user.username} visited {self.product.head}"
 
 
 

@@ -347,3 +347,55 @@ class SubCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = SubCategory
         fields = ['id', 'label', 'icon']
+
+
+
+class CategoryNameSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ['id', 'name']
+
+class PopularProductSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Product
+        fields = ['id', 'head', 'image']
+
+    def get_image(self, obj):
+        # If images is a list
+        if obj.images and isinstance(obj.images, list):
+            return obj.images[0] if obj.images else None
+        # If images is a dictionary
+        elif obj.images and isinstance(obj.images, dict):
+            return next(iter(obj.images.values()), None)
+        return None
+
+class SearchGifSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SearchGif
+        fields = ['id', 'image']  # use correct model field names
+
+
+# class CategoryNameSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Category
+#         fields = ['name']
+
+
+# class PopularProductSerializer(serializers.ModelSerializer):
+#     image = serializers.SerializerMethodField()
+
+#     class Meta:
+#         model = Product
+#         fields = ['head', 'image']
+
+#     def get_image(self, obj):
+#         images = obj.images
+#         if isinstance(images, list) and images:
+#             return images[0]  # Return first image from list
+#         elif isinstance(images, dict) and images:
+#             return next(iter(images.values()), None)  # Return first value from dict
+#         return None  # No image
+
+

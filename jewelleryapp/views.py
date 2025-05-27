@@ -23,7 +23,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from django.conf import settings
 from django.views import View
-
+import random
 from django.http import Http404
 from .serializers import *
 import cloudinary
@@ -35,6 +35,10 @@ from rest_framework import generics
 
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import AllowAny
+from django.db.models import Count
+from rest_framework import viewsets
+
 
 # class GoogleLogin(SocialLoginView):
 #     adapter_class = GoogleOAuth2Adapter
@@ -1172,5 +1176,227 @@ class MegaNavbar(APIView):
             response_data.append(material_data)
 
         return Response(response_data, status=status.HTTP_200_OK)
+
+
+
+
+class CombinedSuggestionsView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        user = request.user if request.user.is_authenticated else None
+        
+        # Suggested Categories (user-specific or random)
+        if user:
+            suggested_cats_qs = (
+                UserVisit.objects.filter(user=user)
+                .values('product__category')
+                .annotate(visits=Count('id'))
+                .order_by('-visits')
+            )
+            cat_ids = [item['product__category'] for item in suggested_cats_qs[:5]]
+            suggested_categories = Category.objects.filter(id__in=cat_ids)
+        else:
+            suggested_categories = Category.objects.order_by('?')[:5]
+        
+        # Popular Categories (overall)
+        popular_cats_qs = (
+            UserVisit.objects
+            .values('product__category')
+            .annotate(visits=Count('id'))
+            .order_by('-visits')[:5]
+        )
+        if popular_cats_qs.exists():
+            pop_cat_ids = [item['product__category'] for item in popular_cats_qs]
+            popular_categories = Category.objects.filter(id__in=pop_cat_ids)
+        else:
+            popular_categories = Category.objects.order_by('?')[:5]
+
+        # Suggested Products (user-specific)
+        if user:
+            suggested_prods_qs = (
+                UserVisit.objects.filter(user=user)
+                .values('product')
+                .annotate(visits=Count('id'))
+                .order_by('-visits')
+            )
+            prod_ids = [item['product'] for item in suggested_prods_qs[:10]]
+            suggested_products = Product.objects.filter(id__in=prod_ids)
+        else:
+            suggested_products = Product.objects.order_by('?')[:10]
+
+        # Popular Products (overall)
+        popular_prods_qs = (
+            UserVisit.objects
+            .values('product')
+            .annotate(visits=Count('id'))
+            .order_by('-visits')[:10]
+        )
+        if popular_prods_qs.exists():
+            pop_prod_ids = [item['product'] for item in popular_prods_qs]
+            popular_products = Product.objects.filter(id__in=pop_prod_ids)
+        else:
+            popular_products = Product.objects.order_by('?')[:10]
+
+        # Get the single gif url
+        gif = SearchGif.objects.first()
+        gif_url = gif.image.url if gif else None
+
+        data = {
+            "gif": gif_url,
+            "suggested_categories": CategoryNameSerializer(suggested_categories, many=True).data,
+            "popular_categories": CategoryNameSerializer(popular_categories, many=True).data,
+            "suggested_products": PopularProductSerializer(suggested_products, many=True).data,
+            "popular_products": PopularProductSerializer(popular_products, many=True).data,
+        }
+        return Response(data)
+
+class GifUpdateView(APIView):
+    permission_classes = [AllowAny]
+
+    def put(self, request):
+        gif = SearchGif.objects.first()
+        if not gif:
+            return Response({"detail": "Gif not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = GifSerializer(gif, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def patch(self, request):
+        return self.put(request)  # Allow patch to call the same update logic
+
+class GifViewSet(viewsets.ModelViewSet):
+    queryset = SearchGif.objects.all()
+    serializer_class = SearchGifSerializer
+    parser_classes = [MultiPartParser, FormParser]
+
+
+
+
+# class CombinedSuggestionsView(APIView):
+#     def get(self, request):
+#         user = request.user if request.user.is_authenticated else None
+        
+#         # Suggested Categories (user-specific or random)
+#         if user:
+#             suggested_cats_qs = (
+#                 UserVisit.objects.filter(user=user)
+#                 .values('product__category')
+#                 .annotate(visits=Count('id'))
+#                 .order_by('-visits')
+#             )
+#             cat_ids = [item['product__category'] for item in suggested_cats_qs[:5]]
+#             suggested_categories = Category.objects.filter(id__in=cat_ids)
+#         else:
+#             suggested_categories = Category.objects.order_by('?')[:5]
+        
+#         # Popular Categories (overall)
+#         popular_cats_qs = (
+#             UserVisit.objects
+#             .values('product__category')
+#             .annotate(visits=Count('id'))
+#             .order_by('-visits')[:5]
+#         )
+#         if popular_cats_qs.exists():
+#             pop_cat_ids = [item['product__category'] for item in popular_cats_qs]
+#             popular_categories = Category.objects.filter(id__in=pop_cat_ids)
+#         else:
+#             popular_categories = Category.objects.order_by('?')[:5]
+
+#         # Suggested Products (user-specific)
+#         if user:
+#             suggested_prods_qs = (
+#                 UserVisit.objects.filter(user=user)
+#                 .values('product')
+#                 .annotate(visits=Count('id'))
+#                 .order_by('-visits')
+#             )
+#             prod_ids = [item['product'] for item in suggested_prods_qs[:10]]
+#             suggested_products = Product.objects.filter(id__in=prod_ids)
+#         else:
+#             suggested_products = Product.objects.order_by('?')[:10]
+
+#         # Popular Products (overall)
+#         popular_prods_qs = (
+#             UserVisit.objects
+#             .values('product')
+#             .annotate(visits=Count('id'))
+#             .order_by('-visits')[:10]
+#         )
+#         if popular_prods_qs.exists():
+#             pop_prod_ids = [item['product'] for item in popular_prods_qs]
+#             popular_products = Product.objects.filter(id__in=pop_prod_ids)
+#         else:
+#             popular_products = Product.objects.order_by('?')[:10]
+
+#         # Get the single gif url
+#         gif = Gif.objects.first()
+#         gif_url = gif.url if gif else None
+
+#         data = {
+#             "gif": gif_url,
+#             "suggested_categories": CategoryNameSerializer(suggested_categories, many=True).data,
+#             "popular_categories": CategoryNameSerializer(popular_categories, many=True).data,
+#             "suggested_products": PopularProductSerializer(suggested_products, many=True).data,
+#             "popular_products": PopularProductSerializer(popular_products, many=True).data,
+#         }
+#         return Response(data)
+
+
+
+
     
-class Global_search(APIView):
+# class Global_search(APIView):
+
+
+# class SearchAndPopularView(APIView):
+#     permission_classes = [AllowAny]
+
+#     def get(self, request):
+#         # --- Suggested Categories ---
+#         user = request.user if request.user.is_authenticated else None
+
+#         if user:
+#             recent_history = CategorySearchHistory.objects.filter(user=user).order_by('-searched_at')[:5]
+#             if recent_history.exists():
+#                 categories = [entry.category for entry in recent_history]
+#             else:
+#                 categories = list(Category.objects.order_by('?')[:5])
+#         else:
+#             categories = list(Category.objects.order_by('?')[:5])
+
+#         suggested_data = CategoryNameSerializer(categories, many=True).data
+
+#         # --- Popular or Random Products ---
+#         popular_visits = (
+#             UserVisit.objects
+#             .values('product')
+#             .annotate(visit_count=Count('id'))
+#             .order_by('-visit_count')[:10]
+#         )
+#         product_ids = [entry['product'] for entry in popular_visits]
+
+#         if product_ids:
+#             products = Product.objects.filter(id__in=product_ids)
+#             product_dict = {product.id: product for product in products}
+#             ordered_products = [product_dict[pid] for pid in product_ids if pid in product_dict]
+#         else:
+#             products_count = Product.objects.count()
+#             if products_count == 0:
+#                 ordered_products = []
+#             else:
+#                 random_ids = random.sample(
+#                     list(Product.objects.values_list('id', flat=True)),
+#                     min(10, products_count)
+#                 )
+#                 ordered_products = Product.objects.filter(id__in=random_ids)
+
+#         popular_data = PopularProductSerializer(ordered_products, many=True).data
+
+#         return Response({
+#             "suggested_categories": suggested_data,
+#             "popular_products": popular_data
+#         })

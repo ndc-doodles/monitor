@@ -1,22 +1,21 @@
-
-
-from django.urls import path
+from django.urls import path, include
 from .views import *
 from . import views
-from .views import GifViewSet, CombinedSuggestionsView
+from .views import CombinedSuggestionsView
 
-gif_list = GifViewSet.as_view({
-    'get': 'list',
-    'post': 'create'
-})
+# gif_list = GifViewSet.as_view({
+#     'get': 'list',
+#     'post': 'create'
+# })
 
-gif_detail = GifViewSet.as_view({
-    'get': 'retrieve',
-    'put': 'update',
-    'patch': 'partial_update',
-    'delete': 'destroy'
-})
-
+# gif_detail = GifViewSet.as_view({
+#     'get': 'retrieve',
+#     'put': 'update',
+#     'patch': 'partial_update',
+#     'delete': 'destroy'
+# })
+# router = DefaultRouter()
+# router.register(r'gifs', GifViewSet)
 
 urlpatterns = [
     path('', views.index),
@@ -87,8 +86,12 @@ urlpatterns = [
     path('api/MegaNavbar/', MegaNavbar.as_view(), name='MegaNavbar'),
 
     # path('api/search-and-popular/', SearchAndPopularView.as_view(), name='search-and-popular'),
+    # path('api/combined-suggestions/', CombinedSuggestionsView.as_view(), name='combined-suggestions'),
+    # path('api/gif/', gif_list, name='gif-list'),
+    # path('api/gif/<int:pk>/', gif_detail, name='gif-detail'),
+
     path('api/combined-suggestions/', CombinedSuggestionsView.as_view(), name='combined-suggestions'),
-    path('api/gif/', gif_list, name='gif-list'),
-    path('api/gif/<int:pk>/', gif_detail, name='gif-detail'),
+    path('api/gifs/', SearchGifAPIView.as_view()),          # GET all, POST new
+    path('api/gifs/<int:pk>/', SearchGifAPIView.as_view()),
 
 ] 

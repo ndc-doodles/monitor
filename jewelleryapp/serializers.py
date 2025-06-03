@@ -5,6 +5,7 @@ from cloudinary.utils import cloudinary_url
 from decimal import Decimal, ROUND_HALF_UP
 # from rest_framework import generics
 import json
+import cloudinary
 
 class MaterialSerializer(serializers.ModelSerializer):
     class Meta:
@@ -363,18 +364,37 @@ class PopularProductSerializer(serializers.ModelSerializer):
         fields = ['id', 'head', 'image']
 
     def get_image(self, obj):
-        # If images is a list
         if obj.images and isinstance(obj.images, list):
             return obj.images[0] if obj.images else None
-        # If images is a dictionary
         elif obj.images and isinstance(obj.images, dict):
             return next(iter(obj.images.values()), None)
         return None
 
 class SearchGifSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+
     class Meta:
         model = SearchGif
-        fields = ['id', 'image']  # use correct model field names
+        fields = ['id', 'image']
+
+    def get_image(self, obj):
+        if obj.image:
+            return f"https://res.cloudinary.com/{cloudinary.config().cloud_name}/{obj.image}"
+        return None
+    
+
+class SimpleProductSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Product
+        fields = ['id', 'head', 'image']
+
+    def get_image(self, obj):
+        # Assuming your product has a related images field or single image field
+        # Adjust this logic based on your actual Product model
+        first_image = obj.images.first()
+        return first_image.image.url if first_image else None
 
 
 # class CategoryNameSerializer(serializers.ModelSerializer):

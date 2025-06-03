@@ -328,11 +328,18 @@ class UserVisit(models.Model):
             return f"{self.user.username} visited {self.product.head} on {self.timestamp.strftime('%Y-%m-%d %H:%M')}"
         return f"Anonymous visited {self.product.head} on {self.timestamp.strftime('%Y-%m-%d %H:%M')}"
 
+# class SearchGif(models.Model):
+#     image = models.ImageField(upload_to='gifs/', blank=True, null=True)
+
+#     def __str__(self):
+#         return self.image.name if self.image else 'No Image'
+
+
 class SearchGif(models.Model):
-    image = models.ImageField(upload_to='gifs/', blank=True, null=True)
+    image = CloudinaryField('image', blank=True, null=True)
 
     def __str__(self):
-        return self.image.name if self.image else 'No Image'
+        return self.image.public_id if self.image else 'No Image'
 
 
 # class CategorySearchHistory(models.Model):

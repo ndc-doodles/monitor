@@ -3,7 +3,7 @@ from django.conf import settings
 
 def upload_to_cloudinary(images):
     uploaded_images = []
-    
+     
     for image in images:
         image_file = image.get('file')  # Ensure the image file is passed in the data
         

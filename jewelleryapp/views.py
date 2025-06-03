@@ -1180,65 +1180,249 @@ class MegaNavbar(APIView):
 
 
 
+# class CombinedSuggestionsView(APIView):
+#     permission_classes = [AllowAny]
+
+#     def get(self, request):
+#         user = request.user if request.user.is_authenticated else None
+#         query = request.GET.get('query', '').strip()
+
+#         # Suggested Categories (filtered by search query)
+#         if query:
+#             suggested_categories = Category.objects.filter(name__icontains=query)
+#         elif user:
+#             cat_ids = (
+#                 UserVisit.objects.filter(user=user)
+#                 .values('product__category')
+#                 .annotate(visits=Count('id'))
+#                 .order_by('-visits')
+#                 .values_list('product__category', flat=True)[:5]
+#             )
+#             suggested_categories = Category.objects.filter(id__in=cat_ids)
+#         else:
+#             suggested_categories = Category.objects.order_by('?')[:5]
+
+#         # Popular Categories (unchanged, based on visits)
+#         pop_cat_ids = (
+#             UserVisit.objects
+#             .values('product__category')
+#             .annotate(visits=Count('id'))
+#             .order_by('-visits')
+#             .values_list('product__category', flat=True)[:5]
+#         )
+#         popular_categories = Category.objects.filter(id__in=pop_cat_ids) if pop_cat_ids else Category.objects.order_by('?')[:5]
+
+#         # Suggested Products (filtered by search query)
+#         if query:
+#             suggested_products = Product.objects.filter(head__icontains=query)
+#         elif user:
+#             prod_ids = (
+#                 UserVisit.objects.filter(user=user)
+#                 .values('product')
+#                 .annotate(visits=Count('id'))
+#                 .order_by('-visits')
+#                 .values_list('product', flat=True)[:10]
+#             )
+#             suggested_products = Product.objects.filter(id__in=prod_ids)
+#         else:
+#             suggested_products = Product.objects.order_by('?')[:10]
+
+#         # Popular Products (unchanged, based on visits)
+#         pop_prod_ids = (
+#             UserVisit.objects
+#             .values('product')
+#             .annotate(visits=Count('id'))
+#             .order_by('-visits')
+#             .values_list('product', flat=True)[:10]
+#         )
+#         popular_products = Product.objects.filter(id__in=pop_prod_ids) if pop_prod_ids else Product.objects.order_by('?')[:10]
+
+#         # Search GIF
+#         gif = SearchGif.objects.first()
+#         gif_url = gif.image.url if gif else None
+
+#         data = {
+#             "gif": gif_url,
+#             "suggested_categories": CategoryNameSerializer(suggested_categories, many=True).data,
+#             "popular_categories": CategoryNameSerializer(popular_categories, many=True).data,
+#             "suggested_products": PopularProductSerializer(suggested_products, many=True).data,
+#             "popular_products": PopularProductSerializer(popular_products, many=True).data,
+#         }
+#         return Response(data)
+
+
+# class GifUpdateView(APIView):
+#     permission_classes = [AllowAny]
+
+#     def put(self, request):
+#         gif = SearchGif.objects.first()
+#         if not gif:
+#             return Response({"detail": "Gif not found."}, status=status.HTTP_404_NOT_FOUND)
+
+#         serializer = SearchGifSerializer(gif, data=request.data, partial=True)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response(serializer.data)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+#     def patch(self, request):
+#         return self.put(request)  # Allow patch to call the same update logic
+
+# class GifViewSet(viewsets.ModelViewSet):
+#     queryset = SearchGif.objects.all()
+#     serializer_class = SearchGifSerializer
+#     parser_classes = [MultiPartParser, FormParser]
+
+
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+from rest_framework import status, viewsets
+from rest_framework.parsers import MultiPartParser, FormParser
+from django.db.models import Count
+from .models import Category, Product, UserVisit, SearchGif
+from .serializers import CategoryNameSerializer, PopularProductSerializer, SearchGifSerializer
+
+# class CombinedSuggestionsView(APIView):
+#     permission_classes = [AllowAny]
+
+#     def get(self, request):
+#         user = request.user if request.user.is_authenticated else None
+#         query = request.GET.get('query', '').strip()
+
+#         # Suggested Categories (filtered by search query)
+#         if query:
+#             suggested_categories = Category.objects.filter(name__icontains=query)
+#         elif user:
+#             cat_ids = (
+#                 UserVisit.objects.filter(user=user)
+#                 .values('product__category')
+#                 .annotate(visits=Count('id'))
+#                 .order_by('-visits')
+#                 .values_list('product__category', flat=True)[:5]
+#             )
+#             suggested_categories = Category.objects.filter(id__in=cat_ids)
+#         else:
+#             suggested_categories = Category.objects.order_by('?')[:5]
+
+#         # Popular Categories (unchanged, based on visits)
+#         pop_cat_ids = (
+#             UserVisit.objects
+#             .values('product__category')
+#             .annotate(visits=Count('id'))
+#             .order_by('-visits')
+#             .values_list('product__category', flat=True)[:5]
+#         )
+#         popular_categories = Category.objects.filter(id__in=pop_cat_ids) if pop_cat_ids else Category.objects.order_by('?')[:5]
+
+#         # Suggested Products (filtered by search query)
+#         if query:
+#             suggested_products = Product.objects.filter(head__icontains=query)
+#         elif user:
+#             prod_ids = (
+#                 UserVisit.objects.filter(user=user)
+#                 .values('product')
+#                 .annotate(visits=Count('id'))
+#                 .order_by('-visits')
+#                 .values_list('product', flat=True)[:10]
+#             )
+#             suggested_products = Product.objects.filter(id__in=prod_ids)
+#         else:
+#             suggested_products = Product.objects.order_by('?')[:10]
+
+#         # Popular Products (unchanged, based on visits)
+#         pop_prod_ids = (
+#             UserVisit.objects
+#             .values('product')
+#             .annotate(visits=Count('id'))
+#             .order_by('-visits')
+#             .values_list('product', flat=True)[:10]
+#         )
+#         popular_products = Product.objects.filter(id__in=pop_prod_ids) if pop_prod_ids else Product.objects.order_by('?')[:10]
+
+#         # Search GIF
+#         gif = SearchGif.objects.first()
+#         gif_url = gif.image.url if gif else None
+
+#         data = {
+#             "gif": gif_url,
+#             "suggested_categories": CategoryNameSerializer(suggested_categories, many=True).data,
+#             "popular_categories": CategoryNameSerializer(popular_categories, many=True).data,
+#             "suggested_products": PopularProductSerializer(suggested_products, many=True).data,
+#             "popular_products": PopularProductSerializer(popular_products, many=True).data,
+#         }
+#         return Response(data)
+
 class CombinedSuggestionsView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
         user = request.user if request.user.is_authenticated else None
-        
-        # Suggested Categories (user-specific or random)
-        if user:
-            suggested_cats_qs = (
+        query = request.GET.get('query', '').strip()
+
+        # Suggested Categories (filtered by search query or material name)
+        if query:
+            # Try to find matching material by name
+            material_match = Material.objects.filter(name__icontains=query).first()
+            if material_match:
+                # Get categories where products have metal with this material
+                suggested_categories = Category.objects.filter(
+                    product__metal__material=material_match
+                ).distinct()
+            else:
+                # Otherwise fallback to category name search
+                suggested_categories = Category.objects.filter(name__icontains=query)
+        elif user:
+            # Categories based on user visits
+            cat_ids = (
                 UserVisit.objects.filter(user=user)
                 .values('product__category')
                 .annotate(visits=Count('id'))
                 .order_by('-visits')
+                .values_list('product__category', flat=True)[:5]
             )
-            cat_ids = [item['product__category'] for item in suggested_cats_qs[:5]]
             suggested_categories = Category.objects.filter(id__in=cat_ids)
         else:
+            # Random categories fallback
             suggested_categories = Category.objects.order_by('?')[:5]
-        
-        # Popular Categories (overall)
-        popular_cats_qs = (
+
+        # Popular Categories (top visited)
+        pop_cat_ids = (
             UserVisit.objects
             .values('product__category')
             .annotate(visits=Count('id'))
-            .order_by('-visits')[:5]
+            .order_by('-visits')
+            .values_list('product__category', flat=True)[:5]
         )
-        if popular_cats_qs.exists():
-            pop_cat_ids = [item['product__category'] for item in popular_cats_qs]
-            popular_categories = Category.objects.filter(id__in=pop_cat_ids)
-        else:
-            popular_categories = Category.objects.order_by('?')[:5]
+        popular_categories = Category.objects.filter(id__in=pop_cat_ids) if pop_cat_ids else Category.objects.order_by('?')[:5]
 
-        # Suggested Products (user-specific)
-        if user:
-            suggested_prods_qs = (
+        # Suggested Products (filtered by search query)
+        if query:
+            suggested_products = Product.objects.filter(head__icontains=query)
+        elif user:
+            prod_ids = (
                 UserVisit.objects.filter(user=user)
                 .values('product')
                 .annotate(visits=Count('id'))
                 .order_by('-visits')
+                .values_list('product', flat=True)[:10]
             )
-            prod_ids = [item['product'] for item in suggested_prods_qs[:10]]
             suggested_products = Product.objects.filter(id__in=prod_ids)
         else:
             suggested_products = Product.objects.order_by('?')[:10]
 
-        # Popular Products (overall)
-        popular_prods_qs = (
+        # Popular Products (top visited)
+        pop_prod_ids = (
             UserVisit.objects
             .values('product')
             .annotate(visits=Count('id'))
-            .order_by('-visits')[:10]
+            .order_by('-visits')
+            .values_list('product', flat=True)[:10]
         )
-        if popular_prods_qs.exists():
-            pop_prod_ids = [item['product'] for item in popular_prods_qs]
-            popular_products = Product.objects.filter(id__in=pop_prod_ids)
-        else:
-            popular_products = Product.objects.order_by('?')[:10]
+        popular_products = Product.objects.filter(id__in=pop_prod_ids) if pop_prod_ids else Product.objects.order_by('?')[:10]
 
-        # Get the single gif url
+        # Search GIF
         gif = SearchGif.objects.first()
         gif_url = gif.image.url if gif else None
 
@@ -1251,32 +1435,161 @@ class CombinedSuggestionsView(APIView):
         }
         return Response(data)
 
-class GifUpdateView(APIView):
-    permission_classes = [AllowAny]
+class SearchGifAPIView(APIView):
+    parser_classes = [MultiPartParser, FormParser]
 
-    def put(self, request):
-        gif = SearchGif.objects.first()
-        if not gif:
-            return Response({"detail": "Gif not found."}, status=status.HTTP_404_NOT_FOUND)
+    def get(self, request, pk=None):
+        if pk:
+            try:
+                gif = SearchGif.objects.get(pk=pk)
+            except SearchGif.DoesNotExist:
+                return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            serializer = SearchGifSerializer(gif)
+            return Response(serializer.data)
+        else:
+            gifs = SearchGif.objects.all()
+            serializer = SearchGifSerializer(gifs, many=True)
+            return Response(serializer.data)
 
-        serializer = GifSerializer(gif, data=request.data, partial=True)
+    def post(self, request):
+        serializer = SearchGifSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def put(self, request, pk):
+        try:
+            gif = SearchGif.objects.get(pk=pk)
+        except SearchGif.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = SearchGifSerializer(gif, data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def patch(self, request):
-        return self.put(request)  # Allow patch to call the same update logic
+    def delete(self, request, pk):
+        try:
+            gif = SearchGif.objects.get(pk=pk)
+        except SearchGif.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
-class GifViewSet(viewsets.ModelViewSet):
-    queryset = SearchGif.objects.all()
-    serializer_class = SearchGifSerializer
-    parser_classes = [MultiPartParser, FormParser]
+        gif.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+
+
 
 
 
 
 # class CombinedSuggestionsView(APIView):
+#     permission_classes = [AllowAny]
+
+#     def get(self, request):
+#         user = request.user if request.user.is_authenticated else None
+        
+#         # Suggested Categories (user-specific or random)
+#         if user:
+#             suggested_cats_qs = (
+#                 UserVisit.objects.filter(user=user)
+#                 .values('product__category')
+#                 .annotate(visits=Count('id'))
+#                 .order_by('-visits')
+#             )
+#             cat_ids = [item['product__category'] for item in suggested_cats_qs[:5]]
+#             suggested_categories = Category.objects.filter(id__in=cat_ids)
+#         else:
+#             suggested_categories = Category.objects.order_by('?')[:5]
+        
+#         # Popular Categories (overall)
+#         popular_cats_qs = (
+#             UserVisit.objects
+#             .values('product__category')
+#             .annotate(visits=Count('id'))
+#             .order_by('-visits')[:5]
+#         )
+#         if popular_cats_qs.exists():
+#             pop_cat_ids = [item['product__category'] for item in popular_cats_qs]
+#             popular_categories = Category.objects.filter(id__in=pop_cat_ids)
+#         else:
+#             popular_categories = Category.objects.order_by('?')[:5]
+
+#         # Suggested Products (user-specific)
+#         if user:
+#             suggested_prods_qs = (
+#                 UserVisit.objects.filter(user=user)
+#                 .values('product')
+#                 .annotate(visits=Count('id'))
+#                 .order_by('-visits')
+#             )
+#             prod_ids = [item['product'] for item in suggested_prods_qs[:10]]
+#             suggested_products = Product.objects.filter(id__in=prod_ids)
+#         else:
+#             suggested_products = Product.objects.order_by('?')[:10]
+
+#         # Popular Products (overall)
+#         popular_prods_qs = (
+#             UserVisit.objects
+#             .values('product')
+#             .annotate(visits=Count('id'))
+#             .order_by('-visits')[:10]
+#         )
+#         if popular_prods_qs.exists():
+#             pop_prod_ids = [item['product'] for item in popular_prods_qs]
+#             popular_products = Product.objects.filter(id__in=pop_prod_ids)
+#         else:
+#             popular_products = Product.objects.order_by('?')[:10]
+
+#         # Get the single gif url
+#         gif = SearchGif.objects.first()
+#         gif_url = gif.image.url if gif else None
+
+#         data = {
+#             "gif": gif_url,
+#             "suggested_categories": CategoryNameSerializer(suggested_categories, many=True).data,
+#             "popular_categories": CategoryNameSerializer(popular_categories, many=True).data,
+#             "suggested_products": PopularProductSerializer(suggested_products, many=True).data,
+#             "popular_products": PopularProductSerializer(popular_products, many=True).data,
+#         }
+#         return Response(data)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# class CombinedSuggestionsView(APIView): 
 #     def get(self, request):
 #         user = request.user if request.user.is_authenticated else None
         

@@ -11,6 +11,9 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 from decimal import Decimal, ROUND_HALF_UP
 from rest_framework import serializers
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
+import random
+
 from django.db.models import Avg
 # Base material like Gold
 # , Silver, Diamond, etc.
@@ -340,6 +343,68 @@ class SearchGif(models.Model):
 
     def __str__(self):
         return self.image.public_id if self.image else 'No Image'
+
+
+
+# class AccountManager(BaseUserManager):
+#     def create_user(self, phone, password=None):
+#         if not phone:
+#             raise ValueError("Users must have a phone number")
+#         user = self.model(phone=phone)
+#         user.set_unusable_password()
+#         user.save(using=self._db)
+#         return user
+
+# class Account(AbstractBaseUser):
+#     phone = models.CharField(max_length=15, unique=True)
+#     is_active = models.BooleanField(default=True)
+
+#     USERNAME_FIELD = 'phone'
+#     REQUIRED_FIELDS = []
+
+#     objects = AccountManager()
+
+#     def __str__(self):
+#         return self.phone
+
+# class PhoneOTP(models.Model):
+#     phone = models.CharField(max_length=15, unique=True)
+#     otp = models.CharField(max_length=6)
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     is_verified = models.BooleanField(default=False)
+
+
+# class PhoneOTP(models.Model):
+#     phone = models.CharField(max_length=15, unique=True)
+#     otp = models.CharField(max_length=6)
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     is_verified = models.BooleanField(default=False)
+
+#     def save(self, *args, **kwargs):
+#         import random
+#         self.otp = str(random.randint(100000, 999999))
+#         super().save(*args, **kwargs)
+
+
+class PhoneOTP(models.Model):
+    phone = models.CharField(max_length=15, unique=True)
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_verified = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.phone} - {self.otp} - Verified: {self.is_verified}"
+
+    def generate_otp(self):
+        import random
+        self.otp = str(random.randint(100000, 999999))
+
+
+
+
+
+
+
 
 
 # class CategorySearchHistory(models.Model):

@@ -1,10 +1,10 @@
 from rest_framework import generics
 from django.shortcuts import render,  get_object_or_404
-from . models import*
+from .models import *
 from django.contrib.auth import logout
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.hashers import check_password
-# Create your views here.
+
 from django.db.models import Q
 from rest_framework.exceptions import NotFound
 from django.conf import settings
@@ -20,7 +20,7 @@ from rest_framework.views import APIView
 from django.utils import timezone
 from datetime import timedelta
 from rest_framework.permissions import IsAuthenticated  
-
+# from django.contrib.auth.models import PermissionsMixin
 from django.conf import settings
 from django.views import View
 import random
@@ -33,12 +33,20 @@ from rest_framework import status, permissions
 import json
 from rest_framework import generics
 
-from rest_framework.response import Response
+
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from django.db.models import Count
 from rest_framework import viewsets
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.permissions import AllowAny
+from rest_framework import status, viewsets
+from rest_framework.parsers import MultiPartParser, FormParser
 
+from .models import Category, Product, UserVisit, SearchGif
+# from .serializers import CategoryNameSerializer, PopularProductSerializer, SearchGifSerializer
+
+from .utils import send_otp_via_sms
 
 # class GoogleLogin(SocialLoginView):
 #     adapter_class = GoogleOAuth2Adapter
@@ -1275,14 +1283,7 @@ class MegaNavbar(APIView):
 
 
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
-from rest_framework import status, viewsets
-from rest_framework.parsers import MultiPartParser, FormParser
-from django.db.models import Count
-from .models import Category, Product, UserVisit, SearchGif
-from .serializers import CategoryNameSerializer, PopularProductSerializer, SearchGifSerializer
+
 
 # class CombinedSuggestionsView(APIView):
 #     permission_classes = [AllowAny]
@@ -1486,6 +1487,108 @@ class SearchGifAPIView(APIView):
 
 
 
+# class SendOTP(APIView):
+#     def post(self, request):
+#         serializer = PhoneSerializer(data=request.data)
+#         if serializer.is_valid():
+#             phone = serializer.validated_data['phone']
+#             otp = str(random.randint(100000, 999999))  # ✅ Generate OTP here
+
+#             otp_obj, created = PhoneOTP.objects.update_or_create(
+#                 phone=phone,
+#                 defaults={'otp': otp, 'is_verified': False}  # ✅ Save OTP
+#             )
+
+#             send_otp_via_sms(phone, otp)  # ✅ Send this OTP
+#             return Response({'message': 'OTP sent successfully.'}, status=status.HTTP_200_OK)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# class VerifyOTP(APIView):
+#     def post(self, request):
+#         serializer = VerifyOTPSerializer(data=request.data)
+#         if serializer.is_valid():
+#             phone = serializer.validated_data['phone']
+#             otp = serializer.validated_data['otp']
+#             try:
+#                 otp_obj = PhoneOTP.objects.get(phone=phone, otp=otp)
+#                 otp_obj.is_verified = True
+#                 otp_obj.save()
+
+#                 Account = get_user_model()
+#                 user, created = Account.objects.get_or_create(phone=phone)
+
+#                 refresh = RefreshToken.for_user(user)
+
+#                 return Response({
+#                     'message': 'OTP verified.',
+#                     'token': {
+#                         'refresh': str(refresh),
+#                         'access': str(refresh.access_token),
+#                     }
+#                 }, status=status.HTTP_200_OK)
+#             except PhoneOTP.DoesNotExist:
+#                 return Response({'error': 'Invalid OTP or phone number.'}, status=status.HTTP_400_BAD_REQUEST)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# class SendOTP(APIView):
+#     def post(self, request):
+#         serializer = PhoneSerializer(data=request.data)
+#         if serializer.is_valid():
+#             phone = serializer.validated_data['phone']
+
+#             from django.contrib.auth.models import User
+#             if User.objects.filter(username=phone).exists():
+#                 return Response({'error': 'Superuser login not allowed via OTP.'}, status=status.HTTP_403_FORBIDDEN)
+
+#             otp_obj, created = PhoneOTP.objects.update_or_create(
+#                 phone=phone,
+#                 defaults={'is_verified': False}
+#             )
+#             send_otp_via_sms(phone, otp_obj.otp)
+#             return Response({'message': 'OTP sent successfully.'}, status=status.HTTP_200_OK)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# class VerifyOTP(APIView):
+#     def post(self, request):
+#         serializer = VerifyOTPSerializer(data=request.data)
+#         if serializer.is_valid():
+#             phone = serializer.validated_data['phone']
+#             otp = serializer.validated_data['otp']
+#             try:
+#                 otp_obj = PhoneOTP.objects.get(phone=phone, otp=otp)
+#                 otp_obj.is_verified = True
+#                 otp_obj.save()
+
+#                 from django.contrib.auth.models import User
+#                 if User.objects.filter(username=phone).exists():
+#                     return Response({'error': 'Superuser login not allowed via OTP.'}, status=status.HTTP_403_FORBIDDEN)
+
+#                 user, created = Register.objects.get_or_create(
+#                     mobile=phone,
+#                     defaults={
+#                         'username': phone,
+#                         'password': 'otp-auth',
+#                         'confirmpassword': 'otp-auth'
+#                     }
+#                 )
+
+#                 refresh = RefreshToken.for_user(user)
+
+#                 return Response({
+#                     'message': 'OTP verified.',
+#                     'token': {
+#                         'refresh': str(refresh),
+#                         'access': str(refresh.access_token),
+#                     }
+#                 }, status=status.HTTP_200_OK)
+#             except PhoneOTP.DoesNotExist:
+#                 return Response({'error': 'Invalid OTP or phone number.'}, status=status.HTTP_400_BAD_REQUEST)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
 # class CombinedSuggestionsView(APIView):
 #     permission_classes = [AllowAny]
 
@@ -1562,12 +1665,116 @@ class SearchGifAPIView(APIView):
 
 
 
+class SendOTP(APIView):
+    def post(self, request):
+        serializer = PhoneSerializer(data=request.data)
+        if serializer.is_valid():
+            phone = serializer.validated_data['phone']
+
+            from django.contrib.auth.models import User
+            if User.objects.filter(username=phone).exists():
+                return Response({'error': 'Superuser login not allowed via OTP.'}, status=status.HTTP_403_FORBIDDEN)
+
+            otp_obj, created = PhoneOTP.objects.update_or_create(
+                phone=phone,
+                defaults={'is_verified': False}
+            )
+            send_otp_via_sms(phone, otp_obj.otp)
+            return Response({'message': 'OTP sent successfully.'}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# class VerifyOTP(APIView):
+#     def post(self, request):
+#         serializer = VerifyOTPSerializer(data=request.data)
+#         if serializer.is_valid():
+#             phone = serializer.validated_data['phone']
+#             otp = serializer.validated_data['otp']
+#             try:
+#                 otp_obj = PhoneOTP.objects.get(phone=phone, otp=otp)
+#                 otp_obj.is_verified = True
+#                 otp_obj.save()
+
+#                 from django.contrib.auth.models import User
+#                 if User.objects.filter(username=phone).exists():
+#                     return Response({'error': 'Superuser login not allowed via OTP.'}, status=status.HTTP_403_FORBIDDEN)
+
+#                 user, created = Register.objects.get_or_create(
+#                     mobile=phone,
+#                     defaults={
+#                         'username': phone,
+#                         'password': 'otp-auth',
+#                         'confirmpassword': 'otp-auth'
+#                     }
+#                 )
+
+#                 refresh = RefreshToken.for_user(user)
+
+#                 return Response({
+#                     'message': 'OTP verified.',
+#                     'token': {
+#                         'refresh': str(refresh),
+#                         'access': str(refresh.access_token),
+#                     }
+#                 }, status=status.HTTP_200_OK)
+#             except PhoneOTP.DoesNotExist:
+#                 return Response({'error': 'Invalid OTP or phone number.'}, status=status.HTTP_400_BAD_REQUEST)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 
 
 
+class VerifyOTP(APIView):
+    def post(self, request):
+        serializer = VerifyOTPSerializer(data=request.data)
+        if serializer.is_valid():
+            phone = serializer.validated_data['phone']
+            otp = serializer.validated_data['otp']
+            try:
+                otp_obj = PhoneOTP.objects.get(phone=phone, otp=otp)
+                if otp_obj.is_verified:
+                    return Response({'message': 'Phone number already verified.'}, status=status.HTTP_200_OK)
 
+                otp_obj.is_verified = True
+                otp_obj.save()
+
+                user, created = Register.objects.get_or_create(
+                    mobile=phone,
+                    defaults={
+                        'username': None,  # Skip username
+                        'password': 'otp-auth',
+                        'confirmpassword': 'otp-auth'
+                    }
+                )
+
+                if created:
+                    user.set_unusable_password()
+                    user.save()
+
+                # Create or update profile with phone number
+                if not hasattr(user, 'profile'):
+                    UserProfile.objects.create(
+                        user=user,
+                        full_name='',
+                        phone_number=phone
+                    )
+                else:
+                    user.profile.phone_number = phone
+                    user.profile.save()
+
+                refresh = RefreshToken.for_user(user)
+
+                return Response({
+                    'message': 'OTP verified successfully.',
+                    'token': {
+                        'refresh': str(refresh),
+                        'access': str(refresh.access_token),
+                    }
+                }, status=status.HTTP_200_OK)
+
+            except PhoneOTP.DoesNotExist:
+                return Response({'error': 'Invalid OTP or phone number.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 

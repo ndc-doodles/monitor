@@ -47,7 +47,7 @@ INSTALLED_APPS = [
 
     "cloudinary",
     "cloudinary_storage", 
-    
+   
 
 ]
 
@@ -239,3 +239,6 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
 }
+
+
+# AUTH_USER_MODEL = 'auth.User'

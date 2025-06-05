@@ -2,7 +2,7 @@ from django.urls import path, include
 from .views import *
 from . import views
 from .views import CombinedSuggestionsView
-
+from rest_framework_simplejwt.views import TokenRefreshView
 # gif_list = GifViewSet.as_view({
 #     'get': 'list',
 #     'post': 'create'
@@ -91,7 +91,11 @@ urlpatterns = [
     # path('api/gif/<int:pk>/', gif_detail, name='gif-detail'),
 
     path('api/combined-suggestions/', CombinedSuggestionsView.as_view(), name='combined-suggestions'),
-    path('api/gifs/', SearchGifAPIView.as_view()),          # GET all, POST new
+    path('api/gifs/', SearchGifAPIView.as_view()),          
     path('api/gifs/<int:pk>/', SearchGifAPIView.as_view()),
+
+    path('api/send-otp/', SendOTP.as_view(), name='send-otp'),
+    path('api/verify-otp/', VerifyOTP.as_view(), name='verify-otp'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
 
 ] 

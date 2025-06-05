@@ -395,6 +395,27 @@ class SimpleProductSerializer(serializers.ModelSerializer):
         # Adjust this logic based on your actual Product model
         first_image = obj.images.first()
         return first_image.image.url if first_image else None
+    
+class PhoneSerializer(serializers.Serializer):
+    phone = serializers.CharField(max_length=15)
+
+class VerifyOTPSerializer(serializers.Serializer):
+    phone = serializers.CharField(max_length=15)
+    otp = serializers.CharField(max_length=6)
+
+
+# class PhoneSerializer(serializers.Serializer):
+#     phone = serializers.CharField(max_length=15)
+
+# class VerifyOTPSerializer(serializers.Serializer):
+#     phone = serializers.CharField(max_length=15)
+#     otp = serializers.CharField(max_length=6)
+# class PhoneSerializer(serializers.Serializer):
+#     phone = serializers.CharField(max_length=15)
+
+# class VerifyOTPSerializer(serializers.Serializer):
+#     phone = serializers.CharField(max_length=15)
+#     otp = serializers.CharField(max_length=6)
 
 
 # class CategoryNameSerializer(serializers.ModelSerializer):

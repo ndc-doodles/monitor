@@ -262,13 +262,13 @@ class Register(models.Model):
         self.password = make_password(self.password)
         super().save(*args, **kwargs)
     
-class UserVisit(models.Model):
-    user = models.ForeignKey('Register', on_delete=models.CASCADE, null=True, blank=True)
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    timestamp = models.DateTimeField(auto_now_add=True)
+# class UserVisit(models.Model):
+#     user = models.ForeignKey('Register', on_delete=models.CASCADE, null=True, blank=True)
+#     product = models.ForeignKey(Product, on_delete=models.CASCADE)
+#     timestamp = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
-        return f"{self.user.username} visited {self.product.head}"
+#     def __str__(self):
+#         return f"{self.user.username} visited {self.product.head}"
         
 
 class UserProfile(models.Model):

@@ -1355,6 +1355,88 @@ class MegaNavbar(APIView):
 #         }
 #         return Response(data)
 
+# class CombinedSuggestionsView(APIView):
+#     permission_classes = [AllowAny]
+
+#     def get(self, request):
+#         user = request.user if request.user.is_authenticated else None
+#         query = request.GET.get('query', '').strip()
+
+#         # Suggested Categories (filtered by search query or material name)
+#         if query:
+#             # Try to find matching material by name
+#             material_match = Material.objects.filter(name__icontains=query).first()
+#             if material_match:
+#                 # Get categories where products have metal with this material
+#                 suggested_categories = Category.objects.filter(
+#                     product__metal__material=material_match
+#                 ).distinct()
+#             else:
+#                 # Otherwise fallback to category name search
+#                 suggested_categories = Category.objects.filter(name__icontains=query)
+#         elif user:
+#             # Categories based on user visits
+#             cat_ids = (
+#                 UserVisit.objects.filter(user=user)
+#                 .values('product__category')
+#                 .annotate(visits=Count('id'))
+#                 .order_by('-visits')
+#                 .values_list('product__category', flat=True)[:5]
+#             )
+#             suggested_categories = Category.objects.filter(id__in=cat_ids)
+#         else:
+#             # Random categories fallback
+#             suggested_categories = Category.objects.order_by('?')[:5]
+
+#         # Popular Categories (top visited)
+#         pop_cat_ids = (
+#             UserVisit.objects
+#             .values('product__category')
+#             .annotate(visits=Count('id'))
+#             .order_by('-visits')
+#             .values_list('product__category', flat=True)[:5]
+#         )
+#         popular_categories = Category.objects.filter(id__in=pop_cat_ids) if pop_cat_ids else Category.objects.order_by('?')[:5]
+
+#         # Suggested Products (filtered by search query)
+#         if query:
+#             suggested_products = Product.objects.filter(head__icontains=query)
+#         elif user:
+#             prod_ids = (
+#                 UserVisit.objects.filter(user=user)
+#                 .values('product')
+#                 .annotate(visits=Count('id'))
+#                 .order_by('-visits')
+#                 .values_list('product', flat=True)[:10]
+#             )
+#             suggested_products = Product.objects.filter(id__in=prod_ids)
+#         else:
+#             suggested_products = Product.objects.order_by('?')[:10]
+
+#         # Popular Products (top visited)
+#         pop_prod_ids = (
+#             UserVisit.objects
+#             .values('product')
+#             .annotate(visits=Count('id'))
+#             .order_by('-visits')
+#             .values_list('product', flat=True)[:10]
+#         )
+#         popular_products = Product.objects.filter(id__in=pop_prod_ids) if pop_prod_ids else Product.objects.order_by('?')[:10]
+
+#         # Search GIF
+#         gif = SearchGif.objects.first()
+#         gif_url = gif.image.url if gif else None
+
+#         data = {
+#             "gif": gif_url,
+#             "suggested_categories": CategoryNameSerializer(suggested_categories, many=True).data,
+#             "popular_categories": CategoryNameSerializer(popular_categories, many=True).data,
+#             "suggested_products": PopularProductSerializer(suggested_products, many=True).data,
+#             "popular_products": PopularProductSerializer(popular_products, many=True).data,
+#         }
+#         return Response(data)
+
+
 class CombinedSuggestionsView(APIView):
     permission_classes = [AllowAny]
 
@@ -1362,68 +1444,46 @@ class CombinedSuggestionsView(APIView):
         user = request.user if request.user.is_authenticated else None
         query = request.GET.get('query', '').strip()
 
-        # Suggested Categories (filtered by search query or material name)
+        suggested_categories = []
+        suggested_products = []
+        popular_categories = []
+        popular_products = []
+
         if query:
-            # Try to find matching material by name
+            # Show suggestions based on query (material or category/product name)
             material_match = Material.objects.filter(name__icontains=query).first()
             if material_match:
-                # Get categories where products have metal with this material
                 suggested_categories = Category.objects.filter(
                     product__metal__material=material_match
                 ).distinct()
+                if not suggested_categories.exists():
+                    suggested_categories = Category.objects.filter(name__icontains=query)
             else:
-                # Otherwise fallback to category name search
                 suggested_categories = Category.objects.filter(name__icontains=query)
-        elif user:
-            # Categories based on user visits
-            cat_ids = (
-                UserVisit.objects.filter(user=user)
+
+            suggested_products = Product.objects.filter(head__icontains=query)
+
+        else:
+            # Show popular items when no query is provided
+            pop_cat_ids = (
+                UserVisit.objects
                 .values('product__category')
                 .annotate(visits=Count('id'))
                 .order_by('-visits')
                 .values_list('product__category', flat=True)[:5]
             )
-            suggested_categories = Category.objects.filter(id__in=cat_ids)
-        else:
-            # Random categories fallback
-            suggested_categories = Category.objects.order_by('?')[:5]
+            popular_categories = Category.objects.filter(id__in=pop_cat_ids) if pop_cat_ids else Category.objects.order_by('?')[:5]
 
-        # Popular Categories (top visited)
-        pop_cat_ids = (
-            UserVisit.objects
-            .values('product__category')
-            .annotate(visits=Count('id'))
-            .order_by('-visits')
-            .values_list('product__category', flat=True)[:5]
-        )
-        popular_categories = Category.objects.filter(id__in=pop_cat_ids) if pop_cat_ids else Category.objects.order_by('?')[:5]
-
-        # Suggested Products (filtered by search query)
-        if query:
-            suggested_products = Product.objects.filter(head__icontains=query)
-        elif user:
-            prod_ids = (
-                UserVisit.objects.filter(user=user)
+            pop_prod_ids = (
+                UserVisit.objects
                 .values('product')
                 .annotate(visits=Count('id'))
                 .order_by('-visits')
                 .values_list('product', flat=True)[:10]
             )
-            suggested_products = Product.objects.filter(id__in=prod_ids)
-        else:
-            suggested_products = Product.objects.order_by('?')[:10]
+            popular_products = Product.objects.filter(id__in=pop_prod_ids) if pop_prod_ids else Product.objects.order_by('?')[:10]
 
-        # Popular Products (top visited)
-        pop_prod_ids = (
-            UserVisit.objects
-            .values('product')
-            .annotate(visits=Count('id'))
-            .order_by('-visits')
-            .values_list('product', flat=True)[:10]
-        )
-        popular_products = Product.objects.filter(id__in=pop_prod_ids) if pop_prod_ids else Product.objects.order_by('?')[:10]
-
-        # Search GIF
+        # Optional: Search GIF
         gif = SearchGif.objects.first()
         gif_url = gif.image.url if gif else None
 
@@ -1434,10 +1494,8 @@ class CombinedSuggestionsView(APIView):
             "suggested_products": PopularProductSerializer(suggested_products, many=True).data,
             "popular_products": PopularProductSerializer(popular_products, many=True).data,
         }
+
         return Response(data)
-
-
-
 
 
 

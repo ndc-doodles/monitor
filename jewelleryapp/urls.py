@@ -90,6 +90,7 @@ urlpatterns = [
     # path('api/gif/', gif_list, name='gif-list'),
     # path('api/gif/<int:pk>/', gif_detail, name='gif-detail'),
 
+    path('api/combined-suggestions/', CombinedSuggestionsView.as_view(), name='combined-suggestions'),
     path('api/combined-suggestions/?query=', CombinedSuggestionsView.as_view(), name='combined-suggestions'),
     path('api/gifs/', SearchGifAPIView.as_view()),          
     path('api/gifs/<int:pk>/', SearchGifAPIView.as_view()),

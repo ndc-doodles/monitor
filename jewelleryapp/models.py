@@ -262,14 +262,7 @@ class Register(models.Model):
         self.password = make_password(self.password)
         super().save(*args, **kwargs)
     
-# class UserVisit(models.Model):
-#     user = models.ForeignKey('Register', on_delete=models.CASCADE, null=True, blank=True)
-#     product = models.ForeignKey(Product, on_delete=models.CASCADE)
-#     timestamp = models.DateTimeField(auto_now_add=True)
 
-#     def __str__(self):
-#         return f"{self.user.username} visited {self.product.head}"
-        
 
 class UserProfile(models.Model):
     # Link to the Register model (One-to-One relationship)
@@ -286,7 +279,18 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return self.full_name       
+class PhoneOTP(models.Model):
+    phone = models.CharField(max_length=15, unique=True)
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_verified = models.BooleanField(default=False)
 
+    def __str__(self):
+        return f"{self.phone} - {self.otp} - Verified: {self.is_verified}"
+
+    def generate_otp(self):
+        import random
+        self.otp = str(random.randint(100000, 999999))
 
 # wishlist functioning
 
@@ -302,19 +306,7 @@ class Wishlist(models.Model):
     def __str__(self):
         return f"{self.user.username} -> {self.product.head}"
 
-class SubCategory(models.Model):
-    CATEGORY_TYPES = [
-        ('categories', 'Categories'),
-        ('occasions', 'Occasions'),
-        ('price', 'Price'),
-        ('gender', 'Gender'),
-    ]
-    type = models.CharField(max_length=20, choices=CATEGORY_TYPES)
-    label = models.CharField(max_length=100)
-    icon = models.URLField()
 
-    def __str__(self):
-        return f"{self.type} - {self.label}"
 
 class UserVisit(models.Model):
     user = models.ForeignKey('Register', on_delete=models.CASCADE, null=True, blank=True)
@@ -330,6 +322,20 @@ class UserVisit(models.Model):
         if self.user:
             return f"{self.user.username} visited {self.product.head} on {self.timestamp.strftime('%Y-%m-%d %H:%M')}"
         return f"Anonymous visited {self.product.head} on {self.timestamp.strftime('%Y-%m-%d %H:%M')}"
+
+class SubCategory(models.Model):
+    CATEGORY_TYPES = [
+        ('categories', 'Categories'),
+        ('occasions', 'Occasions'),
+        ('price', 'Price'),
+        ('gender', 'Gender'),
+    ]
+    type = models.CharField(max_length=20, choices=CATEGORY_TYPES)
+    label = models.CharField(max_length=100)
+    icon = models.URLField()
+
+    def __str__(self):
+        return f"{self.type} - {self.label}"
 
 # class SearchGif(models.Model):
 #     image = models.ImageField(upload_to='gifs/', blank=True, null=True)
@@ -386,24 +392,20 @@ class SearchGif(models.Model):
 #         super().save(*args, **kwargs)
 
 
-class PhoneOTP(models.Model):
-    phone = models.CharField(max_length=15, unique=True)
-    otp = models.CharField(max_length=6)
-    created_at = models.DateTimeField(auto_now_add=True)
-    is_verified = models.BooleanField(default=False)
-
-    def __str__(self):
-        return f"{self.phone} - {self.otp} - Verified: {self.is_verified}"
-
-    def generate_otp(self):
-        import random
-        self.otp = str(random.randint(100000, 999999))
 
 
 
 
 
 
+# class UserVisit(models.Model):
+#     user = models.ForeignKey('Register', on_delete=models.CASCADE, null=True, blank=True)
+#     product = models.ForeignKey(Product, on_delete=models.CASCADE)
+#     timestamp = models.DateTimeField(auto_now_add=True)
+
+#     def __str__(self):
+#         return f"{self.user.username} visited {self.product.head}"
+        
 
 
 

@@ -1786,6 +1786,47 @@ class SendOTP(APIView):
 
 
 
+# class VerifyOTP(APIView):
+#     def post(self, request):
+#         serializer = VerifyOTPSerializer(data=request.data)
+#         if serializer.is_valid():
+#             phone = serializer.validated_data['phone']
+#             otp = serializer.validated_data['otp']
+#             try:
+#                 otp_obj = PhoneOTP.objects.get(phone=phone, otp=otp)
+#                 otp_obj.is_verified = True
+#                 otp_obj.save()
+
+#                 from django.contrib.auth.models import User
+#                 if User.objects.filter(username=phone).exists():
+#                     return Response({'error': 'Superuser login not allowed via OTP.'}, status=status.HTTP_403_FORBIDDEN)
+
+#                 user, created = Register.objects.get_or_create(
+#                     mobile=phone,
+#                     defaults={
+#                         'username': phone,
+#                         'password': 'otp-auth',
+#                         'confirmpassword': 'otp-auth'
+#                     }
+#                 )
+
+#                 # Print username to console
+#                 print(f"OTP verified for user: {user.username}")
+
+#                 refresh = RefreshToken.for_user(user)
+
+#                 return Response({
+#                     'message': 'OTP verified.',
+#                     'username': user.username,
+#                     'token': {
+#                         'refresh': str(refresh),
+#                         'access': str(refresh.access_token),
+#                     }
+#                 }, status=status.HTTP_200_OK)
+#             except PhoneOTP.DoesNotExist:
+#                 return Response({'error': 'Invalid OTP or phone number.'}, status=status.HTTP_400_BAD_REQUEST)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class VerifyOTP(APIView):
     def post(self, request):
@@ -1795,59 +1836,39 @@ class VerifyOTP(APIView):
             otp = serializer.validated_data['otp']
             try:
                 otp_obj = PhoneOTP.objects.get(phone=phone, otp=otp)
-                if otp_obj.is_verified:
-                    return Response({'message': 'Phone number already verified.'}, status=status.HTTP_200_OK)
-
                 otp_obj.is_verified = True
                 otp_obj.save()
+
+                from django.contrib.auth.models import User
+                if User.objects.filter(username=phone).exists():
+                    return Response({'error': 'Superuser login not allowed via OTP.'}, status=status.HTTP_403_FORBIDDEN)
 
                 user, created = Register.objects.get_or_create(
                     mobile=phone,
                     defaults={
-                        'username': None,  # Skip username
+                        'username': phone,
                         'password': 'otp-auth',
                         'confirmpassword': 'otp-auth'
                     }
                 )
 
-                if created:
-                    user.set_unusable_password()
-                    user.save()
-
-                # Create or update profile with phone number
-                if not hasattr(user, 'profile'):
-                    UserProfile.objects.create(
-                        user=user,
-                        full_name='',
-                        phone_number=phone
-                    )
-                else:
-                    user.profile.phone_number = phone
-                    user.profile.save()
+                # Print user info
+                print(f"OTP verified for user: {user.username}, ID: {user.id}")
 
                 refresh = RefreshToken.for_user(user)
 
                 return Response({
-                    'message': 'OTP verified successfully.',
+                    'message': 'OTP verified.',
+                    'id': user.id,
+                    'username': user.username,
                     'token': {
                         'refresh': str(refresh),
                         'access': str(refresh.access_token),
                     }
                 }, status=status.HTTP_200_OK)
-
             except PhoneOTP.DoesNotExist:
                 return Response({'error': 'Invalid OTP or phone number.'}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-
-
-
-
-
-
-
-
 
 
 

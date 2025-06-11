@@ -243,8 +243,9 @@ class Contact(models.Model):
 
     def __str__(self):
         return self.number
-
+import uuid
 class Register(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     username = models.CharField(max_length=150, unique=True)
     password = models.CharField(max_length=128)
     confirmpassword = models.CharField(max_length=128)
@@ -265,20 +266,18 @@ class Register(models.Model):
 
 
 class UserProfile(models.Model):
-    # Link to the Register model (One-to-One relationship)
-    user = models.OneToOneField(Register, on_delete=models.CASCADE, related_name='profile')
-
-    # The fields in the UserProfile model
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)  # UUID primary key
+    username = models.OneToOneField(Register, on_delete=models.CASCADE, related_name='profile')
     full_name = models.CharField(max_length=255)
     address = models.TextField(blank=True, null=True)
     date_of_birth = models.DateField(blank=True, null=True)
     country = models.CharField(max_length=100, blank=True, null=True)
-    phone_number = models.BigIntegerField()  # You can fetch this from the Register model
+    phone_number = models.BigIntegerField()
     email = models.EmailField(blank=True, null=True)
     image = models.ImageField(upload_to='profile_images/', blank=True, null=True)
 
     def __str__(self):
-        return self.full_name       
+        return self.full_name      
 class PhoneOTP(models.Model):
     phone = models.CharField(max_length=15, unique=True)
     otp = models.CharField(max_length=6)

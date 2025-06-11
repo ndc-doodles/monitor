@@ -32,7 +32,7 @@ from rest_framework.filters import BaseFilterBackend
 from rest_framework import status, permissions
 import json
 from rest_framework import generics
-
+from rest_framework.views import APIView
 
 from rest_framework import status
 from rest_framework.permissions import AllowAny
@@ -630,47 +630,84 @@ class ProductStoneDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = ProductStone.objects.all()
     serializer_class = ProductStoneSerializer
 
-class RegisterView(APIView):
-    def post(self, request, *args, **kwargs):
-        # Create the serializer instance with the request data
-        serializer = RegisterSerializer(data=request.data)
+# class RegisterView(APIView):
+#     def post(self, request, *args, **kwargs):
+#         # Create the serializer instance with the request data
+#         serializer = RegisterSerializer(data=request.data)
         
-        # Check if the serializer is valid
-        if serializer.is_valid():
-            # Save the data (create the user) if valid
-            serializer.save()
-            return Response({"message": "User registered successfully"}, status=status.HTTP_201_CREATED)
+#         # Check if the serializer is valid
+#         if serializer.is_valid():
+#             # Save the data (create the user) if valid
+#             serializer.save()
+#             return Response({"message": "User registered successfully"}, status=status.HTTP_201_CREATED)
         
-        # Return validation errors if the data is not valid
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#         # Return validation errors if the data is not valid
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 
-class UserProfileCreateView(generics.CreateAPIView):
-    queryset = UserProfile.objects.all()
-    serializer_class = UserProfileSerializer
+# class RegisterView(APIView):
+#     def get(self, request, *args, **kwargs):
+#         user_id = request.query_params.get('id')
+#         if user_id:
+#             try:
+#                 user = Register.objects.get(id=user_id)
+#                 print(f"Fetched User ID: {user.id}")
+#                 serializer = RegisterSerializer(user)
+#                 return Response(serializer.data, status=status.HTTP_200_OK)
+#             except Register.DoesNotExist:
+#                 return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+#         else:
+#             users = Register.objects.all()
+#             for user in users:
+#                 print(f"User ID: {user.id}")
+#             serializer = RegisterSerializer(users, many=True)
+#             return Response(serializer.data, status=status.HTTP_200_OK)
 
-    def perform_create(self, serializer):
-        # Get the user (Register model) ID from the request data
-        user_id = self.request.data.get('user') # Get the 'user' field from the request body (which should be an ID)
-        user_id = int(user_id)
-        print("sangu mon",type(user_id))
-        # Fetch the Register instance using the provided user ID
-        user = get_object_or_404(Register, id=user_id)
-        print('the user is',user)
-        username = user.username
+#     def post(self, request, *args, **kwargs):
+#         serializer = RegisterSerializer(data=request.data)
+#         if serializer.is_valid():
+#             user = serializer.save()
+#             print(f"New User Registered with ID: {user.id}")
+#             return Response({"message": "User registered successfully", "id": str(user.id)}, status=status.HTTP_201_CREATED)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+
+# class UserProfileCreateView(generics.CreateAPIView):
+#     queryset = UserProfile.objects.all()
+#     serializer_class = UserProfileSerializer
+
+#     def perform_create(self, serializer):
+#         # Get the user (Register model) ID from the request data
+#         user_id = self.request.data.get('user') # Get the 'user' field from the request body (which should be an ID)
+#         user_id = int(user_id)
+#         print("sangu mon",type(user_id))
+#         # Fetch the Register instance using the provided user ID
+#         user = get_object_or_404(Register, id=user_id)
+#         print('the user is',user)
+#         username = user.username
         
-        # Save the UserProfile with the user (Register model)
-        serializer.save(user=username)
+#         # Save the UserProfile with the user (Register model)
+#         serializer.save(user=username)
 
-class UserProfileUpdateView(generics.UpdateAPIView):
-    queryset = UserProfile.objects.all()
-    serializer_class = UserProfileSerializer
+# class UserProfileUpdateView(generics.UpdateAPIView):
+#     queryset = UserProfile.objects.all()
+#     serializer_class = UserProfileSerializer
 
-    def get_object(self):
-        # Get the UserProfile instance by ID from the URL
-        obj = UserProfile.objects.get(id=self.kwargs["id"])
-        return obj
+#     def get_object(self):
+#         # Get the UserProfile instance by ID from the URL
+#         obj = UserProfile.objects.get(id=self.kwargs["id"])
+#         return obj
+# class RegisterDetailView(APIView):
+#     def get(self, request, id, *args, **kwargs):
+#         try:
+#             user = Register.objects.get(id=id)
+#             print(f"Fetched User ID: {user.id}")
+#             serializer = RegisterSerializer(user)
+#             return Response(serializer.data, status=status.HTTP_200_OK)
+#         except Register.DoesNotExist:
+#             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
 
@@ -697,7 +734,71 @@ class LoginAPIView(APIView):
             except Register.DoesNotExist:
                 return Response({"detail": "Invalid username."}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
+
+
+class RegisterView(APIView):
+    def post(self, request, *args, **kwargs):
+        serializer = RegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            print(f"New User Registered with ID: {user.id}")
+
+            # Check if UserProfile already exists (prevent duplicates)
+            if not hasattr(user, 'profile'):
+                UserProfile.objects.create(
+                    username=user,  # OneToOneField to Register
+                    full_name=user.username,
+                    phone_number=user.mobile
+                )
+                print("✅ UserProfile created for", user.username)
+
+            return Response({
+                "message": "User registered successfully",
+                "register": RegisterSerializer(user).data
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+class RegisterListView(APIView):
+    def get(self, request, *args, **kwargs):
+        users = Register.objects.all()
+        serializer = RegisterSerializer(users, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class RegisterDetailView(APIView):
+    def get(self, request, id, *args, **kwargs):
+        user = get_object_or_404(Register, id=id)
+        serializer = RegisterSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class UserProfileListView(APIView):
+    def get(self, request, *args, **kwargs):
+        profiles = UserProfile.objects.all()
+        serializer = UserProfileSerializer(profiles, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class UserProfileCreateView(generics.CreateAPIView):
+    queryset = UserProfile.objects.all()
+    serializer_class = UserProfileSerializer
+
+    def perform_create(self, serializer):
+        register_id = self.request.data.get('username')
+        register_instance = get_object_or_404(Register, id=register_id)
+        serializer.save(username=register_instance)
+
+
+class UserProfileUpdateView(generics.UpdateAPIView):
+    queryset = UserProfile.objects.all()
+    serializer_class = UserProfileSerializer
+
+    def get_object(self):
+        return get_object_or_404(UserProfile, id=self.kwargs["id"])
 class LogoutAPIView(APIView):
     def post(self, request):
         # Call Django's built-in logout function to clear the session
@@ -1827,6 +1928,93 @@ class SendOTP(APIView):
 #                 return Response({'error': 'Invalid OTP or phone number.'}, status=status.HTTP_400_BAD_REQUEST)
 #         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+# # important
+# class VerifyOTP(APIView):
+#     def post(self, request):
+#         serializer = VerifyOTPSerializer(data=request.data)
+#         if serializer.is_valid():
+#             phone = serializer.validated_data['phone']
+#             otp = serializer.validated_data['otp']
+#             try:
+#                 otp_obj = PhoneOTP.objects.get(phone=phone, otp=otp)
+#                 otp_obj.is_verified = True
+#                 otp_obj.save()
+
+#                 from django.contrib.auth.models import User
+#                 if User.objects.filter(username=phone).exists():
+#                     return Response({'error': 'Superuser login not allowed via OTP.'}, status=status.HTTP_403_FORBIDDEN)
+
+#                 user, created = Register.objects.get_or_create(
+#                     mobile=phone,
+#                     defaults={
+#                         'username': phone,
+#                         'password': 'otp-auth',
+#                         'confirmpassword': 'otp-auth'
+#                     }
+#                 )
+
+#                 # Print user info
+#                 print(f"OTP verified for user: {user.username}, ID: {user.id}")
+
+#                 refresh = RefreshToken.for_user(user)
+
+#                 return Response({
+#                     'message': 'OTP verified.',
+#                     'id': user.id,
+#                     'username': user.username,
+#                     'token': {
+#                         'refresh': str(refresh),
+#                         'access': str(refresh.access_token),
+#                     }
+#                 }, status=status.HTTP_200_OK)
+#             except PhoneOTP.DoesNotExist:
+#                 return Response({'error': 'Invalid OTP or phone number.'}, status=status.HTTP_400_BAD_REQUEST)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+import uuid
+# class VerifyOTP(APIView):
+#     def post(self, request):
+#         serializer = VerifyOTPSerializer(data=request.data)
+#         if serializer.is_valid():
+#             phone = serializer.validated_data['phone']
+#             otp = serializer.validated_data['otp']
+#             try:
+#                 otp_obj = PhoneOTP.objects.get(phone=phone, otp=otp)
+#                 otp_obj.is_verified = True
+#                 otp_obj.save()
+
+#                 # Prevent superuser login via OTP
+#                 if User.objects.filter(username=phone).exists():
+#                     return Response({'error': 'Superuser login not allowed via OTP.'}, status=status.HTTP_403_FORBIDDEN)
+
+#                 # Register model should have UUIDField as primary key
+#                 user, created = Register.objects.get_or_create(
+#                     mobile=phone,
+#                     defaults={
+#                         'username': phone,
+#                         'password': 'otp-auth',
+#                         'confirmpassword': 'otp-auth'
+#                     }
+#                 )
+
+#                 print(f"OTP verified for user: {user.username}, ID: {user.id}")
+
+#                 refresh = RefreshToken.for_user(user)
+
+#                 return Response({
+#                     'message': 'OTP verified.',
+#                     'id': str(user.id),  # UUID formatted as string
+#                     'username': user.username,
+#                     'token': {
+#                         'refresh': str(refresh),
+#                         'access': str(refresh.access_token),
+#                     }
+#                 }, status=status.HTTP_200_OK)
+#             except PhoneOTP.DoesNotExist:
+#                 return Response({'error': 'Invalid OTP or phone number.'}, status=status.HTTP_400_BAD_REQUEST)
+
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 class VerifyOTP(APIView):
     def post(self, request):
@@ -1839,10 +2027,11 @@ class VerifyOTP(APIView):
                 otp_obj.is_verified = True
                 otp_obj.save()
 
-                from django.contrib.auth.models import User
+                # Prevent superuser login via OTP
                 if User.objects.filter(username=phone).exists():
                     return Response({'error': 'Superuser login not allowed via OTP.'}, status=status.HTTP_403_FORBIDDEN)
 
+                # Create or get the Register user
                 user, created = Register.objects.get_or_create(
                     mobile=phone,
                     defaults={
@@ -1852,28 +2041,35 @@ class VerifyOTP(APIView):
                     }
                 )
 
-                # Print user info
+                # ✅ Create UserProfile if not exists
+                from jewelleryapp.models import UserProfile  # adjust path to your model
+
+                if not hasattr(user, 'profile'):
+                    UserProfile.objects.create(
+                        username=user,
+                        full_name=user.username,
+                        phone_number=user.mobile
+                    )
+                    print("✅ UserProfile created for", user.username)
+
                 print(f"OTP verified for user: {user.username}, ID: {user.id}")
 
                 refresh = RefreshToken.for_user(user)
 
                 return Response({
                     'message': 'OTP verified.',
-                    'id': user.id,
+                    'id': str(user.id),
                     'username': user.username,
                     'token': {
                         'refresh': str(refresh),
                         'access': str(refresh.access_token),
                     }
                 }, status=status.HTTP_200_OK)
+
             except PhoneOTP.DoesNotExist:
                 return Response({'error': 'Invalid OTP or phone number.'}, status=status.HTTP_400_BAD_REQUEST)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-
-
-
 
 
 

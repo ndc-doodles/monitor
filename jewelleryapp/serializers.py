@@ -86,31 +86,80 @@ class ContactSerializer(serializers.ModelSerializer):
         model = Contact
         fields = '__all__'
     
+# class RegisterSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Register
+#         fields = ['username', 'password', 'confirmpassword', 'mobile']
+    
+#     def validate(self, data):
+#         """
+#         Validate that the password and confirm password match.
+#         """
+#         if data['password'] != data['confirmpassword']:
+#             raise serializers.ValidationError("Passwords do not match")
+#         return data
+
+# class RegisterSerializer(serializers.ModelSerializer):
+#     password = serializers.CharField(write_only=True)
+#     confirmpassword = serializers.CharField(write_only=True)
+
+#     class Meta:
+#         model = Register
+#         fields = ['id', 'username', 'password', 'confirmpassword', 'mobile']
+#         read_only_fields = ['id']
+
+#     def validate(self, data):
+#         if data['password'] != data['confirmpassword']:
+#             raise serializers.ValidationError("Passwords do not match")
+#         return data
+
+
+
+# class UserProfileSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = UserProfile
+#         fields = ['full_name', 'address', 'date_of_birth', 'country', 'phone_number', 'email', 'image']
+
+#     def create(self, validated_data):
+#         # Link the user from Register model when creating a new profile
+#         user_id = validated_data.pop('user')  # Get user data
+#         user = Register.objects.get(id=user_id)  # Get the Register model object
+#         user_profile = UserProfile.objects.create(user=user, **validated_data)
+#         return user_profile    
+
+
+# class RegisterSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Register
+#         fields = ['id', 'username', 'mobile']
+
+
+# class UserProfileSerializer(serializers.ModelSerializer):
+#     username = serializers.SerializerMethodField()
+
+#     class Meta:
+#         model = UserProfile
+#         fields = ['id', 'username', 'full_name', 'phone_number', 'email', 'address', 'date_of_birth', 'country', 'image']
+
+#     def get_username(self, obj):
+#         return f"user{obj.username.username}"      
+
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Register
-        fields = ['username', 'password', 'confirmpassword', 'mobile']
-    
-    def validate(self, data):
-        """
-        Validate that the password and confirm password match.
-        """
-        if data['password'] != data['confirmpassword']:
-            raise serializers.ValidationError("Passwords do not match")
-        return data
-    
+        fields = ['id', 'username', 'mobile']
+
+
 class UserProfileSerializer(serializers.ModelSerializer):
+    username = serializers.SerializerMethodField()
+
     class Meta:
         model = UserProfile
-        fields = ['full_name', 'address', 'date_of_birth', 'country', 'phone_number', 'email', 'image']
+        fields = '__all__'
 
-    def create(self, validated_data):
-        # Link the user from Register model when creating a new profile
-        user_id = validated_data.pop('user')  # Get user data
-        user = Register.objects.get(id=user_id)  # Get the Register model object
-        user_profile = UserProfile.objects.create(user=user, **validated_data)
-        return user_profile    
-        
+    def get_username(self, obj):
+        return f"user{obj.username.username}"  
+
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150)
     password = serializers.CharField(write_only=True)

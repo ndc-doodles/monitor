@@ -220,14 +220,37 @@ class WishlistSerializer(serializers.ModelSerializer):
         fields = ['id', 'user_id', 'product', 'product_id', 'added_at']
 
 
+# class RecentProductSerializer(serializers.ModelSerializer):
+#     first_image = serializers.SerializerMethodField()
+#     average_rating = serializers.SerializerMethodField()
+#     grand_total = serializers.SerializerMethodField()
+
+#     class Meta:
+#         model = Product
+#         fields = ['id', 'head', 'description', 'first_image', 'average_rating', 'grand_total']
+
+#     def get_first_image(self, obj):
+#         if obj.images and isinstance(obj.images, list):
+#             return obj.images[0] if obj.images else None
+#         return None
+
+#     def get_average_rating(self, obj):
+#         return obj.average_rating if hasattr(obj, 'average_rating') else None
+
+#     def get_grand_total(self, obj):
+#         return str(obj.grand_total) if hasattr(obj, 'grand_total') else None
 class RecentProductSerializer(serializers.ModelSerializer):
     first_image = serializers.SerializerMethodField()
     average_rating = serializers.SerializerMethodField()
     grand_total = serializers.SerializerMethodField()
+    is_wishlisted = serializers.SerializerMethodField()  # ✅ New field
 
     class Meta:
         model = Product
-        fields = ['id', 'head', 'description', 'first_image', 'average_rating', 'grand_total']
+        fields = [
+            'id', 'head', 'description', 'first_image',
+            'average_rating', 'grand_total', 'is_wishlisted'
+        ]
 
     def get_first_image(self, obj):
         if obj.images and isinstance(obj.images, list):
@@ -239,7 +262,13 @@ class RecentProductSerializer(serializers.ModelSerializer):
 
     def get_grand_total(self, obj):
         return str(obj.grand_total) if hasattr(obj, 'grand_total') else None
-    
+
+    def get_is_wishlisted(self, obj):
+        user_id = self.context.get('user_id')
+        if not user_id:
+            return False
+        return Wishlist.objects.filter(user_id=user_id, product=obj).exists()
+  
 
 class ProductRatingSerializer(serializers.ModelSerializer):
     class Meta:
@@ -407,10 +436,11 @@ class FinestProductSerializer(serializers.ModelSerializer):
     first_image = serializers.SerializerMethodField()
     average_rating = serializers.SerializerMethodField()
     grand_total = serializers.DecimalField(max_digits=10, decimal_places=2)
+    is_wishlisted = serializers.SerializerMethodField()  # ✅ Add this line
 
     class Meta:
         model = Product
-        fields = ['id', 'head', 'description', 'first_image', 'average_rating', 'grand_total']
+        fields = ['id', 'head', 'description', 'first_image', 'average_rating', 'grand_total', 'is_wishlisted']
 
     def get_first_image(self, obj):
         if obj.images and isinstance(obj.images, list) and len(obj.images) > 0:
@@ -419,6 +449,12 @@ class FinestProductSerializer(serializers.ModelSerializer):
 
     def get_average_rating(self, obj):
         return obj.average_rating
+
+    def get_is_wishlisted(self, obj):
+        user_id = self.context.get('user_id')
+        if not user_id:
+            return False
+        return Wishlist.objects.filter(user_id=user_id, product=obj).exists()
 
 # serializers.py
 class SubCategorySerializer(serializers.ModelSerializer):

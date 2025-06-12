@@ -877,6 +877,7 @@ class RegisterDetailView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+
 class UserProfileListView(APIView):
     def get(self, request, *args, **kwargs):
         profiles = UserProfile.objects.all()

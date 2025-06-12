@@ -152,48 +152,60 @@ class BaseDetailAPIView(APIView):
 
 class ProductListCreateAPIView(APIView):
     def post(self, request, *args, **kwargs):
-        images = request.FILES.getlist('images')
+        images     = request.FILES.getlist('images')
         image_urls = []
 
         try:
-            for image in images[:5]:  # Limit upload to 5 images max
-                upload_result = uploader.upload(image)
-                image_urls.append(upload_result["secure_url"])
+            for image in images[:5]:
+                res = uploader.upload(image)
+                image_urls.append(res["secure_url"])
         except Exception as e:
-            return Response({"error": f"Image upload failed: {str(e)}"},
-                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"error": f"Image upload failed: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         data = request.data.copy()
         data['images'] = image_urls
 
         if 'ar_model_glb' in request.FILES:
-            glb_upload = uploader.upload(request.FILES['ar_model_glb'], resource_type='raw')
-            cloud_name = 'dvllntzo0'
-            public_id = glb_upload['public_id']
-            version = glb_upload['version']
-            data['ar_model_glb'] = f"https://res.cloudinary.com/{cloud_name}/raw/upload/v{version}/{public_id}"
+            glb = uploader.upload(request.FILES['ar_model_glb'], resource_type='raw')
+            data['ar_model_glb'] = f"https://res.cloudinary.com/dvllntzo0/raw/upload/v{glb['version']}/{glb['public_id']}"
 
         if 'ar_model_gltf' in request.FILES:
-            gltf_upload = uploader.upload(request.FILES['ar_model_gltf'], resource_type='raw')
-            data['ar_model_gltf'] = gltf_upload['secure_url']  # Use secure_url here for consistency
+            gltf = uploader.upload(request.FILES['ar_model_gltf'], resource_type='raw')
+            data['ar_model_gltf'] = gltf['secure_url']
 
-        serializer = ProductSerializer(data=data)
+        serializer = ProductSerializer(data=data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def get(self, request, *args, **kwargs):
-        classic_products = Product.objects.filter(is_classic=True)
-        other_products = Product.objects.filter(is_classic=False)
+        # Validate optional user_id UUID
+        raw_user_id = request.query_params.get('user_id')
+        if raw_user_id:
+            try:
+                uuid.UUID(raw_user_id)
+            except ValueError:
+                return Response({"error": "Invalid user_id"}, status=status.HTTP_400_BAD_REQUEST)
 
-        classic_data = ProductSerializer(classic_products, many=True).data
-        other_data = ProductSerializer(other_products, many=True).data
+        classic_qs = Product.objects.filter(is_classic=True)
+        other_qs   = Product.objects.filter(is_classic=False)
+
+        classic_data = ProductSerializer(
+            classic_qs,
+            many=True,
+            context={'request': request}
+        ).data
+
+        other_data = ProductSerializer(
+            other_qs,
+            many=True,
+            context={'request': request}
+        ).data
 
         return Response({
             "classic_products": classic_data,
-            "other_products": other_data
+            "other_products":  other_data
         }, status=status.HTTP_200_OK)
 
 
@@ -388,15 +400,20 @@ class ProductListAPIView(APIView):
 
 class ClassicProductListAPIView(APIView):
     def get(self, request, *args, **kwargs):
-        user_id = request.query_params.get('user_id')  # Optional
-
-        # Try to get user only if user_id is provided
+        raw_user_id = request.query_params.get('user_id')  # Optional
         user = None
-        if user_id:
-            if not user_id.isdigit():
-                return Response({"error": "Invalid user_id. Must be a number."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate & load UUID user_id if provided
+        if raw_user_id:
             try:
-                user = Register.objects.get(id=int(user_id))
+                user_uuid = uuid.UUID(raw_user_id)
+            except ValueError:
+                return Response(
+                    {"error": "Invalid user_id. Must be a valid UUID."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            try:
+                user = Register.objects.get(id=user_uuid)
             except Register.DoesNotExist:
                 return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -405,22 +422,20 @@ class ClassicProductListAPIView(APIView):
         serializer = ClassicProductListSerializer(products, many=True)
         products_data = serializer.data
 
-        # If user is found, check wishlist products
+        # If user is found, get their wishlist product IDs
         wishlist_product_ids = set()
         if user:
             wishlist_product_ids = set(
                 Wishlist.objects.filter(user=user).values_list('product_id', flat=True)
             )
 
-        # Add detail_url and wishlist status
+        # Add detail_url and wishlist flag
         for product in products_data:
-            product_id = product["id"]
-            product['detail_url'] = request.build_absolute_uri(f'/api/products/classic/{product_id}/')
-            product['wishlist'] = product_id in wishlist_product_ids
+            pid = product["id"]
+            product['detail_url'] = request.build_absolute_uri(f'/api/products/classic/{pid}/')
+            product['wishlist'] = pid in wishlist_product_ids
 
-        return Response({
-            "classic_products": products_data
-        }, status=status.HTTP_200_OK)
+        return Response({"classic_products": products_data}, status=status.HTTP_200_OK)
 
 class ClassicProductDetailAPIView(APIView):
 
@@ -1205,9 +1220,30 @@ class SevenCategoriesAPIView(APIView):
 
 class SevenCategoryDetailAPIView(APIView):
     def get(self, request, pk, *args, **kwargs):
+        # 1️⃣ Load & validate optional user_id UUID
+        raw_user_id = request.query_params.get('user_id')
+        user_uuid   = None
+        if raw_user_id:
+            try:
+                user_uuid = uuid.UUID(raw_user_id)
+            except ValueError:
+                return Response(
+                    {"error": "Invalid user_id. Must be a valid UUID."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # 2️⃣ Fetch the category and its products
         category = get_object_or_404(Category, pk=pk)
         products = Product.objects.filter(category=category)
-        serializer = FinestProductSerializer(products, many=True)
+
+        # 3️⃣ Serialize, passing user_id into context
+        serializer = FinestProductSerializer(
+            products,
+            many=True,
+            context={'user_id': user_uuid}
+        )
+
+        # 4️⃣ Return the response
         return Response({
             "category": category.name,
             "products": serializer.data

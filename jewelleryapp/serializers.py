@@ -288,6 +288,53 @@ class ClassicProductListSerializer(serializers.ModelSerializer):
         fields = ['id', 'head', 'images', 'grand_total']
 
 
+# class ProductSerializer(serializers.ModelSerializer):
+#     stone_price_total = serializers.SerializerMethodField()
+#     subtotal = serializers.SerializerMethodField()
+#     grand_total = serializers.SerializerMethodField()
+#     stones = ProductStoneSerializer(source='productstone_set', many=True, read_only=True)
+#     average_rating = serializers.SerializerMethodField()
+#     available_stock = serializers.IntegerField(read_only=True)
+#     stock_message = serializers.SerializerMethodField()
+#     is_wishlisted = serializers.SerializerMethodField()  # ✅ Add this
+
+#     class Meta:
+#         model = Product
+#         fields = '__all__'
+
+#     def get_stone_price_total(self, obj):
+#         return str(obj.stone_price_total)
+
+#     def get_subtotal(self, obj):
+#         return str(obj.subtotal)
+
+#     def get_grand_total(self, obj):
+#         return str(obj.grand_total)
+
+#     def get_average_rating(self, obj):
+#         return getattr(obj, 'average_rating', None)
+
+#     def get_stock_message(self, obj):
+#         return "Out of stock" if obj.available_stock == 0 else "In stock"
+
+#     def get_is_wishlisted(self, obj):
+#         request = self.context.get('request')
+#         if not request:
+#             return False
+
+#         user_id = request.query_params.get('user_id')
+
+#         try:
+#             user_uuid = uuid.UUID(user_id)
+#         except (TypeError, ValueError, AttributeError):
+#             return False  # Invalid UUID
+
+#         return Wishlist.objects.filter(user_id=user_uuid, product=obj).exists()
+
+#     def to_representation(self, instance):
+#         data = super().to_representation(instance)
+#         data['images'] = data.get('images') or []
+#         return data
 class ProductSerializer(serializers.ModelSerializer):
     stone_price_total = serializers.SerializerMethodField()
     subtotal = serializers.SerializerMethodField()
@@ -296,7 +343,7 @@ class ProductSerializer(serializers.ModelSerializer):
     average_rating = serializers.SerializerMethodField()
     available_stock = serializers.IntegerField(read_only=True)
     stock_message = serializers.SerializerMethodField()
-    is_wishlisted = serializers.SerializerMethodField()  # ✅ Add this
+    is_wishlisted = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -321,16 +368,19 @@ class ProductSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request:
             return False
+
         user_id = request.query_params.get('user_id')
-        if not user_id:
+        try:
+            user_uuid = uuid.UUID(user_id)
+        except (TypeError, ValueError, AttributeError):
             return False
-        return Wishlist.objects.filter(user_id=user_id, product=obj).exists()
+
+        return Wishlist.objects.filter(user_id=user_uuid, product=obj).exists()
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['images'] = data.get('images') or []
         return data
-
 
 class NavbarCategorySerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()

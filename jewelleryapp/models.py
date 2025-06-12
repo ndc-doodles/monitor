@@ -92,7 +92,9 @@ class Product(models.Model):
 
     is_classic = models.BooleanField(default=False)  # ✅ New field
     designing_charge = models.DecimalField(max_digits=10, decimal_places=2, default=0)  # ✅ New field
-
+    total_stock = models.PositiveIntegerField(default=0)
+    sold_count = models.PositiveIntegerField(default=0)
+    
     stones = models.ManyToManyField(Gemstone, related_name="products", blank=True)
     created_at = models.DateTimeField(auto_now_add=True) 
 
@@ -140,8 +142,21 @@ class Product(models.Model):
         if avg is None:
             return 0.0
         return round(avg, 2)
+    
+    @property
+    def available_stock(self):
+        return max(self.total_stock - self.sold_count, 0)
 
+    def sell(self, quantity):
+        if quantity > self.available_stock:
+            raise ValueError("Not enough stock available to sell.")
+        self.sold_count += quantity
+        self.save()
+        return self.available_stock == 0
 
+    def __str__(self):
+        return self.head
+    
 
 class ProductStone(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)

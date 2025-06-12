@@ -171,11 +171,41 @@ class MaterialSerializer(serializers.ModelSerializer):
 
 
 
+# class ProductShortSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Product
+#         fields = ['id', 'head', 'images', 'grand_total']
 class ProductShortSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='head', read_only=True)
+    product_image = serializers.SerializerMethodField()
+    price = serializers.SerializerMethodField()
+    stock_message = serializers.SerializerMethodField()
+
     class Meta:
         model = Product
-        fields = ['id', 'head', 'image', 'grand_total']
+        fields = ['id', 'product_name', 'product_image', 'price', 'stock_message']
 
+    def get_product_image(self, obj):
+        return obj.images[0] if obj.images else None
+
+    def get_price(self, obj):
+        return str(obj.grand_total)
+
+    def get_stock_message(self, obj):
+        return "Out of stock" if obj.available_stock == 0 else "In stock"
+
+# class WishlistSerializer(serializers.ModelSerializer):
+#     product = ProductShortSerializer(read_only=True)
+#     product_id = serializers.PrimaryKeyRelatedField(
+#         queryset=Product.objects.all(),
+#         source='product',
+#         write_only=True
+#     )
+#     user_id = serializers.IntegerField(write_only=True)
+
+#     class Meta:
+#         model = Wishlist
+#         fields = ['id', 'user_id', 'product', 'product_id', 'added_at']     
 class WishlistSerializer(serializers.ModelSerializer):
     product = ProductShortSerializer(read_only=True)
     product_id = serializers.PrimaryKeyRelatedField(
@@ -187,7 +217,7 @@ class WishlistSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Wishlist
-        fields = ['id', 'user_id', 'product', 'product_id', 'added_at']     
+        fields = ['id', 'user_id', 'product', 'product_id', 'added_at']
 
 
 class RecentProductSerializer(serializers.ModelSerializer):
@@ -235,7 +265,8 @@ class ProductSerializer(serializers.ModelSerializer):
     grand_total = serializers.SerializerMethodField()
     stones = ProductStoneSerializer(source='productstone_set', many=True, read_only=True)
     average_rating = serializers.SerializerMethodField()
-
+    available_stock = serializers.IntegerField(read_only=True)
+    stock_message = serializers.SerializerMethodField()  # <-- add this line
     description = serializers.CharField(
         max_length=1550, allow_blank=True, allow_null=True, required=False
     )
@@ -269,11 +300,13 @@ class ProductSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("Value must be valid JSON.")
         return value
 
+    def get_stock_message(self, obj):
+        return "Out of stock" if obj.available_stock == 0 else "In stock"
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['images'] = data.get('images') or []
         return data
-    
 
 class NavbarCategorySerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()

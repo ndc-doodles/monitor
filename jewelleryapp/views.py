@@ -198,6 +198,63 @@ class ProductListCreateAPIView(APIView):
 
 
 
+# class ProductDetailAPIView(APIView):
+#     def get_object(self, pk):
+#         try:
+#             return Product.objects.get(pk=pk)
+#         except Product.DoesNotExist:
+#             raise NotFound("Product not found")
+
+#     def get(self, request, pk, *args, **kwargs):
+#         product = self.get_object(pk)
+#         serializer = ProductSerializer(product)
+#         return Response(serializer.data)
+
+#     def put(self, request, pk, *args, **kwargs):
+#         product = self.get_object(pk)
+#         data = dict(request.data)
+
+#         new_images = request.FILES.getlist('images')
+#         if new_images:
+#             uploaded_images = []
+#             try:
+#                 for image in new_images[:5]:
+#                     upload_result = uploader.upload(image)
+#                     uploaded_images.append(upload_result["secure_url"])
+#                 data['images'] = json.dumps(uploaded_images)  # convert to JSON string
+#             except Exception as e:
+#                 return Response(
+#                     {"error": f"Image upload failed: {str(e)}"},
+#                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
+#                 )
+#         else:
+#             data.pop('images', None)
+
+#         if 'ar_model_glb' in request.FILES:
+#             glb_upload = uploader.upload(request.FILES['ar_model_glb'], resource_type='raw')
+#             cloud_name = 'dvllntzo0'
+#             public_id = glb_upload['public_id']
+#             version = glb_upload['version']
+#             data['ar_model_glb'] = f"https://res.cloudinary.com/{cloud_name}/raw/upload/v{version}/{public_id}"
+
+#         if 'ar_model_gltf' in request.FILES:
+#             gltf_upload = uploader.upload(request.FILES['ar_model_gltf'], resource_type='raw')
+#             data['ar_model_gltf'] = gltf_upload['secure_url']
+
+#         # ✅ Deserialize JSON string before validation
+#         if 'images' in data and isinstance(data['images'], str):
+#             try:
+#                 data['images'] = json.loads(data['images'])  # convert back to Python list
+#             except json.JSONDecodeError:
+#                 return Response({"images": ["Value must be valid JSON."]}, status=400)
+
+#         serializer = ProductSerializer(product, data=data, partial=True)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response(serializer.data)
+
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 class ProductDetailAPIView(APIView):
     def get_object(self, pk):
         try:
@@ -214,6 +271,7 @@ class ProductDetailAPIView(APIView):
         product = self.get_object(pk)
         data = dict(request.data)
 
+        # Handle image uploads
         new_images = request.FILES.getlist('images')
         if new_images:
             uploaded_images = []
@@ -221,39 +279,77 @@ class ProductDetailAPIView(APIView):
                 for image in new_images[:5]:
                     upload_result = uploader.upload(image)
                     uploaded_images.append(upload_result["secure_url"])
-                data['images'] = json.dumps(uploaded_images)  # convert to JSON string
+                data['images'] = json.dumps(uploaded_images)
             except Exception as e:
-                return Response(
-                    {"error": f"Image upload failed: {str(e)}"},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+                return Response({"error": f"Image upload failed: {str(e)}"}, status=500)
         else:
             data.pop('images', None)
 
+        # AR Models
         if 'ar_model_glb' in request.FILES:
             glb_upload = uploader.upload(request.FILES['ar_model_glb'], resource_type='raw')
-            cloud_name = 'dvllntzo0'
-            public_id = glb_upload['public_id']
-            version = glb_upload['version']
-            data['ar_model_glb'] = f"https://res.cloudinary.com/{cloud_name}/raw/upload/v{version}/{public_id}"
+            data['ar_model_glb'] = f"https://res.cloudinary.com/dvllntzo0/raw/upload/v{glb_upload['version']}/{glb_upload['public_id']}"
 
         if 'ar_model_gltf' in request.FILES:
             gltf_upload = uploader.upload(request.FILES['ar_model_gltf'], resource_type='raw')
             data['ar_model_gltf'] = gltf_upload['secure_url']
 
-        # ✅ Deserialize JSON string before validation
+        # Decode JSON string if needed
         if 'images' in data and isinstance(data['images'], str):
             try:
-                data['images'] = json.loads(data['images'])  # convert back to Python list
+                data['images'] = json.loads(data['images'])
             except json.JSONDecodeError:
                 return Response({"images": ["Value must be valid JSON."]}, status=400)
 
+        # Messages
+        messages = []
+
+        # Handle total_stock increment
+        if 'total_stock' in data:
+            try:
+                stock_value = data['total_stock'][0] if isinstance(data['total_stock'], list) else data['total_stock']
+                added_stock = int(stock_value)
+                product.total_stock += added_stock
+                product.save()
+                messages.append(f"Added {added_stock} to stock.")
+            except ValueError:
+                return Response({"total_stock": ["A valid integer is required."]}, status=400)
+            data.pop('total_stock')
+
+        # Handle sold_count increment
+        if 'sold_count' in data:
+            try:
+                sold_value = data['sold_count'][0] if isinstance(data['sold_count'], list) else data['sold_count']
+                sold_increment = int(sold_value)
+                if sold_increment < 0:
+                    return Response({"sold_count": ["Sold count cannot be negative."]}, status=400)
+
+                available_stock = product.total_stock - product.sold_count
+                if sold_increment > available_stock:
+                    return Response({
+                        "message": "Not enough stock to sell.",
+                        "product": ProductSerializer(product).data
+                    }, status=400)
+
+                product.sold_count += sold_increment
+                product.save()
+                messages.append(f"{sold_increment} items sold.")
+            except ValueError:
+                return Response({"sold_count": ["A valid integer is required."]}, status=400)
+            data.pop('sold_count')
+
+        # Save other fields (partial update)
         serializer = ProductSerializer(product, data=data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data)
+            return Response({
+                "message": " ".join(messages) or "Product updated successfully.",
+                "product": serializer.data
+            })
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=400)
+
+
 
 # class ProductDetailAPIView(APIView):
 #     def put(self, request, pk, *args, **kwargs):
@@ -817,17 +913,14 @@ def get_tokens_for_user(user):
     }
 
 class WishlistAPIView(APIView):
-    # ✅ GET all wishlist items for a user
+    # ✅ GET: All wishlist items for a user
     def get(self, request):
         user_id = request.query_params.get("user_id")
         if not user_id:
             return Response({"error": "user_id query parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            user_id = int(user_id)  # Validate and sanitize input
             user = Register.objects.get(id=user_id)
-        except ValueError:
-            return Response({"error": "Invalid user_id. Must be a number."}, status=status.HTTP_400_BAD_REQUEST)
         except Register.DoesNotExist:
             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
 
@@ -835,29 +928,47 @@ class WishlistAPIView(APIView):
         serializer = WishlistSerializer(wishlist, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    # ✅ POST (Add product to wishlist)
+    # ✅ POST: Add to wishlist
     def post(self, request):
-        serializer = WishlistSerializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.validated_data.get('user_id')  # This will be a Register object due to serializer
-            product = serializer.validated_data.get('product')
+        user_id = request.data.get("user_id")
+        product_id = request.data.get("product_id")
 
-            wishlist_item, created = Wishlist.objects.get_or_create(user=user, product=product)
+        if not user_id or not product_id:
+            return Response({"error": "Both user_id and product_id are required"}, status=status.HTTP_400_BAD_REQUEST)
 
-            if created:
-                return Response({"message": "Product added to wishlist"}, status=status.HTTP_201_CREATED)
-            else:
-                return Response({"message": "Product already in wishlist"}, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    # ✅ DELETE wishlist item
-    def delete(self, request, wishlist_id):
         try:
-            wishlist_item = Wishlist.objects.get(id=wishlist_id)
+            user = Register.objects.get(id=user_id)
+            product = Product.objects.get(id=product_id)
+        except Register.DoesNotExist:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Product.DoesNotExist:
+            return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        wishlist_item, created = Wishlist.objects.get_or_create(user=user, product=product)
+        if created:
+            return Response({"message": "Product added to wishlist"}, status=status.HTTP_201_CREATED)
+        else:
+            return Response({"message": "Product already in wishlist"}, status=status.HTTP_200_OK)
+
+    # ✅ DELETE: Remove by user_id and product_id (optional version)
+    def delete(self, request):
+        user_id = request.data.get("user_id")
+        product_id = request.data.get("product_id")
+
+        if not user_id or not product_id:
+            return Response({"error": "Both user_id and product_id are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = Register.objects.get(id=user_id)
+            product = Product.objects.get(id=product_id)
+            wishlist_item = Wishlist.objects.get(user=user, product=product)
             wishlist_item.delete()
             return Response({"message": "Removed from wishlist"}, status=status.HTTP_204_NO_CONTENT)
+        except (Register.DoesNotExist, Product.DoesNotExist):
+            return Response({"error": "User or Product not found"}, status=status.HTTP_404_NOT_FOUND)
         except Wishlist.DoesNotExist:
             return Response({"error": "Wishlist item not found"}, status=status.HTTP_404_NOT_FOUND)
+
 
 class UserLoginView(APIView):
     permission_classes = []  # No authentication required for login

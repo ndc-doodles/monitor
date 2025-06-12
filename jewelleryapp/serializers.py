@@ -266,10 +266,8 @@ class ProductSerializer(serializers.ModelSerializer):
     stones = ProductStoneSerializer(source='productstone_set', many=True, read_only=True)
     average_rating = serializers.SerializerMethodField()
     available_stock = serializers.IntegerField(read_only=True)
-    stock_message = serializers.SerializerMethodField()  # <-- add this line
-    description = serializers.CharField(
-        max_length=1550, allow_blank=True, allow_null=True, required=False
-    )
+    stock_message = serializers.SerializerMethodField()
+    is_wishlisted = serializers.SerializerMethodField()  # ✅ Add this
 
     class Meta:
         model = Product
@@ -287,26 +285,23 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_average_rating(self, obj):
         return getattr(obj, 'average_rating', None)
 
-    def validate_description(self, value):
-        if value is None:
-            return value
-        return str(value)
-
-    def validate_images(self, value):
-        if isinstance(value, str):
-            try:
-                return json.loads(value)
-            except json.JSONDecodeError:
-                raise serializers.ValidationError("Value must be valid JSON.")
-        return value
-
     def get_stock_message(self, obj):
         return "Out of stock" if obj.available_stock == 0 else "In stock"
+
+    def get_is_wishlisted(self, obj):
+        request = self.context.get('request')
+        if not request:
+            return False
+        user_id = request.query_params.get('user_id')
+        if not user_id:
+            return False
+        return Wishlist.objects.filter(user_id=user_id, product=obj).exists()
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['images'] = data.get('images') or []
         return data
+
 
 class NavbarCategorySerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()

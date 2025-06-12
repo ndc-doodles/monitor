@@ -262,10 +262,15 @@ class ProductDetailAPIView(APIView):
         except Product.DoesNotExist:
             raise NotFound("Product not found")
 
+    # def get(self, request, pk, *args, **kwargs):
+    #     product = self.get_object(pk)
+    #     serializer = ProductSerializer(product)
+    #     return Response(serializer.data)
     def get(self, request, pk, *args, **kwargs):
         product = self.get_object(pk)
-        serializer = ProductSerializer(product)
+        serializer = ProductSerializer(product, context={'request': request})
         return Response(serializer.data)
+
 
     def put(self, request, pk, *args, **kwargs):
         product = self.get_object(pk)

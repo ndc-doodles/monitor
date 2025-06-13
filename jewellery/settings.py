@@ -50,6 +50,7 @@ INSTALLED_APPS = [
    
 
 ]
+AUTH_USER_MODEL = 'jewelleryapp.Register'
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = True
@@ -240,5 +241,17 @@ REST_FRAMEWORK = {
     ],
 }
 
-
+from datetime import timedelta
 # AUTH_USER_MODEL = 'auth.User'
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": SECRET_KEY,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "USER_ID_FIELD": "id",                  # default is 'id'
+    "USER_ID_CLAIM": "user_id",             # default is 'user_id'
+    "TOKEN_TYPE_CLAIM": "token_type",
+}

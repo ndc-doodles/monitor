@@ -21,6 +21,7 @@ urlpatterns = [
     path('', views.index),
     path('api/categories/', CategoryListCreateAPIView.as_view()),
     path('api/categories/<int:pk>/', CategoryDetailAPIView.as_view()),
+    path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
 
     # Metal
     path('api/metals/', MetalListCreateAPIView.as_view()),

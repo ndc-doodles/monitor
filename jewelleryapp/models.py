@@ -8,13 +8,14 @@ from django.core.exceptions import ValidationError
 from django.contrib.auth.hashers import make_password
 from django.utils import timezone 
 from django.contrib.auth import get_user_model
-User = get_user_model()
+# User = get_user_model()
 from decimal import Decimal, ROUND_HALF_UP
 from rest_framework import serializers
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 import random
 
 from django.db.models import Avg
+from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 # Base material like Gold
 # , Silver, Diamond, etc.
 class Material(models.Model):
@@ -259,25 +260,84 @@ class Contact(models.Model):
     def __str__(self):
         return self.number
 import uuid
-class Register(models.Model):
+
+class RegisterManager(BaseUserManager):
+    def create_user(self, username, mobile, password=None, **extra_fields):
+        if not username:
+            raise ValueError('The Username must be set')
+        if not mobile:
+            raise ValueError('The Mobile number must be set')
+
+        user = self.model(username=username, mobile=mobile, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, username, mobile, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+
+        return self.create_user(username, mobile, password, **extra_fields)
+
+
+class Register(AbstractBaseUser, PermissionsMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     username = models.CharField(max_length=150, unique=True)
-    password = models.CharField(max_length=128)
-    confirmpassword = models.CharField(max_length=128)
-    mobile = models.BigIntegerField()
+    mobile = models.BigIntegerField(unique=True)
+    is_active = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)
+
+    objects = RegisterManager()
+
+    USERNAME_FIELD = 'mobile'
+    REQUIRED_FIELDS = ['username']
 
     def __str__(self):
         return self.username
 
-    def save(self, *args, **kwargs):
-        # Ensure passwords match before saving
-        if self.password != self.confirmpassword:
-            raise ValidationError("Passwords do not match")
+class PhoneOTP(models.Model):
+    phone = models.CharField(max_length=15, unique=True)
+    otp = models.CharField(max_length=6)
+    is_verified = models.BooleanField(default=False)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.phone
+
+
+
+# class Register(models.Model):
+#     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+#     username = models.CharField(max_length=150, unique=True)
+#     password = models.CharField(max_length=128)
+#     confirmpassword = models.CharField(max_length=128)
+#     mobile = models.BigIntegerField()
+
+#     def __str__(self):
+#         return self.username
+
+#     def save(self, *args, **kwargs):
+#         # Ensure passwords match before saving
+#         if self.password != self.confirmpassword:
+#             raise ValidationError("Passwords do not match")
         
-        # Hash the password before saving
-        self.password = make_password(self.password)
-        super().save(*args, **kwargs)
+#         # Hash the password before saving
+#         self.password = make_password(self.password)
+#         super().save(*args, **kwargs)
     
+
+# class PhoneOTP(models.Model):
+#     phone = models.CharField(max_length=15, unique=True)
+#     otp = models.CharField(max_length=6)
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     is_verified = models.BooleanField(default=False)
+
+#     def __str__(self):
+#         return f"{self.phone} - {self.otp} - Verified: {self.is_verified}"
+
+#     def generate_otp(self):
+#         import random
+#         self.otp = str(random.randint(100000, 999999))
 
 
 class UserProfile(models.Model):
@@ -292,34 +352,27 @@ class UserProfile(models.Model):
     image = models.ImageField(upload_to='profile_images/', blank=True, null=True)
 
     def __str__(self):
-        return self.full_name      
-class PhoneOTP(models.Model):
-    phone = models.CharField(max_length=15, unique=True)
-    otp = models.CharField(max_length=6)
-    created_at = models.DateTimeField(auto_now_add=True)
-    is_verified = models.BooleanField(default=False)
-
-    def __str__(self):
-        return f"{self.phone} - {self.otp} - Verified: {self.is_verified}"
-
-    def generate_otp(self):
-        import random
-        self.otp = str(random.randint(100000, 999999))
-
+        return self.full_name 
+         
 # wishlist functioning
 
 
 class Wishlist(models.Model):
-    user = models.ForeignKey(Register, on_delete=models.CASCADE, related_name='wishlist_items')
+    user = models.ForeignKey(
+        'Register',
+        on_delete=models.CASCADE,
+        related_name='wishlist_items',
+        to_field='id',  # Optional, but good practice
+        db_column='user_id'
+    )
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='wishlisted_by')
     added_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('user', 'product')  # A user can't wishlist the same product twice
+        unique_together = ('user', 'product')
 
     def __str__(self):
-        return f"{self.user.username} -> {self.product.head}"
-
+        return f"{self.user.username} -> {self.product.name}"
 
 
 class UserVisit(models.Model):

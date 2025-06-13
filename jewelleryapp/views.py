@@ -4,7 +4,7 @@ from .models import *
 from django.contrib.auth import logout
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.hashers import check_password
-
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from django.db.models import Q
 from rest_framework.exceptions import NotFound
 from django.conf import settings
@@ -151,6 +151,24 @@ class BaseDetailAPIView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 class ProductListCreateAPIView(APIView):
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get(self, request, *args, **kwargs):
+        user = request.user if request.user.is_authenticated else None
+
+        classic_qs = Product.objects.filter(is_classic=True)
+        other_qs   = Product.objects.filter(is_classic=False)
+
+        context = {'request': request}  # Enables access to request.user in serializer
+
+        classic_data = ProductSerializer(classic_qs, many=True, context=context).data
+        other_data   = ProductSerializer(other_qs, many=True, context=context).data
+
+        return Response({
+            "classic_products": classic_data,
+            "other_products": other_data
+        }, status=status.HTTP_200_OK)
+
     def post(self, request, *args, **kwargs):
         images     = request.FILES.getlist('images')
         image_urls = []
@@ -178,35 +196,6 @@ class ProductListCreateAPIView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def get(self, request, *args, **kwargs):
-        # Validate optional user_id UUID
-        raw_user_id = request.query_params.get('user_id')
-        if raw_user_id:
-            try:
-                uuid.UUID(raw_user_id)
-            except ValueError:
-                return Response({"error": "Invalid user_id"}, status=status.HTTP_400_BAD_REQUEST)
-
-        classic_qs = Product.objects.filter(is_classic=True)
-        other_qs   = Product.objects.filter(is_classic=False)
-
-        classic_data = ProductSerializer(
-            classic_qs,
-            many=True,
-            context={'request': request}
-        ).data
-
-        other_data = ProductSerializer(
-            other_qs,
-            many=True,
-            context={'request': request}
-        ).data
-
-        return Response({
-            "classic_products": classic_data,
-            "other_products":  other_data
-        }, status=status.HTTP_200_OK)
 
 
 
@@ -274,21 +263,15 @@ class ProductDetailAPIView(APIView):
         except Product.DoesNotExist:
             raise NotFound("Product not found")
 
-    # def get(self, request, pk, *args, **kwargs):
-    #     product = self.get_object(pk)
-    #     serializer = ProductSerializer(product)
-    #     return Response(serializer.data)
     def get(self, request, pk, *args, **kwargs):
         product = self.get_object(pk)
         serializer = ProductSerializer(product, context={'request': request})
         return Response(serializer.data)
 
-
     def put(self, request, pk, *args, **kwargs):
         product = self.get_object(pk)
         data = dict(request.data)
 
-        # Handle image uploads
         new_images = request.FILES.getlist('images')
         if new_images:
             uploaded_images = []
@@ -302,7 +285,6 @@ class ProductDetailAPIView(APIView):
         else:
             data.pop('images', None)
 
-        # AR Models
         if 'ar_model_glb' in request.FILES:
             glb_upload = uploader.upload(request.FILES['ar_model_glb'], resource_type='raw')
             data['ar_model_glb'] = f"https://res.cloudinary.com/dvllntzo0/raw/upload/v{glb_upload['version']}/{glb_upload['public_id']}"
@@ -311,17 +293,14 @@ class ProductDetailAPIView(APIView):
             gltf_upload = uploader.upload(request.FILES['ar_model_gltf'], resource_type='raw')
             data['ar_model_gltf'] = gltf_upload['secure_url']
 
-        # Decode JSON string if needed
         if 'images' in data and isinstance(data['images'], str):
             try:
                 data['images'] = json.loads(data['images'])
             except json.JSONDecodeError:
                 return Response({"images": ["Value must be valid JSON."]}, status=400)
 
-        # Messages
         messages = []
 
-        # Handle total_stock increment
         if 'total_stock' in data:
             try:
                 stock_value = data['total_stock'][0] if isinstance(data['total_stock'], list) else data['total_stock']
@@ -333,7 +312,6 @@ class ProductDetailAPIView(APIView):
                 return Response({"total_stock": ["A valid integer is required."]}, status=400)
             data.pop('total_stock')
 
-        # Handle sold_count increment
         if 'sold_count' in data:
             try:
                 sold_value = data['sold_count'][0] if isinstance(data['sold_count'], list) else data['sold_count']
@@ -355,7 +333,6 @@ class ProductDetailAPIView(APIView):
                 return Response({"sold_count": ["A valid integer is required."]}, status=400)
             data.pop('sold_count')
 
-        # Save other fields (partial update)
         serializer = ProductSerializer(product, data=data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -365,7 +342,6 @@ class ProductDetailAPIView(APIView):
             })
 
         return Response(serializer.errors, status=400)
-
 
 
 # class ProductDetailAPIView(APIView):
@@ -399,43 +375,34 @@ class ProductListAPIView(APIView):
         }, status=status.HTTP_200_OK)
 
 class ClassicProductListAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+
     def get(self, request, *args, **kwargs):
-        raw_user_id = request.query_params.get('user_id')  # Optional
+        raw_user_id = request.query_params.get('user_id')
         user = None
 
-        # Validate & load UUID user_id if provided
         if raw_user_id:
             try:
                 user_uuid = uuid.UUID(raw_user_id)
-            except ValueError:
-                return Response(
-                    {"error": "Invalid user_id. Must be a valid UUID."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            try:
                 user = Register.objects.get(id=user_uuid)
-            except Register.DoesNotExist:
-                return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+            except (ValueError, Register.DoesNotExist):
+                pass
 
-        # Fetch classic products
         products = Product.objects.filter(is_classic=True)
         serializer = ClassicProductListSerializer(products, many=True)
         products_data = serializer.data
 
-        # If user is found, get their wishlist product IDs
         wishlist_product_ids = set()
         if user:
-            wishlist_product_ids = set(
-                Wishlist.objects.filter(user=user).values_list('product_id', flat=True)
-            )
+            wishlist_product_ids = set(str(w.product.id) for w in Wishlist.objects.filter(user=user).select_related('product'))
 
-        # Add detail_url and wishlist flag
         for product in products_data:
-            pid = product["id"]
+            pid = str(product["id"])
             product['detail_url'] = request.build_absolute_uri(f'/api/products/classic/{pid}/')
             product['wishlist'] = pid in wishlist_product_ids
 
         return Response({"classic_products": products_data}, status=status.HTTP_200_OK)
+
 
 class ClassicProductDetailAPIView(APIView):
 
@@ -445,22 +412,20 @@ class ClassicProductDetailAPIView(APIView):
         except Product.DoesNotExist:
             raise NotFound("Classic product not found")
 
-    # ✅ POST: Create a new classic product
     def post(self, request, *args, **kwargs):
         data = request.data.copy()
-        data['is_classic'] = True  # Force it to be a classic product
+        data['is_classic'] = True
 
         new_images = request.FILES.getlist('images')
         if new_images:
             uploaded_images = []
             try:
-                for image in new_images[:5]:  # Limit to 5
+                for image in new_images[:5]:
                     upload_result = uploader.upload(image)
                     uploaded_images.append(upload_result['secure_url'])
                 data['images'] = uploaded_images
             except Exception as e:
-                return Response({"error": f"Image upload failed: {str(e)}"},
-                                status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                return Response({"error": f"Image upload failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         if 'ar_model_glb' in request.FILES:
             glb_upload = uploader.upload(request.FILES['ar_model_glb'], resource_type='raw')
@@ -479,13 +444,11 @@ class ClassicProductDetailAPIView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    # ✅ GET: Get classic product by ID
     def get(self, request, pk, *args, **kwargs):
         product = self.get_object(pk)
         serializer = ProductSerializer(product)
         return Response(serializer.data)
 
-    # ✅ PUT: Update classic product
     def put(self, request, pk, *args, **kwargs):
         product = self.get_object(pk)
         data = request.data.copy()
@@ -499,10 +462,7 @@ class ClassicProductDetailAPIView(APIView):
                     uploaded_images.append(upload_result['secure_url'])
                 data['images'] = uploaded_images
             except Exception as e:
-                return Response(
-                    {"error": f"Image upload failed: {str(e)}"},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+                return Response({"error": f"Image upload failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
             data.pop('images', None)
 
@@ -523,11 +483,11 @@ class ClassicProductDetailAPIView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    # ✅ DELETE: Delete classic product
     def delete(self, request, pk, *args, **kwargs):
         product = self.get_object(pk)
         product.delete()
         return Response({"detail": "Classic product deleted."}, status=status.HTTP_204_NO_CONTENT)
+
 
     
 
@@ -933,62 +893,134 @@ def get_tokens_for_user(user):
         'access': str(refresh.access_token),
     }
 
+# class WishlistAPIView(APIView):
+
+#     # ✅ GET: List all wishlist items for a user
+#     def get(self, request):
+#         user_id = request.query_params.get("user_id")
+#         if not user_id:
+#             return Response({"error": "user_id query parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+#         try:
+#             user = Register.objects.get(id=user_id)
+#         except Register.DoesNotExist:
+#             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+#         wishlist = Wishlist.objects.filter(user=user)
+#         serializer = WishlistSerializer(wishlist, many=True)
+#         return Response(serializer.data, status=status.HTTP_200_OK)
+
+#     # ✅ POST: Add product to wishlist
+#     def post(self, request):
+#         user_id = request.data.get("user_id")
+#         product_id = request.data.get("product_id")
+
+#         if not user_id or not product_id:
+#             return Response({"error": "Both user_id and product_id are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+#         try:
+#             user = Register.objects.get(id=user_id)
+#             product = Product.objects.get(id=product_id)
+#         except Register.DoesNotExist:
+#             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+#         except Product.DoesNotExist:
+#             return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
+
+#         wishlist_item, created = Wishlist.objects.get_or_create(user=user, product=product)
+#         if created:
+#             return Response({"message": "Product added to wishlist"}, status=status.HTTP_201_CREATED)
+#         else:
+#             return Response({"message": "Product already in wishlist"}, status=status.HTTP_200_OK)
+
+#     # ✅ DELETE: Remove product from wishlist
+#     def delete(self, request):
+#         user_id = request.data.get("user_id")
+#         product_id = request.data.get("product_id")
+
+#         if not user_id or not product_id:
+#             return Response({"error": "Both user_id and product_id are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+#         try:
+#             user = Register.objects.get(id=user_id)
+#             product = Product.objects.get(id=product_id)
+#             wishlist_item = Wishlist.objects.get(user=user, product=product)
+#             wishlist_item.delete()
+#             return Response({"message": "Removed from wishlist"}, status=status.HTTP_204_NO_CONTENT)
+#         except (Register.DoesNotExist, Product.DoesNotExist):
+#             return Response({"error": "User or Product not found"}, status=status.HTTP_404_NOT_FOUND)
+#         except Wishlist.DoesNotExist:
+#             return Response({"error": "Wishlist item not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+# class WishlistAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request):
+#         user = request.user
+#         wishlist_items = Wishlist.objects.filter(user=user).select_related('product')
+
+#         products = [item.product for item in wishlist_items]
+#         serializer = ProductShortSerializer(products, many=True, context={'request': request})
+        
+#         return Response(serializer.data)
+
+
+
+from rest_framework_simplejwt.views import TokenObtainPairView
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
+
 class WishlistAPIView(APIView):
-    # ✅ GET: All wishlist items for a user
+    permission_classes = [permissions.IsAuthenticated]
+
     def get(self, request):
-        user_id = request.query_params.get("user_id")
-        if not user_id:
-            return Response({"error": "user_id query parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            user = Register.objects.get(id=user_id)
-        except Register.DoesNotExist:
-            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        wishlist = Wishlist.objects.filter(user=user)
-        serializer = WishlistSerializer(wishlist, many=True)
+        user = request.user
+        wishlist = Wishlist.objects.filter(user=user).select_related('product')
+        serializer = WishlistSerializer(wishlist, many=True, context={'request': request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    # ✅ POST: Add to wishlist
     def post(self, request):
-        user_id = request.data.get("user_id")
+        user = request.user
         product_id = request.data.get("product_id")
 
-        if not user_id or not product_id:
-            return Response({"error": "Both user_id and product_id are required"}, status=status.HTTP_400_BAD_REQUEST)
+        if not product_id:
+            return Response({"error": "product_id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            user = Register.objects.get(id=user_id)
             product = Product.objects.get(id=product_id)
-        except Register.DoesNotExist:
-            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
         except Product.DoesNotExist:
             return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
 
         wishlist_item, created = Wishlist.objects.get_or_create(user=user, product=product)
-        if created:
-            return Response({"message": "Product added to wishlist"}, status=status.HTTP_201_CREATED)
-        else:
-            return Response({"message": "Product already in wishlist"}, status=status.HTTP_200_OK)
 
-    # ✅ DELETE: Remove by user_id and product_id (optional version)
+        wishlist = Wishlist.objects.filter(user=user).select_related('product')
+        serializer = WishlistSerializer(wishlist, many=True, context={'request': request})
+
+        if created:
+            return Response({"message": "Product added to wishlist", "wishlist": serializer.data}, status=status.HTTP_201_CREATED)
+        else:
+            return Response({"message": "Product already in wishlist", "wishlist": serializer.data}, status=status.HTTP_200_OK)
+
     def delete(self, request):
-        user_id = request.data.get("user_id")
+        user = request.user
         product_id = request.data.get("product_id")
 
-        if not user_id or not product_id:
-            return Response({"error": "Both user_id and product_id are required"}, status=status.HTTP_400_BAD_REQUEST)
+        if not product_id:
+            return Response({"error": "product_id is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            user = Register.objects.get(id=user_id)
             product = Product.objects.get(id=product_id)
-            wishlist_item = Wishlist.objects.get(user=user, product=product)
-            wishlist_item.delete()
+        except Product.DoesNotExist:
+            return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        deleted, _ = Wishlist.objects.filter(user=user, product=product).delete()
+        if deleted:
             return Response({"message": "Removed from wishlist"}, status=status.HTTP_204_NO_CONTENT)
-        except (Register.DoesNotExist, Product.DoesNotExist):
-            return Response({"error": "User or Product not found"}, status=status.HTTP_404_NOT_FOUND)
-        except Wishlist.DoesNotExist:
+        else:
             return Response({"error": "Wishlist item not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
 
 
 class UserLoginView(APIView):
@@ -1982,23 +2014,46 @@ class SearchGifAPIView(APIView):
 
 
 
+# class SendOTP(APIView):
+#     def post(self, request):
+#         serializer = PhoneSerializer(data=request.data)
+#         if serializer.is_valid():
+#             phone = serializer.validated_data['phone']
+
+#             from django.contrib.auth.models import User
+#             if Register.objects.filter(username=phone).exists():
+#                 return Response({'error': 'Superuser login not allowed via OTP.'}, status=status.HTTP_403_FORBIDDEN)
+
+#             otp_obj, created = PhoneOTP.objects.update_or_create(
+#                 phone=phone,
+#                 defaults={'is_verified': False}
+#             )
+#             send_otp_via_sms(phone, otp_obj.otp)
+#             return Response({'message': 'OTP sent successfully.'}, status=status.HTTP_200_OK)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 class SendOTP(APIView):
     def post(self, request):
         serializer = PhoneSerializer(data=request.data)
         if serializer.is_valid():
             phone = serializer.validated_data['phone']
 
-            from django.contrib.auth.models import User
-            if User.objects.filter(username=phone).exists():
+            if Register.objects.filter(username=phone).exists():
                 return Response({'error': 'Superuser login not allowed via OTP.'}, status=status.HTTP_403_FORBIDDEN)
 
-            otp_obj, created = PhoneOTP.objects.update_or_create(
+            otp = str(random.randint(100000, 999999))
+
+            otp_obj, _ = PhoneOTP.objects.update_or_create(
                 phone=phone,
-                defaults={'is_verified': False}
+                defaults={'otp': otp, 'is_verified': False}
             )
-            send_otp_via_sms(phone, otp_obj.otp)
+
+            send_otp_via_sms(phone, otp)
             return Response({'message': 'OTP sent successfully.'}, status=status.HTTP_200_OK)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 
 # class VerifyOTP(APIView):
 #     def post(self, request):
@@ -2125,6 +2180,7 @@ class SendOTP(APIView):
 #         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 import uuid
+
 # class VerifyOTP(APIView):
 #     def post(self, request):
 #         serializer = VerifyOTPSerializer(data=request.data)
@@ -2140,7 +2196,7 @@ import uuid
 #                 if User.objects.filter(username=phone).exists():
 #                     return Response({'error': 'Superuser login not allowed via OTP.'}, status=status.HTTP_403_FORBIDDEN)
 
-#                 # Register model should have UUIDField as primary key
+#                 # Create or get the Register user
 #                 user, created = Register.objects.get_or_create(
 #                     mobile=phone,
 #                     defaults={
@@ -2150,81 +2206,68 @@ import uuid
 #                     }
 #                 )
 
+#                 # ✅ Create UserProfile if not exists
+#                 from jewelleryapp.models import UserProfile  # adjust path to your model
+
+#                 if not hasattr(user, 'profile'):
+#                     UserProfile.objects.create(
+#                         username=user,
+#                         full_name=user.username,
+#                         phone_number=user.mobile
+#                     )
+#                     print("✅ UserProfile created for", user.username)
+
 #                 print(f"OTP verified for user: {user.username}, ID: {user.id}")
 
 #                 refresh = RefreshToken.for_user(user)
 
 #                 return Response({
 #                     'message': 'OTP verified.',
-#                     'id': str(user.id),  # UUID formatted as string
+#                     'id': str(user.id),
 #                     'username': user.username,
 #                     'token': {
 #                         'refresh': str(refresh),
 #                         'access': str(refresh.access_token),
 #                     }
 #                 }, status=status.HTTP_200_OK)
+
 #             except PhoneOTP.DoesNotExist:
 #                 return Response({'error': 'Invalid OTP or phone number.'}, status=status.HTTP_400_BAD_REQUEST)
 
 #         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+
+
 class VerifyOTP(APIView):
     def post(self, request):
-        serializer = VerifyOTPSerializer(data=request.data)
-        if serializer.is_valid():
-            phone = serializer.validated_data['phone']
-            otp = serializer.validated_data['otp']
-            try:
-                otp_obj = PhoneOTP.objects.get(phone=phone, otp=otp)
-                otp_obj.is_verified = True
-                otp_obj.save()
+        phone = request.data.get("phone")
+        otp = request.data.get("otp")
 
-                # Prevent superuser login via OTP
-                if User.objects.filter(username=phone).exists():
-                    return Response({'error': 'Superuser login not allowed via OTP.'}, status=status.HTTP_403_FORBIDDEN)
+        if not phone or not otp:
+            return Response({"error": "Phone and OTP are required"}, status=400)
 
-                # Create or get the Register user
-                user, created = Register.objects.get_or_create(
-                    mobile=phone,
-                    defaults={
-                        'username': phone,
-                        'password': 'otp-auth',
-                        'confirmpassword': 'otp-auth'
-                    }
-                )
+        try:
+            otp_obj = PhoneOTP.objects.get(phone=phone, otp=otp, is_verified=False)
+        except PhoneOTP.DoesNotExist:
+            return Response({"error": "Invalid OTP"}, status=400)
 
-                # ✅ Create UserProfile if not exists
-                from jewelleryapp.models import UserProfile  # adjust path to your model
+        otp_obj.is_verified = True
+        otp_obj.save()
 
-                if not hasattr(user, 'profile'):
-                    UserProfile.objects.create(
-                        username=user,
-                        full_name=user.username,
-                        phone_number=user.mobile
-                    )
-                    print("✅ UserProfile created for", user.username)
+        user, created = Register.objects.get_or_create(
+            mobile=phone,
+            defaults={"username": f"user_{phone[-4:]}", "password": "otp_auth"}  # Placeholder password
+        )
 
-                print(f"OTP verified for user: {user.username}, ID: {user.id}")
-
-                refresh = RefreshToken.for_user(user)
-
-                return Response({
-                    'message': 'OTP verified.',
-                    'id': str(user.id),
-                    'username': user.username,
-                    'token': {
-                        'refresh': str(refresh),
-                        'access': str(refresh.access_token),
-                    }
-                }, status=status.HTTP_200_OK)
-
-            except PhoneOTP.DoesNotExist:
-                return Response({'error': 'Invalid OTP or phone number.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+            "user_id": str(user.id),
+            "username": user.username,
+            "mobile": user.mobile,
+        }, status=200)
 
 
 

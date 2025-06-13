@@ -86,6 +86,20 @@ class ContactSerializer(serializers.ModelSerializer):
         model = Contact
         fields = '__all__'
     
+
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token['user_id'] = str(user.id)  # ensure UUID is string
+        token['username'] = user.username
+        return token
+
+
+
+
 # class RegisterSerializer(serializers.ModelSerializer):
 #     class Meta:
 #         model = Register
@@ -366,16 +380,14 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def get_is_wishlisted(self, obj):
         request = self.context.get('request')
-        if not request:
+        if not request or not hasattr(request, 'user'):
             return False
 
-        user_id = request.query_params.get('user_id')
-        try:
-            user_uuid = uuid.UUID(user_id)
-        except (TypeError, ValueError, AttributeError):
+        user = request.user
+        if not user or not user.is_authenticated:
             return False
 
-        return Wishlist.objects.filter(user_id=user_uuid, product=obj).exists()
+        return Wishlist.objects.filter(user=user, product=obj).exists()
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

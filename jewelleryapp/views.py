@@ -1250,37 +1250,60 @@ class SevenCategoriesAPIView(APIView):
         serializer = CategorySerializer(categories, many=True)
         return Response({"categories": serializer.data}, status=status.HTTP_200_OK)
 
-class SevenCategoryDetailAPIView(APIView):
-    def get(self, request, pk, *args, **kwargs):
-        # 1️⃣ Load & validate optional user_id UUID
-        raw_user_id = request.query_params.get('user_id')
-        user_uuid   = None
-        if raw_user_id:
-            try:
-                user_uuid = uuid.UUID(raw_user_id)
-            except ValueError:
-                return Response(
-                    {"error": "Invalid user_id. Must be a valid UUID."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+# class SevenCategoryDetailAPIView(APIView):
+#     def get(self, request, pk, *args, **kwargs):
+#         # 1️⃣ Load & validate optional user_id UUID
+#         raw_user_id = request.query_params.get('user_id')
+#         user_uuid   = None
+#         if raw_user_id:
+#             try:
+#                 user_uuid = uuid.UUID(raw_user_id)
+#             except ValueError:
+#                 return Response(
+#                     {"error": "Invalid user_id. Must be a valid UUID."},
+#                     status=status.HTTP_400_BAD_REQUEST
+#                 )
 
-        # 2️⃣ Fetch the category and its products
+#         # 2️⃣ Fetch the category and its products
+#         category = get_object_or_404(Category, pk=pk)
+#         products = Product.objects.filter(category=category)
+
+#         # 3️⃣ Serialize, passing user_id into context
+#         serializer = FinestProductSerializer(
+#             products,
+#             many=True,
+#             context={'user_id': user_uuid}
+#         )
+
+#         # 4️⃣ Return the response
+#         return Response({
+#             "category": category.name,
+#             "products": serializer.data
+#         }, status=status.HTTP_200_OK)
+    
+class SevenCategoryDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]  # Enforce JWT authentication
+
+    def get(self, request, pk, *args, **kwargs):
+        user = request.user  # Comes from the JWT token
+
+        # Fetch category by ID
         category = get_object_or_404(Category, pk=pk)
+
+        # Get all products in that category
         products = Product.objects.filter(category=category)
 
-        # 3️⃣ Serialize, passing user_id into context
+        # Serialize products with user context
         serializer = FinestProductSerializer(
             products,
             many=True,
-            context={'user_id': user_uuid}
+            context={'user': user}
         )
 
-        # 4️⃣ Return the response
         return Response({
             "category": category.name,
             "products": serializer.data
         }, status=status.HTTP_200_OK)
-    
 class RelatedProductsAPIView(APIView):
     def get(self, request, *args, **kwargs):
         product_id = request.query_params.get('product_id')

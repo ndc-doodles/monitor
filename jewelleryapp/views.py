@@ -47,7 +47,8 @@ from .models import Category, Product, UserVisit, SearchGif
 # from .serializers import CategoryNameSerializer, PopularProductSerializer, SearchGifSerializer
 
 from .utils import send_otp_via_sms
-
+from rest_framework import permissions, status
+from rest_framework_simplejwt.authentication import JWTAuthentication
 # class GoogleLogin(SocialLoginView):
 #     adapter_class = GoogleOAuth2Adapter
 #     callback_url = settings.GOOGLE_OAUTH_CALLBACK_URL
@@ -375,29 +376,41 @@ class ProductListAPIView(APIView):
         }, status=status.HTTP_200_OK)
 
 class ClassicProductListAPIView(APIView):
-    permission_classes = [permissions.AllowAny]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [permissions.AllowAny]  # Anyone can view, but we try to identify user if possible
 
     def get(self, request, *args, **kwargs):
-        raw_user_id = request.query_params.get('user_id')
         user = None
 
-        if raw_user_id:
+        # First try: authenticated user from Bearer token
+        if request.user and request.user.is_authenticated:
+            user = request.user
+
+        # Fallback: optional user_id in query params
+        elif 'user_id' in request.query_params:
+            raw_user_id = request.query_params.get('user_id')
             try:
-                user_uuid = uuid.UUID(raw_user_id)
+                user_uuid = UUID(raw_user_id)
                 user = Register.objects.get(id=user_uuid)
             except (ValueError, Register.DoesNotExist):
                 pass
 
+        # Fetch all classic products
         products = Product.objects.filter(is_classic=True)
         serializer = ClassicProductListSerializer(products, many=True)
         products_data = serializer.data
 
+        # Get wishlist product IDs for this user (if any)
         wishlist_product_ids = set()
         if user:
-            wishlist_product_ids = set(str(w.product.id) for w in Wishlist.objects.filter(user=user).select_related('product'))
+            wishlist_product_ids = set(
+                Wishlist.objects.filter(user=user, product__is_classic=True)
+                .values_list('product_id', flat=True)
+            )
 
+        # Attach detail URL and wishlist flag
         for product in products_data:
-            pid = str(product["id"])
+            pid = product["id"]
             product['detail_url'] = request.build_absolute_uri(f'/api/products/classic/{pid}/')
             product['wishlist'] = pid in wishlist_product_ids
 
@@ -2284,7 +2297,9 @@ class VerifyOTP(APIView):
         )
 
         refresh = RefreshToken.for_user(user)
+
         return Response({
+            "message": "Login successful" if not created else "Account created and login successful",
             "refresh": str(refresh),
             "access": str(refresh.access_token),
             "user_id": str(user.id),

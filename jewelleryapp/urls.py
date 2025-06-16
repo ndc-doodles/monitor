@@ -58,9 +58,11 @@ urlpatterns = [
     path('api/registerslist/', RegisterListView.as_view(), name='register-list'),
     path('api/logout/', LogoutAPIView.as_view(), name='logout'),
 
-    path('api/wishlist/<int:user_id>/', WishlistAPIView.as_view(), name='wishlist-list'),
-    path('api/wishlist/', WishlistAPIView.as_view(), name='wishlist-add'),
-    path('api/wishlist/delete/<int:wishlist_id>/', WishlistAPIView.as_view(), name='wishlist-delete'),
+    # path('api/wishlist/<int:user_id>/', WishlistAPIView.as_view(), name='wishlist-list'),
+    # path('api/wishlist/', WishlistAPIView.as_view(), name='wishlist-add'),
+    # path('api/wishlist/delete/<int:wishlist_id>/', WishlistAPIView.as_view(), name='wishlist-delete'),
+    path('api/wishlist/', WishlistAPIView.as_view(), name='wishlist'),                      # List & add
+    path('api/wishlist/<int:product_id>/', WishlistDetailAPIView.as_view(), name='wishlist-detail'),
 
     path('api/userprofiles/', UserProfileListView.as_view(), name='userprofile-list'),
     path('api/userprofile/create/', UserProfileCreateView.as_view(), name='userprofile-create'),

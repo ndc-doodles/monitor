@@ -984,6 +984,54 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
+# class WishlistAPIView(APIView):
+#     permission_classes = [permissions.IsAuthenticated]
+
+#     def get(self, request):
+#         user = request.user
+#         wishlist = Wishlist.objects.filter(user=user).select_related('product')
+#         serializer = WishlistSerializer(wishlist, many=True, context={'request': request})
+#         return Response(serializer.data, status=status.HTTP_200_OK)
+
+#     def post(self, request):
+#         user = request.user
+#         product_id = request.data.get("product_id")
+
+#         if not product_id:
+#             return Response({"error": "product_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+#         try:
+#             product = Product.objects.get(id=product_id)
+#         except Product.DoesNotExist:
+#             return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
+
+#         wishlist_item, created = Wishlist.objects.get_or_create(user=user, product=product)
+
+#         wishlist = Wishlist.objects.filter(user=user).select_related('product')
+#         serializer = WishlistSerializer(wishlist, many=True, context={'request': request})
+
+#         if created:
+#             return Response({"message": "Product added to wishlist", "wishlist": serializer.data}, status=status.HTTP_201_CREATED)
+#         else:
+#             return Response({"message": "Product already in wishlist", "wishlist": serializer.data}, status=status.HTTP_200_OK)
+
+#     def delete(self, request):
+#         user = request.user
+#         product_id = request.data.get("product_id")
+
+#         if not product_id:
+#             return Response({"error": "product_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+#         try:
+#             product = Product.objects.get(id=product_id)
+#         except Product.DoesNotExist:
+#             return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
+
+#         deleted, _ = Wishlist.objects.filter(user=user, product=product).delete()
+#         if deleted:
+#             return Response({"message": "Removed from wishlist"}, status=status.HTTP_204_NO_CONTENT)
+#         else:
+#             return Response({"error": "Wishlist item not found"}, status=status.HTTP_404_NOT_FOUND)
 class WishlistAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -996,42 +1044,42 @@ class WishlistAPIView(APIView):
     def post(self, request):
         user = request.user
         product_id = request.data.get("product_id")
-
         if not product_id:
-            return Response({"error": "product_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "product_id is required"}, status=400)
 
         try:
             product = Product.objects.get(id=product_id)
         except Product.DoesNotExist:
-            return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "Product not found"}, status=404)
 
-        wishlist_item, created = Wishlist.objects.get_or_create(user=user, product=product)
-
-        wishlist = Wishlist.objects.filter(user=user).select_related('product')
-        serializer = WishlistSerializer(wishlist, many=True, context={'request': request})
-
+        _, created = Wishlist.objects.get_or_create(user=user, product=product)
         if created:
-            return Response({"message": "Product added to wishlist", "wishlist": serializer.data}, status=status.HTTP_201_CREATED)
-        else:
-            return Response({"message": "Product already in wishlist", "wishlist": serializer.data}, status=status.HTTP_200_OK)
+            return Response({"message": "Product added to wishlist"}, status=201)
+        return Response({"message": "Product already in wishlist"}, status=200)
 
-    def delete(self, request):
+
+class WishlistDetailAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def delete(self, request, product_id):
         user = request.user
-        product_id = request.data.get("product_id")
-
-        if not product_id:
-            return Response({"error": "product_id is required"}, status=status.HTTP_400_BAD_REQUEST)
-
         try:
-            product = Product.objects.get(id=product_id)
-        except Product.DoesNotExist:
-            return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
+            wishlist_item = Wishlist.objects.get(user=user, product_id=product_id)
+        except Wishlist.DoesNotExist:
+            return Response({"error": "Product not in wishlist"}, status=404)
 
-        deleted, _ = Wishlist.objects.filter(user=user, product=product).delete()
-        if deleted:
-            return Response({"message": "Removed from wishlist"}, status=status.HTTP_204_NO_CONTENT)
-        else:
-            return Response({"error": "Wishlist item not found"}, status=status.HTTP_404_NOT_FOUND)
+        wishlist_item.delete()
+        return Response({"message": "Removed from wishlist"}, status=204)
+
+    def get(self, request, product_id):
+        user = request.user
+        try:
+            wishlist_item = Wishlist.objects.select_related('product').get(user=user, product_id=product_id)
+        except Wishlist.DoesNotExist:
+            return Response({"error": "Product not in wishlist"}, status=404)
+
+        serializer = WishlistSerializer(wishlist_item, context={'request': request})
+        return Response(serializer.data, status=200)
 
 
 

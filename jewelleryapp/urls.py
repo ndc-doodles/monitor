@@ -105,5 +105,4 @@ urlpatterns = [
     path('api/verify-otp/', VerifyOTP.as_view(), name='verify-otp'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
 
-
 ] 

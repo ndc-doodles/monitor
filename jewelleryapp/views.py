@@ -1278,7 +1278,14 @@ class RecentProductsWithFallbackAPIView(ListAPIView):
 
     def list(self, request, *args, **kwargs):
         queryset = self.get_queryset()
-        serializer = self.get_serializer(queryset, many=True)
+        serializer = self.get_serializer(
+            queryset,
+            many=True,
+            context={
+                'request': request,
+                'user_id': request.user.id  # ✅ Make sure to pass user_id here
+            }
+        )
         return Response({
             "from_fallback": self.from_fallback,
             "count": len(serializer.data),

@@ -183,21 +183,32 @@ class ProductRating(models.Model):
 
 
 
+
 class NavbarCategory(models.Model):
     category = models.ForeignKey('Category', on_delete=models.SET_NULL, null=True, blank=True)
     material = models.ForeignKey('Material', on_delete=models.SET_NULL, null=True, blank=True)
     occasion = models.ForeignKey('Occasion', on_delete=models.SET_NULL, null=True, blank=True)
     gemstone = models.ForeignKey('Gemstone', on_delete=models.SET_NULL, null=True, blank=True)
+
     is_handcrafted = models.BooleanField(default=False)
     handcrafted_image = CloudinaryField('image', folder='handcrafted/', null=True, blank=True)
+
     is_all_jewellery = models.BooleanField(default=False)
     all_jewellery_image = CloudinaryField('image', folder='all_jewellery/', null=True, blank=True)
+
     is_gemstone = models.BooleanField(default=False)
     gemstone_image = CloudinaryField('image', folder='gemstone/', null=True, blank=True)
+
+    # ✅ New custom image field for occasion
+    occasion_image = CloudinaryField('image', folder='occasion_navbar/', null=True, blank=True)
+
     order = models.PositiveIntegerField(default=0)
 
     def clean(self):
-        fields = [self.category, self.material, self.occasion, self.gemstone, self.is_handcrafted, self.is_all_jewellery, self.is_gemstone]
+        fields = [
+            self.category, self.material, self.occasion, self.gemstone,
+            self.is_handcrafted, self.is_all_jewellery, self.is_gemstone
+        ]
         count = sum(bool(f) for f in fields)
         if count == 0:
             raise ValidationError("At least one type must be selected.")
@@ -225,14 +236,14 @@ class NavbarCategory(models.Model):
         return None
 
     def get_image(self):
-        if self.category and hasattr(self.category, 'image'):
+        if self.category and getattr(self.category, 'image', None):
             return self.category.image.url
-        if self.material and hasattr(self.material, 'image'):
+        if self.material and getattr(self.material, 'image', None):
             return self.material.image.url
-        if self.occasion and hasattr(self.occasion, 'image'):
-            return self.occasion.image.url
-        if self.gemstone and hasattr(self.gemstone, 'image'):
-            return self.gemstone.image.url
+        if self.occasion and self.occasion_image:
+            return self.occasion_image.url  # ✅ Use custom occasion image
+        if self.gemstone and self.gemstone_image:
+            return self.gemstone_image.url
         if self.is_handcrafted and self.handcrafted_image:
             return self.handcrafted_image.url
         if self.is_all_jewellery and self.all_jewellery_image:

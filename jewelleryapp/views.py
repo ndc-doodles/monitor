@@ -477,7 +477,6 @@ class StoneDetailAPIView(BaseDetailAPIView):
 #     serializer_class = NavbarCategorySerializer
 #     lookup_field = 'pk'
 
-
 class NavbarCategoryListCreateAPIView(generics.ListCreateAPIView):
     queryset = NavbarCategory.objects.all().order_by('order')
     serializer_class = NavbarCategorySerializer
@@ -496,11 +495,15 @@ class NavbarCategoryListCreateAPIView(generics.ListCreateAPIView):
                 })
         return Response(data)
 
-
 class NavbarCategoryMegaAPIView(ListAPIView):
     queryset = NavbarCategory.objects.all()
     serializer_class = NavbarCategoryMegaSerializer
 
+
+
+class NavbarCategoryRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = NavbarCategory.objects.all()
+    serializer_class = NavbarCategorySerializer
 class NavbarCategoryRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = NavbarCategory.objects.all()
     serializer_class = NavbarCategorySerializer

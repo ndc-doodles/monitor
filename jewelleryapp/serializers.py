@@ -430,16 +430,21 @@ class NavbarCategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = NavbarCategory
-        fields = ['id', 'name', 'image', 'order', 'category', 'material', 'occasion',
-                  'gemstone', 'is_handcrafted', 'handcrafted_image',
-                  'is_all_jewellery', 'all_jewellery_image',
-                  'is_gemstone', 'gemstone_image']
+        fields = [
+            'id', 'name', 'image', 'order',
+            'category', 'material', 'occasion', 'gemstone',
+            'is_handcrafted', 'handcrafted_image',
+            'is_all_jewellery', 'all_jewellery_image',
+            'is_gemstone', 'gemstone_image',
+            'occasion_image'  # ✅ Include if you want to POST/GET the image too
+        ]
 
     def get_name(self, obj):
         return obj.get_name()
 
     def get_image(self, obj):
         return obj.get_image()
+
     
 
 class SimpleLabelIconSerializer(serializers.Serializer):

@@ -67,7 +67,8 @@ urlpatterns = [
     path('api/userprofiles/', UserProfileListView.as_view(), name='userprofile-list'),
     path('api/userprofile/create/', UserProfileCreateView.as_view(), name='userprofile-create'),
     path('api/userprofile/update/<int:id>/', UserProfileUpdateView.as_view(), name='userprofile-update'),
-
+    path('api/profile/', UserProfileDetailView.as_view(), name='user-profile'),
+    path('api/profile/image/', UserProfileImageUpdateView.as_view(), name='profile-image-update'),
     path('api/superuser-login/', UserLoginView.as_view(), name='api-superuser-login'),
 
     path('api/headers/', HeaderListCreateAPIView.as_view(), name='header-list-create'),  # POST for creating, GET for listing headers

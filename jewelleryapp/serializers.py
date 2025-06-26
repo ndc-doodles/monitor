@@ -165,14 +165,21 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
-    username = serializers.SerializerMethodField()
+    username = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = UserProfile
         fields = '__all__'
+        read_only_fields = ['id', 'username']  # Ensure user can't override linked account
 
     def get_username(self, obj):
-        return f"user{obj.username.username}"  
+        return f"user{obj.username.username}"
+
+class UserProfileImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserProfile
+        fields = ['image'] 
+
 
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150)

@@ -165,15 +165,20 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
-    username = serializers.SerializerMethodField(read_only=True)
+    image = serializers.SerializerMethodField()
 
     class Meta:
         model = UserProfile
-        fields = '__all__'
-        read_only_fields = ['id', 'username']  # Ensure user can't override linked account
+        fields = [
+            'id', 'username', 'full_name', 'address',
+            'date_of_birth', 'country', 'phone_number',
+            'email', 'image'
+        ]
 
-    def get_username(self, obj):
-        return f"user{obj.username.username}"
+    def get_image(self, obj):
+        if obj.image:
+            return obj.image.url  # ✅ Full Cloudinary URL
+        return None
 
 class UserProfileImageSerializer(serializers.ModelSerializer):
     class Meta:

@@ -371,6 +371,11 @@ class ProductSerializer(serializers.ModelSerializer):
     stock_message = serializers.SerializerMethodField()
     is_wishlisted = serializers.SerializerMethodField()
 
+    category = serializers.SerializerMethodField()
+    occasion = serializers.SerializerMethodField()
+    gender = serializers.SerializerMethodField()
+    metal = serializers.SerializerMethodField()
+
     class Meta:
         model = Product
         fields = '__all__'
@@ -401,10 +406,23 @@ class ProductSerializer(serializers.ModelSerializer):
 
         return Wishlist.objects.filter(user=user, product=obj).exists()
 
+    def get_category(self, obj):
+        return obj.category.name if obj.category else None
+
+    def get_occasion(self, obj):
+        return obj.occasion.name if obj.occasion else None
+
+    def get_gender(self, obj):
+        return obj.gender.name if obj.gender else None
+
+    def get_metal(self, obj):
+        return obj.metal.name if obj.metal else None
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['images'] = data.get('images') or []
         return data
+
 
 class NavbarCategorySerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()

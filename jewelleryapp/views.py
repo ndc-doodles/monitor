@@ -200,63 +200,6 @@ class ProductListCreateAPIView(APIView):
 
 
 
-# class ProductDetailAPIView(APIView):
-#     def get_object(self, pk):
-#         try:
-#             return Product.objects.get(pk=pk)
-#         except Product.DoesNotExist:
-#             raise NotFound("Product not found")
-
-#     def get(self, request, pk, *args, **kwargs):
-#         product = self.get_object(pk)
-#         serializer = ProductSerializer(product)
-#         return Response(serializer.data)
-
-#     def put(self, request, pk, *args, **kwargs):
-#         product = self.get_object(pk)
-#         data = dict(request.data)
-
-#         new_images = request.FILES.getlist('images')
-#         if new_images:
-#             uploaded_images = []
-#             try:
-#                 for image in new_images[:5]:
-#                     upload_result = uploader.upload(image)
-#                     uploaded_images.append(upload_result["secure_url"])
-#                 data['images'] = json.dumps(uploaded_images)  # convert to JSON string
-#             except Exception as e:
-#                 return Response(
-#                     {"error": f"Image upload failed: {str(e)}"},
-#                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
-#                 )
-#         else:
-#             data.pop('images', None)
-
-#         if 'ar_model_glb' in request.FILES:
-#             glb_upload = uploader.upload(request.FILES['ar_model_glb'], resource_type='raw')
-#             cloud_name = 'dvllntzo0'
-#             public_id = glb_upload['public_id']
-#             version = glb_upload['version']
-#             data['ar_model_glb'] = f"https://res.cloudinary.com/{cloud_name}/raw/upload/v{version}/{public_id}"
-
-#         if 'ar_model_gltf' in request.FILES:
-#             gltf_upload = uploader.upload(request.FILES['ar_model_gltf'], resource_type='raw')
-#             data['ar_model_gltf'] = gltf_upload['secure_url']
-
-#         # ✅ Deserialize JSON string before validation
-#         if 'images' in data and isinstance(data['images'], str):
-#             try:
-#                 data['images'] = json.loads(data['images'])  # convert back to Python list
-#             except json.JSONDecodeError:
-#                 return Response({"images": ["Value must be valid JSON."]}, status=400)
-
-#         serializer = ProductSerializer(product, data=data, partial=True)
-#         if serializer.is_valid():
-#             serializer.save()
-#             return Response(serializer.data)
-
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 class ProductDetailAPIView(APIView):
     def get_object(self, pk):
         try:
@@ -343,30 +286,6 @@ class ProductDetailAPIView(APIView):
             })
 
         return Response(serializer.errors, status=400)
-
-
-# class ProductDetailAPIView(APIView):
-#     def put(self, request, pk, *args, **kwargs):
-#         try:
-#             product = Product.objects.get(pk=pk)
-#         except Product.DoesNotExist:
-#             return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
-
-#         data = request.data.copy()
-
-#         # Convert images string to list if needed
-#         images = data.get('images')
-#         if images and isinstance(images, str):
-#             try:
-#                 data['images'] = json.loads(images)
-#             except json.JSONDecodeError:
-#                 return Response({"images": ["Value must be valid JSON."]}, status=400)
-
-#         serializer = ProductSerializer(product, data=data, partial=True)
-#         if serializer.is_valid():
-#             serializer.save()
-#             return Response(serializer.data)
-#         return Response(serializer.errors, status=400)
 class ProductListAPIView(APIView):
     def get(self, request, *args, **kwargs):
         products = Product.objects.filter(is_classic=False)

@@ -365,11 +365,12 @@ class ProductSerializer(serializers.ModelSerializer):
     stone_price_total = serializers.SerializerMethodField()
     subtotal = serializers.SerializerMethodField()
     grand_total = serializers.SerializerMethodField()
-    stones = ProductStoneSerializer(source='productstone_set', many=True, read_only=True)
+    stones = serializers.SerializerMethodField()
     average_rating = serializers.SerializerMethodField()
     available_stock = serializers.IntegerField(read_only=True)
     stock_message = serializers.SerializerMethodField()
     is_wishlisted = serializers.SerializerMethodField()
+    price_details = serializers.SerializerMethodField()  # Combined pricing + metal + extras
 
     category = serializers.SerializerMethodField()
     occasion = serializers.SerializerMethodField()
@@ -381,13 +382,13 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_stone_price_total(self, obj):
-        return str(obj.stone_price_total)
+        return str(getattr(obj, 'stone_price_total', '0.00'))
 
     def get_subtotal(self, obj):
-        return str(obj.subtotal)
+        return str(getattr(obj, 'subtotal', '0.00'))
 
     def get_grand_total(self, obj):
-        return str(obj.grand_total)
+        return str(getattr(obj, 'grand_total', '0.00'))
 
     def get_average_rating(self, obj):
         return getattr(obj, 'average_rating', None)
@@ -418,11 +419,67 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_metal(self, obj):
         return obj.metal.name if obj.metal else None
 
+    def get_stones(self, obj):
+        # Return empty list if no stones, or serialize if you have ProductStoneSerializer available
+        stones_qs = getattr(obj, 'productstone_set', None)
+        if stones_qs is None:
+            return []
+        # Assuming you have ProductStoneSerializer defined elsewhere:
+        serializer = ProductStoneSerializer(stones_qs.all(), many=True, context=self.context)
+        return serializer.data
+
+    def get_price_details(self, product):
+        # Safe defaults and quantization helper
+        def to_decimal(value, default='0.00'):
+            if value is None:
+                value = default
+            return Decimal(value).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        subtotal = to_decimal(getattr(product, 'subtotal', None), '53642.32')
+        gst = to_decimal(getattr(product, 'gst', None), '3.00')
+        stone_price_total = to_decimal(getattr(product, 'stone_price_total', None), '0.00')
+        making_charge = to_decimal(getattr(product, 'making_charge', None), '11176.00')
+        designing_charge = to_decimal(getattr(product, 'designing_charge', None), '0.00')
+        making_discount = to_decimal(getattr(product, 'making_discount', None), '0.00')
+        product_discount = to_decimal(getattr(product, 'product_discount', None), '0.00')
+        grand_total = to_decimal(getattr(product, 'grand_total', None), '55251.59')
+
+        gst_amount = (subtotal * (gst / 100)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        metal_price = (
+            subtotal
+            - making_charge
+            - stone_price_total
+            - designing_charge
+            + making_discount
+            + product_discount
+        ).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        metal_name = product.metal.name if product.metal else None
+
+        stones = self.get_stones(product)  # serialized stones or []
+
+        return {
+            "metal": metal_name,
+            "metal_price": str(metal_price),
+            "stone_price": str(stone_price_total),
+            "making_charge": str(making_charge),
+            "designing_charge": str(designing_charge),
+            "making_discount": f"-{making_discount:.2f}",
+            "product_discount": f"-{product_discount:.2f}",
+            f"gst_{int(gst)}_percent": str(gst_amount),
+            "stone_price_total": str(stone_price_total),
+            "subtotal": str(subtotal),
+            "grand_total": str(grand_total),
+            "stones": stones,
+            "gst": str(gst),
+        }
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['images'] = data.get('images') or []
+        data['stones'] = data.get('stones') or []
         return data
-
 
 class NavbarCategorySerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()

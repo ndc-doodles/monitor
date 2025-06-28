@@ -316,6 +316,24 @@ class PhoneOTP(models.Model):
         return self.phone
 
 
+class ProductEnquiry(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='enquiries')
+    name = models.CharField(max_length=100)
+    email = models.EmailField()
+    phone = models.CharField(max_length=20)
+    message = models.TextField(blank=True, null=True)  # optional now
+    image = CloudinaryField('image', blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.name} - {self.product.head}"
+
+    def get_message_or_default(self):
+        """Return the message or default text if empty"""
+        if self.message and self.message.strip():
+            return self.message.strip()
+        return "I wanted to know more about this"
+
 
 # class Register(models.Model):
 #     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -430,147 +448,3 @@ class SearchGif(models.Model):
 
 
 
-# class AccountManager(BaseUserManager):
-#     def create_user(self, phone, password=None):
-#         if not phone:
-#             raise ValueError("Users must have a phone number")
-#         user = self.model(phone=phone)
-#         user.set_unusable_password()
-#         user.save(using=self._db)
-#         return user
-
-# class Account(AbstractBaseUser):
-#     phone = models.CharField(max_length=15, unique=True)
-#     is_active = models.BooleanField(default=True)
-
-#     USERNAME_FIELD = 'phone'
-#     REQUIRED_FIELDS = []
-
-#     objects = AccountManager()
-
-#     def __str__(self):
-#         return self.phone
-
-# class PhoneOTP(models.Model):
-#     phone = models.CharField(max_length=15, unique=True)
-#     otp = models.CharField(max_length=6)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     is_verified = models.BooleanField(default=False)
-
-
-# class PhoneOTP(models.Model):
-#     phone = models.CharField(max_length=15, unique=True)
-#     otp = models.CharField(max_length=6)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     is_verified = models.BooleanField(default=False)
-
-#     def save(self, *args, **kwargs):
-#         import random
-#         self.otp = str(random.randint(100000, 999999))
-#         super().save(*args, **kwargs)
-
-
-
-
-
-
-
-
-# class UserVisit(models.Model):
-#     user = models.ForeignKey('Register', on_delete=models.CASCADE, null=True, blank=True)
-#     product = models.ForeignKey(Product, on_delete=models.CASCADE)
-#     timestamp = models.DateTimeField(auto_now_add=True)
-
-#     def __str__(self):
-#         return f"{self.user.username} visited {self.product.head}"
-        
-
-
-
-# class CategorySearchHistory(models.Model):
-#     user = models.ForeignKey('Register', on_delete=models.CASCADE, related_name="search_history")
-#     category = models.ForeignKey('Category', on_delete=models.CASCADE)
-#     searched_at = models.DateTimeField(default=timezone.now)
-
-#     class Meta:
-#         ordering = ['-searched_at']
-#         unique_together = ('user', 'category')
-
-#     def __str__(self):
-#         return f"{self.user.username} searched {self.category.name}"
-
-
-# # Tracking visits to products (already in your project)
-# class UserVisit(models.Model):
-#     user = models.ForeignKey('Register', on_delete=models.CASCADE, null=True, blank=True)
-#     product = models.ForeignKey('Product', on_delete=models.CASCADE)
-#     timestamp = models.DateTimeField(auto_now_add=True)
-
-#     def __str__(self):
-#         return f"{self.user.username} visited {self.product.head}"
-
-
-
-# class NavbarCategory(models.Model):
-#     category = models.ForeignKey('Category', on_delete=models.SET_NULL, null=True, blank=True)
-#     material = models.ForeignKey('Material', on_delete=models.SET_NULL, null=True, blank=True)
-#     occasion = models.ForeignKey('Occasion', on_delete=models.SET_NULL, null=True, blank=True)
-#     gemstone = models.ForeignKey('Gemstone', on_delete=models.SET_NULL, null=True, blank=True)
-#     is_handcrafted = models.BooleanField(default=False)
-#     handcrafted_image = CloudinaryField('image', folder='handcrafted/', null=True, blank=True)
-#     is_all_jewellery = models.BooleanField(default=False)
-#     all_jewellery_image = CloudinaryField('image', folder='all_jewellery/', null=True, blank=True)
-
-#     # New fields for gemstone as boolean + image
-#     is_gemstone = models.BooleanField(default=False)
-#     gemstone_image = CloudinaryField('image', folder='gemstone/', null=True, blank=True)
-
-#     order = models.PositiveIntegerField(default=0)
-
-#     def clean(self):
-#         fields = [
-#             self.category, self.material, self.occasion, self.gemstone,
-#             self.is_handcrafted, self.is_all_jewellery, self.is_gemstone
-#         ]
-#         count = sum(bool(f) for f in fields)
-#         if count == 0:
-#             raise ValidationError("At least one type must be selected.")
-#         if count > 1:
-#             raise ValidationError("Only one type can be selected at a time.")
-
-#     def __str__(self):
-#         return self.get_name() or "Unnamed NavbarItem"
-
-#     def get_name(self):
-#         if self.category:
-#             return self.category.name
-#         if self.material:
-#             return self.material.name
-#         if self.occasion:
-#             return self.occasion.name
-#         if self.gemstone:
-#             return "Gemstone"
-#         if self.is_gemstone:
-#             return "Gemstone"
-#         if self.is_handcrafted:
-#             return "Handcrafted"
-#         if self.is_all_jewellery:
-#             return "All Jewellery"
-#         return None
-
-#     def get_image(self):
-#         if self.category and hasattr(self.category, 'image') and self.category.image:
-#             return self.category.image.url
-#         if self.material and hasattr(self.material, 'image') and self.material.image:
-#             return self.material.image.url
-#         if self.occasion and hasattr(self.occasion, 'image') and self.occasion.image:
-#             return self.occasion.image.url
-#         if self.gemstone and hasattr(self.gemstone, 'image') and self.gemstone.image:
-#             return self.gemstone.image.url
-#         if self.is_gemstone and self.gemstone_image:
-#             return self.gemstone_image.url
-#         if self.is_handcrafted and self.handcrafted_image:
-#             return self.handcrafted_image.url
-#         if self.is_all_jewellery and self.all_jewellery_image:
-#             return self.all_jewellery_image.url
-#         return None

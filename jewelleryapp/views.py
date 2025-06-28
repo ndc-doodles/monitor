@@ -49,6 +49,8 @@ from .models import Category, Product, UserVisit, SearchGif
 from .utils import send_otp_via_sms
 from rest_framework import permissions, status
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework import parsers
+
 # class GoogleLogin(SocialLoginView):
 #     adapter_class = GoogleOAuth2Adapter
 #     callback_url = settings.GOOGLE_OAUTH_CALLBACK_URL
@@ -889,77 +891,90 @@ def get_tokens_for_user(user):
         'access': str(refresh.access_token),
     }
 
-# class WishlistAPIView(APIView):
+class ProductEnquiryAPIView(APIView):
+    parser_classes = [parsers.MultiPartParser, parsers.FormParser]
 
-#     # ✅ GET: List all wishlist items for a user
-#     def get(self, request):
-#         user_id = request.query_params.get("user_id")
-#         if not user_id:
-#             return Response({"error": "user_id query parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+    def post(self, request, pk, *args, **kwargs):
+        try:
+            product = Product.objects.get(pk=pk)
+        except Product.DoesNotExist:
+            return Response({"error": "Product not found"}, status=404)
 
-#         try:
-#             user = Register.objects.get(id=user_id)
-#         except Register.DoesNotExist:
-#             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+        data = request.data.copy()
+        data['product'] = str(product.id)
 
-#         wishlist = Wishlist.objects.filter(user=user)
-#         serializer = WishlistSerializer(wishlist, many=True)
-#         return Response(serializer.data, status=status.HTTP_200_OK)
+        # Auto-fill user profile info if authenticated
+        if request.user.is_authenticated:
+            try:
+                user_profile = request.user.profile
+                data.setdefault('name', user_profile.full_name)
+                data.setdefault('email', user_profile.email)
+                data.setdefault('phone', user_profile.phone_number)
+            except UserProfile.DoesNotExist:
+                pass
 
-#     # ✅ POST: Add product to wishlist
-#     def post(self, request):
-#         user_id = request.data.get("user_id")
-#         product_id = request.data.get("product_id")
+        serializer = ProductEnquirySerializer(data=data)
+        if serializer.is_valid():
+            enquiry = serializer.save()
 
-#         if not user_id or not product_id:
-#             return Response({"error": "Both user_id and product_id are required"}, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                self.send_whatsapp_message(enquiry)
+            except Exception as e:
+                print("WhatsApp error:", e)
 
-#         try:
-#             user = Register.objects.get(id=user_id)
-#             product = Product.objects.get(id=product_id)
-#         except Register.DoesNotExist:
-#             return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
-#         except Product.DoesNotExist:
-#             return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"message": "Enquiry submitted successfully."}, status=201)
 
-#         wishlist_item, created = Wishlist.objects.get_or_create(user=user, product=product)
-#         if created:
-#             return Response({"message": "Product added to wishlist"}, status=status.HTTP_201_CREATED)
-#         else:
-#             return Response({"message": "Product already in wishlist"}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=400)
 
-#     # ✅ DELETE: Remove product from wishlist
-#     def delete(self, request):
-#         user_id = request.data.get("user_id")
-#         product_id = request.data.get("product_id")
+    def send_whatsapp_message(self, enquiry):
+        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
 
-#         if not user_id or not product_id:
-#             return Response({"error": "Both user_id and product_id are required"}, status=status.HTTP_400_BAD_REQUEST)
+        image_url = enquiry.image.url if enquiry.image else "No image attached"
 
-#         try:
-#             user = Register.objects.get(id=user_id)
-#             product = Product.objects.get(id=product_id)
-#             wishlist_item = Wishlist.objects.get(user=user, product=product)
-#             wishlist_item.delete()
-#             return Response({"message": "Removed from wishlist"}, status=status.HTTP_204_NO_CONTENT)
-#         except (Register.DoesNotExist, Product.DoesNotExist):
-#             return Response({"error": "User or Product not found"}, status=status.HTTP_404_NOT_FOUND)
-#         except Wishlist.DoesNotExist:
-#             return Response({"error": "Wishlist item not found"}, status=status.HTTP_404_NOT_FOUND)
+        # Use method to get message or default text
+        base_message = enquiry.get_message_or_default()
 
+        # Prefix only if user provided a message (not default)
+        if enquiry.message and enquiry.message.strip():
+            message_text = "I wanted to know more about this: " + enquiry.message.strip()
+        else:
+            message_text = base_message  # "I wanted to know more about this"
 
-# class WishlistAPIView(APIView):
-#     permission_classes = [IsAuthenticated]
+        message = f"""
+    🟡 *New Product Enquiry!*
 
-#     def get(self, request):
-#         user = request.user
-#         wishlist_items = Wishlist.objects.filter(user=user).select_related('product')
+    📦 Product: {enquiry.product.head}
 
-#         products = [item.product for item in wishlist_items]
-#         serializer = ProductShortSerializer(products, many=True, context={'request': request})
-        
+    👤 Name: {enquiry.name}
+    📧 Email: {enquiry.email}
+    📱 Phone: {enquiry.phone}
+
+    💬 Message: {message_text}
+
+    📎 Image: {image_url}
+        """
+
+        client.messages.create(
+            from_='whatsapp:+14155238886',
+            to='whatsapp:+918129106509',  # Replace with your WhatsApp admin number
+            body=message.strip()
+        )
+from rest_framework.permissions import IsAdminUser
+# class AdminProductEnquiryListAPIView(APIView):
+#     permission_classes = [IsAdminUser]  # Only admin users can access
+
+#     def get(self, request, *args, **kwargs):
+#         enquiries = ProductEnquiry.objects.all().order_by('-created_at')
+#         serializer = ProductEnquirySerializer(enquiries, many=True)
 #         return Response(serializer.data)
 
+
+
+class ProductEnquiryListAPIView(APIView):
+    def get(self, request, *args, **kwargs):
+        enquiries = ProductEnquiry.objects.all().order_by('-created_at')
+        serializer = ProductEnquirySerializer(enquiries, many=True)
+        return Response(serializer.data)
 
 
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -2041,127 +2056,3 @@ class VerifyOTP(APIView):
 
 
 
-# class CombinedSuggestionsView(APIView): 
-#     def get(self, request):
-#         user = request.user if request.user.is_authenticated else None
-        
-#         # Suggested Categories (user-specific or random)
-#         if user:
-#             suggested_cats_qs = (
-#                 UserVisit.objects.filter(user=user)
-#                 .values('product__category')
-#                 .annotate(visits=Count('id'))
-#                 .order_by('-visits')
-#             )
-#             cat_ids = [item['product__category'] for item in suggested_cats_qs[:5]]
-#             suggested_categories = Category.objects.filter(id__in=cat_ids)
-#         else:
-#             suggested_categories = Category.objects.order_by('?')[:5]
-        
-#         # Popular Categories (overall)
-#         popular_cats_qs = (
-#             UserVisit.objects
-#             .values('product__category')
-#             .annotate(visits=Count('id'))
-#             .order_by('-visits')[:5]
-#         )
-#         if popular_cats_qs.exists():
-#             pop_cat_ids = [item['product__category'] for item in popular_cats_qs]
-#             popular_categories = Category.objects.filter(id__in=pop_cat_ids)
-#         else:
-#             popular_categories = Category.objects.order_by('?')[:5]
-
-#         # Suggested Products (user-specific)
-#         if user:
-#             suggested_prods_qs = (
-#                 UserVisit.objects.filter(user=user)
-#                 .values('product')
-#                 .annotate(visits=Count('id'))
-#                 .order_by('-visits')
-#             )
-#             prod_ids = [item['product'] for item in suggested_prods_qs[:10]]
-#             suggested_products = Product.objects.filter(id__in=prod_ids)
-#         else:
-#             suggested_products = Product.objects.order_by('?')[:10]
-
-#         # Popular Products (overall)
-#         popular_prods_qs = (
-#             UserVisit.objects
-#             .values('product')
-#             .annotate(visits=Count('id'))
-#             .order_by('-visits')[:10]
-#         )
-#         if popular_prods_qs.exists():
-#             pop_prod_ids = [item['product'] for item in popular_prods_qs]
-#             popular_products = Product.objects.filter(id__in=pop_prod_ids)
-#         else:
-#             popular_products = Product.objects.order_by('?')[:10]
-
-#         # Get the single gif url
-#         gif = Gif.objects.first()
-#         gif_url = gif.url if gif else None
-
-#         data = {
-#             "gif": gif_url,
-#             "suggested_categories": CategoryNameSerializer(suggested_categories, many=True).data,
-#             "popular_categories": CategoryNameSerializer(popular_categories, many=True).data,
-#             "suggested_products": PopularProductSerializer(suggested_products, many=True).data,
-#             "popular_products": PopularProductSerializer(popular_products, many=True).data,
-#         }
-#         return Response(data)
-
-
-
-
-    
-# class Global_search(APIView):
-
-
-# class SearchAndPopularView(APIView):
-#     permission_classes = [AllowAny]
-
-#     def get(self, request):
-#         # --- Suggested Categories ---
-#         user = request.user if request.user.is_authenticated else None
-
-#         if user:
-#             recent_history = CategorySearchHistory.objects.filter(user=user).order_by('-searched_at')[:5]
-#             if recent_history.exists():
-#                 categories = [entry.category for entry in recent_history]
-#             else:
-#                 categories = list(Category.objects.order_by('?')[:5])
-#         else:
-#             categories = list(Category.objects.order_by('?')[:5])
-
-#         suggested_data = CategoryNameSerializer(categories, many=True).data
-
-#         # --- Popular or Random Products ---
-#         popular_visits = (
-#             UserVisit.objects
-#             .values('product')
-#             .annotate(visit_count=Count('id'))
-#             .order_by('-visit_count')[:10]
-#         )
-#         product_ids = [entry['product'] for entry in popular_visits]
-
-#         if product_ids:
-#             products = Product.objects.filter(id__in=product_ids)
-#             product_dict = {product.id: product for product in products}
-#             ordered_products = [product_dict[pid] for pid in product_ids if pid in product_dict]
-#         else:
-#             products_count = Product.objects.count()
-#             if products_count == 0:
-#                 ordered_products = []
-#             else:
-#                 random_ids = random.sample(
-#                     list(Product.objects.values_list('id', flat=True)),
-#                     min(10, products_count)
-#                 )
-#                 ordered_products = Product.objects.filter(id__in=random_ids)
-
-#         popular_data = PopularProductSerializer(ordered_products, many=True).data
-
-#         return Response({
-#             "suggested_categories": suggested_data,
-#             "popular_products": popular_data
-#         })

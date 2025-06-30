@@ -170,9 +170,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
         fields = [
-            'id',
             'username',
-            'title',            # ← Add this
+            'title',
             'full_name',
             'address',
             'date_of_birth',
@@ -180,7 +179,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'phone_number',
             'email',
             'image',
-            'agree'             # ← Add this
+            'agree'
         ]
 
     def get_image(self, obj):

@@ -202,6 +202,95 @@ class ProductListCreateAPIView(APIView):
 
 
 
+# class ProductDetailAPIView(APIView):
+#     permission_classes = [AllowAny]
+#     def get_object(self, pk):
+#         try:
+#             return Product.objects.get(pk=pk)
+#         except Product.DoesNotExist:
+#             raise NotFound("Product not found")
+
+#     def get(self, request, pk, *args, **kwargs):
+#         product = self.get_object(pk)
+#         serializer = ProductSerializer(product, context={'request': request})
+#         return Response(serializer.data)
+
+#     def put(self, request, pk, *args, **kwargs):
+#         product = self.get_object(pk)
+#         data = dict(request.data)
+
+#         new_images = request.FILES.getlist('images')
+#         if new_images:
+#             uploaded_images = []
+#             try:
+#                 for image in new_images[:5]:
+#                     upload_result = uploader.upload(image)
+#                     uploaded_images.append(upload_result["secure_url"])
+#                 data['images'] = json.dumps(uploaded_images)
+#             except Exception as e:
+#                 return Response({"error": f"Image upload failed: {str(e)}"}, status=500)
+#         else:
+#             data.pop('images', None)
+
+#         if 'ar_model_glb' in request.FILES:
+#             glb_upload = uploader.upload(request.FILES['ar_model_glb'], resource_type='raw')
+#             data['ar_model_glb'] = f"https://res.cloudinary.com/dvllntzo0/raw/upload/v{glb_upload['version']}/{glb_upload['public_id']}"
+
+#         if 'ar_model_gltf' in request.FILES:
+#             gltf_upload = uploader.upload(request.FILES['ar_model_gltf'], resource_type='raw')
+#             data['ar_model_gltf'] = gltf_upload['secure_url']
+
+#         if 'images' in data and isinstance(data['images'], str):
+#             try:
+#                 data['images'] = json.loads(data['images'])
+#             except json.JSONDecodeError:
+#                 return Response({"images": ["Value must be valid JSON."]}, status=400)
+
+#         messages = []
+
+#         if 'total_stock' in data:
+#             try:
+#                 stock_value = data['total_stock'][0] if isinstance(data['total_stock'], list) else data['total_stock']
+#                 added_stock = int(stock_value)
+#                 product.total_stock += added_stock
+#                 product.save()
+#                 messages.append(f"Added {added_stock} to stock.")
+#             except ValueError:
+#                 return Response({"total_stock": ["A valid integer is required."]}, status=400)
+#             data.pop('total_stock')
+
+#         if 'sold_count' in data:
+#             try:
+#                 sold_value = data['sold_count'][0] if isinstance(data['sold_count'], list) else data['sold_count']
+#                 sold_increment = int(sold_value)
+#                 if sold_increment < 0:
+#                     return Response({"sold_count": ["Sold count cannot be negative."]}, status=400)
+
+#                 available_stock = product.total_stock - product.sold_count
+#                 if sold_increment > available_stock:
+#                     return Response({
+#                         "message": "Not enough stock to sell.",
+#                         "product": ProductSerializer(product).data
+#                     }, status=400)
+
+#                 product.sold_count += sold_increment
+#                 product.save()
+#                 messages.append(f"{sold_increment} items sold.")
+#             except ValueError:
+#                 return Response({"sold_count": ["A valid integer is required."]}, status=400)
+#             data.pop('sold_count')
+
+#         serializer = ProductSerializer(product, data=data, partial=True)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response({
+#                 "message": " ".join(messages) or "Product updated successfully.",
+#                 "product": serializer.data
+#             })
+
+#         return Response(serializer.errors, status=400)
+
+
 class ProductDetailAPIView(APIView):
     def get_object(self, pk):
         try:
@@ -218,6 +307,7 @@ class ProductDetailAPIView(APIView):
         product = self.get_object(pk)
         data = dict(request.data)
 
+        # ✅ Handle multiple image uploads (up to 5)
         new_images = request.FILES.getlist('images')
         if new_images:
             uploaded_images = []
@@ -231,14 +321,17 @@ class ProductDetailAPIView(APIView):
         else:
             data.pop('images', None)
 
+        # ✅ Handle AR model GLB
         if 'ar_model_glb' in request.FILES:
             glb_upload = uploader.upload(request.FILES['ar_model_glb'], resource_type='raw')
             data['ar_model_glb'] = f"https://res.cloudinary.com/dvllntzo0/raw/upload/v{glb_upload['version']}/{glb_upload['public_id']}"
 
+        # ✅ Handle AR model GLTF
         if 'ar_model_gltf' in request.FILES:
             gltf_upload = uploader.upload(request.FILES['ar_model_gltf'], resource_type='raw')
             data['ar_model_gltf'] = gltf_upload['secure_url']
 
+        # ✅ Parse JSON string for 'images' if needed
         if 'images' in data and isinstance(data['images'], str):
             try:
                 data['images'] = json.loads(data['images'])
@@ -247,6 +340,7 @@ class ProductDetailAPIView(APIView):
 
         messages = []
 
+        # ✅ Handle stock increment
         if 'total_stock' in data:
             try:
                 stock_value = data['total_stock'][0] if isinstance(data['total_stock'], list) else data['total_stock']
@@ -258,6 +352,7 @@ class ProductDetailAPIView(APIView):
                 return Response({"total_stock": ["A valid integer is required."]}, status=400)
             data.pop('total_stock')
 
+        # ✅ Handle sold_count increment
         if 'sold_count' in data:
             try:
                 sold_value = data['sold_count'][0] if isinstance(data['sold_count'], list) else data['sold_count']
@@ -279,6 +374,7 @@ class ProductDetailAPIView(APIView):
                 return Response({"sold_count": ["A valid integer is required."]}, status=400)
             data.pop('sold_count')
 
+        # ✅ Save changes
         serializer = ProductSerializer(product, data=data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -288,6 +384,9 @@ class ProductDetailAPIView(APIView):
             })
 
         return Response(serializer.errors, status=400)
+
+
+
 class ProductListAPIView(APIView):
     def get(self, request, *args, **kwargs):
         products = Product.objects.filter(is_classic=False)
@@ -814,6 +913,38 @@ class UserProfileUpdateView(generics.UpdateAPIView):
     def get_object(self):
         return get_object_or_404(UserProfile, id=self.kwargs["id"])
 
+# class UserProfileDetailView(APIView):
+#     permission_classes = [permissions.IsAuthenticated]
+
+#     def get(self, request):
+#         try:
+#             profile = UserProfile.objects.get(username=request.user)
+#             serializer = UserProfileSerializer(profile)
+#             return Response(serializer.data)
+#         except UserProfile.DoesNotExist:
+#             return Response({"detail": "Profile not found."}, status=404)
+
+#     def post(self, request):
+#         if UserProfile.objects.filter(username=request.user).exists():
+#             return Response({"detail": "Profile already exists."}, status=400)
+
+#         serializer = UserProfileSerializer(data=request.data)
+#         if serializer.is_valid():
+#             serializer.save(username=request.user)
+#             return Response(serializer.data, status=201)
+#         return Response(serializer.errors, status=400)
+
+#     def put(self, request):
+#         try:
+#             profile = UserProfile.objects.get(username=request.user)
+#         except UserProfile.DoesNotExist:
+#             return Response({"detail": "Profile not found."}, status=404)
+
+#         serializer = UserProfileSerializer(profile, data=request.data, partial=True)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response(serializer.data)
+#         return Response(serializer.errors, status=400)
 class UserProfileDetailView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -823,30 +954,35 @@ class UserProfileDetailView(APIView):
             serializer = UserProfileSerializer(profile)
             return Response(serializer.data)
         except UserProfile.DoesNotExist:
-            return Response({"detail": "Profile not found."}, status=404)
+            return Response({"detail": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
 
     def post(self, request):
         if UserProfile.objects.filter(username=request.user).exists():
-            return Response({"detail": "Profile already exists."}, status=400)
+            return Response({"detail": "Profile already exists."}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = UserProfileSerializer(data=request.data)
         if serializer.is_valid():
+            # Ensure the user agreed to the privacy policy
+            if not serializer.validated_data.get('agree'):
+                return Response({"agree": ["You must agree to the privacy policy."]},
+                                status=status.HTTP_400_BAD_REQUEST)
+
             serializer.save(username=request.user)
-            return Response(serializer.data, status=201)
-        return Response(serializer.errors, status=400)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def put(self, request):
         try:
             profile = UserProfile.objects.get(username=request.user)
         except UserProfile.DoesNotExist:
-            return Response({"detail": "Profile not found."}, status=404)
+            return Response({"detail": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
 
         serializer = UserProfileSerializer(profile, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
-        return Response(serializer.errors, status=400)
-
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class UserProfileImageUpdateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -960,13 +1096,7 @@ class ProductEnquiryAPIView(APIView):
             body=message.strip()
         )
 from rest_framework.permissions import IsAdminUser
-# class AdminProductEnquiryListAPIView(APIView):
-#     permission_classes = [IsAdminUser]  # Only admin users can access
 
-#     def get(self, request, *args, **kwargs):
-#         enquiries = ProductEnquiry.objects.all().order_by('-created_at')
-#         serializer = ProductEnquirySerializer(enquiries, many=True)
-#         return Response(serializer.data)
 
 
 
@@ -976,6 +1106,12 @@ class ProductEnquiryListAPIView(APIView):
         serializer = ProductEnquirySerializer(enquiries, many=True)
         return Response(serializer.data)
 
+    def post(self, request, *args, **kwargs):
+        serializer = ProductEnquirySerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 

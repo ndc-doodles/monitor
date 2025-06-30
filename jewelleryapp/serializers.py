@@ -170,9 +170,17 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
         fields = [
-            'id', 'username', 'full_name', 'address',
-            'date_of_birth', 'country', 'phone_number',
-            'email', 'image'
+            'id',
+            'username',
+            'title',            # ← Add this
+            'full_name',
+            'address',
+            'date_of_birth',
+            'country',
+            'phone_number',
+            'email',
+            'image',
+            'agree'             # ← Add this
         ]
 
     def get_image(self, obj):
@@ -587,17 +595,27 @@ class NavbarCategoryMegaSerializer(serializers.ModelSerializer):
             }
 
 class ProductEnquirySerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.head', read_only=True)
+    product_image = serializers.SerializerMethodField()
+
     class Meta:
         model = ProductEnquiry
-        fields = ['product', 'name', 'email', 'phone', 'message', 'image']
+        fields = ['product', 'product_name', 'product_image', 'name', 'email', 'phone', 'message', 'image', 'quantity']
         extra_kwargs = {
             'message': {'required': False, 'allow_blank': True},
+            'image': {'required': False, 'allow_null': True},
         }
+
+    def get_product_image(self, obj):
+        # If 'images' is a list in the Product model
+        if hasattr(obj.product, 'images') and isinstance(obj.product.images, list) and obj.product.images:
+            return obj.product.images[0]  # return first image URL
+        return None
 
     def validate_message(self, value):
         if value and value.strip():
             return "I wanted to know more about this: " + value.strip()
-        return ""  
+        return "I wanted to know more about this"
 
 
 class FinestProductSerializer(serializers.ModelSerializer):

@@ -321,15 +321,15 @@ class ProductEnquiry(models.Model):
     name = models.CharField(max_length=100)
     email = models.EmailField()
     phone = models.CharField(max_length=20)
-    message = models.TextField(blank=True, null=True)  # optional now
+    message = models.TextField(blank=True, null=True)
     image = CloudinaryField('image', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    quantity = models.IntegerField()
 
     def __str__(self):
         return f"{self.name} - {self.product.head}"
 
     def get_message_or_default(self):
-        """Return the message or default text if empty"""
         if self.message and self.message.strip():
             return self.message.strip()
         return "I wanted to know more about this"
@@ -370,8 +370,16 @@ class ProductEnquiry(models.Model):
 
 
 class UserProfile(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)  # UUID primary key
-    username = models.OneToOneField(Register, on_delete=models.CASCADE, related_name='profile')
+    TITLE_CHOICES = [
+        ('Mr', 'Mr'),
+        ('Ms', 'Ms'),
+        ('Mrs', 'Mrs'),
+        # You can add more as needed
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    username = models.OneToOneField('Register', on_delete=models.CASCADE, related_name='profile')
+    title = models.CharField(max_length=10, choices=TITLE_CHOICES, blank=True, null=True)
     full_name = models.CharField(max_length=255)
     address = models.TextField(blank=True, null=True)
     date_of_birth = models.DateField(blank=True, null=True)
@@ -379,9 +387,10 @@ class UserProfile(models.Model):
     phone_number = models.BigIntegerField()
     email = models.EmailField(blank=True, null=True)
     image = CloudinaryField('image', blank=True, null=True)
-
+    agree = models.BooleanField(default=False, help_text="User must agree to privacy policy")
+    
     def __str__(self):
-        return self.full_name 
+        return f"{self.title} {self.full_name}" if self.title else self.full_name
          
 # wishlist functioning
 

@@ -1098,7 +1098,7 @@ class ProductEnquiryAPIView(APIView):
 from rest_framework.permissions import IsAdminUser
 
 
-
+from .utils import send_whatsapp_message
 
 class ProductEnquiryListAPIView(APIView):
     def get(self, request, *args, **kwargs):
@@ -1109,8 +1109,28 @@ class ProductEnquiryListAPIView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = ProductEnquirySerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            enquiry = serializer.save()
+
+            # Prepare WhatsApp message
+            product_name = enquiry.product.head
+            quantity = enquiry.quantity
+            phone = enquiry.phone
+            message = enquiry.get_message_or_default()
+            image_url = enquiry.product.images[0] if enquiry.product.images else None
+
+            text = f"""🛍 Product: {product_name}
+📦 Quantity: {quantity}
+💬 Message: {message}
+🖼 Image: {image_url or "No image available"}"""
+
+            # Send WhatsApp message
+            result = send_whatsapp_message(phone, text)
+
+            return Response({
+                "enquiry": serializer.data,
+                "whatsapp": result  # Twilio SID or error string
+            }, status=status.HTTP_201_CREATED)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 from rest_framework_simplejwt.views import TokenObtainPairView

@@ -24,6 +24,7 @@
 from twilio.rest import Client
 import os
 from dotenv import load_dotenv
+from django.conf import settings
 
 load_dotenv()
 
@@ -40,3 +41,16 @@ def send_otp_via_sms(phone, otp):
         to=phone
     )
     return message.sid
+
+def send_whatsapp_message(to_number, message_text):
+    client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+
+    try:
+        message = client.messages.create(
+            from_=settings.TWILIO_WHATSAPP_NUMBER,
+            to=f"whatsapp:{to_number}",  # must be in format +91xxxx...
+            body=message_text
+        )
+        return message.sid
+    except Exception as e:
+        return str(e)

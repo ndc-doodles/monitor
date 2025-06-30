@@ -165,7 +165,8 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
-    image = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField(read_only=True)  # for GET response
+    image = serializers.ImageField(required=False, write_only=True)  # for POST/PUT upload
 
     class Meta:
         model = UserProfile
@@ -178,13 +179,18 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'country',
             'phone_number',
             'email',
-            'image',
+            'image',        # for uploading image
+            'image_url',    # for showing image URL
             'agree'
         ]
+        extra_kwargs = {
+            'username': {'required': False},
+            'agree': {'required': False},
+        }
 
-    def get_image(self, obj):
+    def get_image_url(self, obj):
         if obj.image:
-            return obj.image.url  # ✅ Full Cloudinary URL
+            return obj.image.url
         return None
 
 class UserProfileImageSerializer(serializers.ModelSerializer):

@@ -388,7 +388,6 @@ class UserProfile(models.Model):
     email = models.EmailField(blank=True, null=True)
     image = CloudinaryField('image', blank=True, null=True)
     agree = models.BooleanField(default=False, help_text="User must agree to privacy policy")
-    
     def __str__(self):
         return f"{self.title} {self.full_name}" if self.title else self.full_name
          

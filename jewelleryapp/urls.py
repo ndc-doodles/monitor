@@ -105,7 +105,6 @@ urlpatterns = [
     path('api/send-otp/', SendOTP.as_view(), name='send-otp'),
     path('api/verify-otp/', VerifyOTP.as_view(), name='verify-otp'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
-    path('api/products/<int:pk>/enquiry/', ProductEnquiryAPIView.as_view(), name='product-enquiry'),
-    # path('api/admin/enquiries/', AdminProductEnquiryListAPIView.as_view(), name='admin-enquiries-list'),
-    path('api/enquiries/', ProductEnquiryListAPIView.as_view(), name='enquiries-list'),
+    path('api/enquiry/<int:pk>/', ProductEnquiryAPIView.as_view(), name='product-enquiry'),
+    path('api/enquiries/', ProductEnquiryListAPIView.as_view(), name='product-enquiry-list'),
 ] 

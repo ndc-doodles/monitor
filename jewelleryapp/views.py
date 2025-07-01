@@ -42,7 +42,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import AllowAny
 from rest_framework import status, viewsets
 from rest_framework.parsers import MultiPartParser, FormParser
-
+from twilio.rest import Client
 from .models import Category, Product, UserVisit, SearchGif
 # from .serializers import CategoryNameSerializer, PopularProductSerializer, SearchGifSerializer
 
@@ -1026,6 +1026,17 @@ def get_tokens_for_user(user):
         'refresh': str(refresh),
         'access': str(refresh.access_token),
     }
+from rest_framework.permissions import IsAdminUser
+import os
+from rest_framework import parsers
+from .utils import send_whatsapp_message
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+TWILIO_WHATSAPP_NUMBER = os.getenv("TWILIO_WHATSAPP_NUMBER")
+ADMIN_WHATSAPP_NUMBER = os.getenv("ADMIN_WHATSAPP_NUMBER")
+
+if not all([TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER, ADMIN_WHATSAPP_NUMBER]):
+    raise ImproperlyConfigured("One or more Twilio environment variables are missing.")
 
 class ProductEnquiryAPIView(APIView):
     parser_classes = [parsers.MultiPartParser, parsers.FormParser]
@@ -1039,20 +1050,18 @@ class ProductEnquiryAPIView(APIView):
         data = request.data.copy()
         data['product'] = str(product.id)
 
-        # Auto-fill user profile info if authenticated
         if request.user.is_authenticated:
             try:
-                user_profile = request.user.profile
-                data.setdefault('name', user_profile.full_name)
-                data.setdefault('email', user_profile.email)
-                data.setdefault('phone', user_profile.phone_number)
-            except UserProfile.DoesNotExist:
+                profile = request.user.profile
+                data.setdefault('name', profile.full_name)
+                data.setdefault('email', profile.email)
+                data.setdefault('phone', profile.phone_number)
+            except Exception:
                 pass
 
         serializer = ProductEnquirySerializer(data=data)
         if serializer.is_valid():
             enquiry = serializer.save()
-
             try:
                 self.send_whatsapp_message(enquiry)
             except Exception as e:
@@ -1063,76 +1072,128 @@ class ProductEnquiryAPIView(APIView):
         return Response(serializer.errors, status=400)
 
     def send_whatsapp_message(self, enquiry):
-        client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-
-        image_url = enquiry.image.url if enquiry.image else "No image attached"
-
-        # Use method to get message or default text
-        base_message = enquiry.get_message_or_default()
-
-        # Prefix only if user provided a message (not default)
-        if enquiry.message and enquiry.message.strip():
-            message_text = "I wanted to know more about this: " + enquiry.message.strip()
-        else:
-            message_text = base_message  # "I wanted to know more about this"
+        image_url = enquiry.product.images[0] if enquiry.product.images else "No image available"
+        message_text = enquiry.get_message_or_default()
 
         message = f"""
-    🟡 *New Product Enquiry!*
+🟡 *New Product Enquiry!*
 
-    📦 Product: {enquiry.product.head}
+📦 Product ID: {enquiry.product.id}
+📦 Product: {enquiry.product.head}
+📦 Quantity: {enquiry.quantity}
 
-    👤 Name: {enquiry.name}
-    📧 Email: {enquiry.email}
-    📱 Phone: {enquiry.phone}
+👤 Name: {enquiry.name}
+📧 Email: {enquiry.email}
+📱 Phone: {enquiry.phone}
 
-    💬 Message: {message_text}
+💬 Message: {message_text}
 
-    📎 Image: {image_url}
-        """
-
+🗌 Image: {image_url}
+"""
+        client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
         client.messages.create(
-            from_='whatsapp:+14155238886',
-            to='whatsapp:+918129106509',  # Replace with your WhatsApp admin number
+            from_=TWILIO_WHATSAPP_NUMBER,
+            to=ADMIN_WHATSAPP_NUMBER,
             body=message.strip()
         )
-from rest_framework.permissions import IsAdminUser
 
 
-from .utils import send_whatsapp_message
+# from dotenv import load_dotenv
+# load_dotenv()
+
+# TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+# TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+# TWILIO_WHATSAPP_NUMBER = os.getenv("TWILIO_WHATSAPP_NUMBER")
+# ADMIN_WHATSAPP_NUMBER = os.getenv("ADMIN_WHATSAPP_NUMBER")
+
+# if not all([TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER, ADMIN_WHATSAPP_NUMBER]):
+#     raise ImproperlyConfigured("One or more Twilio environment variables are missing.")
+
+# class ProductEnquiryAPIView(APIView):
+#     parser_classes = [parsers.MultiPartParser, parsers.FormParser]
+
+#     def post(self, request, pk, *args, **kwargs):
+#         try:
+#             product = Product.objects.get(pk=pk)
+#         except Product.DoesNotExist:
+#             return Response({"error": "Product not found"}, status=404)
+
+#         data = request.data.copy()
+#         data['product'] = str(product.id)
+
+#         if request.user.is_authenticated:
+#             try:
+#                 profile = request.user.profile
+#                 data.setdefault('name', profile.full_name)
+#                 data.setdefault('email', profile.email)
+#                 data.setdefault('phone', profile.phone_number)
+#             except Exception:
+#                 pass
+
+#         serializer = ProductEnquirySerializer(data=data)
+#         if serializer.is_valid():
+#             enquiry = serializer.save()
+#             try:
+#                 self.send_whatsapp_message(enquiry)
+#             except Exception as e:
+#                 print("WhatsApp error:", e)
+
+#             return Response({"message": "Enquiry submitted successfully."}, status=201)
+
+#         return Response(serializer.errors, status=400)
+
+#     def send_whatsapp_message(self, enquiry):
+#         client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+#         message_text = enquiry.get_message_or_default()
+
+#         body = f"""
+#     🟡 *New Product Enquiry!*
+
+#     📦 Product ID: {enquiry.product.id}
+#     📦 Product: {enquiry.product.head}
+#     📦 Quantity: {enquiry.quantity}
+
+#     👤 Name: {enquiry.name}
+#     📧 Email: {enquiry.email}
+#     📱 Phone: {enquiry.phone}
+
+#     💬 Message: {message_text}
+#     """
+
+#         # Use enquiry.image if uploaded, else fallback to product.images[0]
+#         image_url = None
+#         if enquiry.image:
+#             image_url = enquiry.image.url
+#         elif enquiry.product.images:
+#             image_url = enquiry.product.images[0]
+
+#         try:
+#             if image_url:
+#                 message = client.messages.create(
+#                     from_=TWILIO_WHATSAPP_NUMBER,
+#                     to=ADMIN_WHATSAPP_NUMBER,
+#                     body=body.strip(),
+#                     media_url=[image_url]
+#                 )
+#             else:
+#                 message = client.messages.create(
+#                     from_=TWILIO_WHATSAPP_NUMBER,
+#                     to=ADMIN_WHATSAPP_NUMBER,
+#                     body=body.strip()
+#                 )
+#             print("WhatsApp message SID:", message.sid)
+#         except Exception as e:
+#             print("WhatsApp send failed:", str(e))
+
+
+
 
 class ProductEnquiryListAPIView(APIView):
     def get(self, request, *args, **kwargs):
         enquiries = ProductEnquiry.objects.all().order_by('-created_at')
         serializer = ProductEnquirySerializer(enquiries, many=True)
         return Response(serializer.data)
-
-    def post(self, request, *args, **kwargs):
-        serializer = ProductEnquirySerializer(data=request.data)
-        if serializer.is_valid():
-            enquiry = serializer.save()
-
-            # Prepare WhatsApp message
-            product_name = enquiry.product.head
-            quantity = enquiry.quantity
-            phone = enquiry.phone
-            message = enquiry.get_message_or_default()
-            image_url = enquiry.product.images[0] if enquiry.product.images else None
-
-            text = f"""🛍 Product: {product_name}
-📦 Quantity: {quantity}
-💬 Message: {message}
-🖼 Image: {image_url or "No image available"}"""
-
-            # Send WhatsApp message
-            result = send_whatsapp_message(phone, text)
-
-            return Response({
-                "enquiry": serializer.data,
-                "whatsapp": result  # Twilio SID or error string
-            }, status=status.HTTP_201_CREATED)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+    
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 class CustomTokenObtainPairView(TokenObtainPairView):

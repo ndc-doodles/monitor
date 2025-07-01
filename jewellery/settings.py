@@ -255,3 +255,10 @@ SIMPLE_JWT = {
     "USER_ID_CLAIM": "user_id",             # default is 'user_id'
     "TOKEN_TYPE_CLAIM": "token_type",
 }
+
+from decouple import config  # pip install python-decouple
+
+TWILIO_ACCOUNT_SID = config("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = config("TWILIO_AUTH_TOKEN")
+TWILIO_WHATSAPP_NUMBER = config("TWILIO_WHATSAPP_NUMBER")
+ADMIN_WHATSAPP_NUMBER = config("ADMIN_WHATSAPP_NUMBER")

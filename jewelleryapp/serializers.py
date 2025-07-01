@@ -999,7 +999,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
             items.append({
                 "type": "product",
-                "name": metal.name,
+                "name": f"{metal.color} {metal.name}".strip() if metal.color else metal.name,
                 "subLabel": f"{metal.karat}KT" if metal.karat else "-",
                 "rate": f"₹ {unit_price}/g",
                 "weight": f"{metal_weight}g",

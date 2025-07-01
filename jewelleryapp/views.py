@@ -1602,7 +1602,8 @@ class RelatedProductsAPIView(APIView):
         # Get related products in the same category but exclude the current product
         related_products = Product.objects.filter(category=product.category).exclude(id=product.id)[:10]
 
-        serializer = ProductSerializer(related_products, many=True)
+        # ✅ Pass context for is_wishlisted to work
+        serializer = ProductSerializer(related_products, many=True, context={'request': request})
         return Response({"related_products": serializer.data}, status=status.HTTP_200_OK)
     
 class ProductRatingAPIView(APIView):

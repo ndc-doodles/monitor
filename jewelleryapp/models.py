@@ -52,7 +52,7 @@ class Metal(models.Model):
     image = CloudinaryField('image', folder='metal')
     karat = models.FloatField(null=True, blank=True)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
-
+    color = models.CharField(max_length=100, blank=True, null=True)
     def __str__(self):
         return f"{self.name} ({self.karat}K)"
 
@@ -60,7 +60,9 @@ class Gemstone(models.Model):
     name = models.CharField(max_length=100)
     unit_price = models.DecimalField(max_digits=10, decimal_places=2)
     image = CloudinaryField('image', folder='stones')
-
+    color = models.CharField(max_length=50, null=True, blank=True)
+    clarity = models.CharField(max_length=50, null=True, blank=True)
+    shape = models.CharField(max_length=50, null=True, blank=True)
     def calculate_price(self, weight):
         return weight * self.unit_price
 
@@ -74,7 +76,7 @@ class Product(models.Model):
     occasion = models.ForeignKey(Occasion, on_delete=models.CASCADE)
     gender = models.ForeignKey(Gender, on_delete=models.CASCADE)
     metal = models.ForeignKey(Metal, on_delete=models.CASCADE)
-    
+    size = models.CharField(max_length=100)
     metal_weight = models.DecimalField(max_digits=10, decimal_places=3, default=0)
     karat = models.FloatField(null=True, blank=True)
     images = models.JSONField(blank=True, null=True)

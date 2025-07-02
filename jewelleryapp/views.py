@@ -1349,14 +1349,18 @@ class RecommendProductsAPIView(APIView):
                 visited_products = Product.objects.filter(id__in=visits.values_list('product_id', flat=True))
 
                 if visited_products.exists():
-                    serializer = ProductSerializer(visited_products, many=True)
+                    serializer = ProductSerializer(
+                        visited_products,
+                        many=True,
+                        context={'request': request}  # ✅ Important
+                    )
                     return Response({
                         "type": "related",
                         "products": serializer.data
                     }, status=status.HTTP_200_OK)
 
             except Register.DoesNotExist:
-                pass  # If user doesn't exist, proceed to random category fallback
+                pass  # If user doesn't exist, proceed to fallback
 
         # Step 2: Fallback - pick a random category that has products
         categories_with_products = Category.objects.filter(product__isnull=False).distinct()
@@ -1365,7 +1369,11 @@ class RecommendProductsAPIView(APIView):
             for category in categories_with_products.order_by('?'):
                 products = Product.objects.filter(category=category)[:5]
                 if products.exists():
-                    serializer = ProductSerializer(products, many=True)
+                    serializer = ProductSerializer(
+                        products,
+                        many=True,
+                        context={'request': request}  # ✅ Important
+                    )
                     return Response({
                         "type": "random_category",
                         "category": category.name,
@@ -1375,7 +1383,11 @@ class RecommendProductsAPIView(APIView):
         # Step 3: Final fallback - get any products if nothing above works
         fallback_products = Product.objects.all()[:5]
         if fallback_products.exists():
-            serializer = ProductSerializer(fallback_products, many=True)
+            serializer = ProductSerializer(
+                fallback_products,
+                many=True,
+                context={'request': request}  # ✅ Important
+            )
             return Response({
                 "type": "fallback_all",
                 "products": serializer.data
@@ -1385,6 +1397,7 @@ class RecommendProductsAPIView(APIView):
         return Response({
             "message": "No products found"
         }, status=status.HTTP_404_NOT_FOUND)
+
     
 
 class HeaderListCreateAPIView(APIView):

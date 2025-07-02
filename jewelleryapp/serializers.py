@@ -960,7 +960,7 @@ class ProductSerializer(serializers.ModelSerializer):
     metal_details = serializers.SerializerMethodField()
     diamond_details = serializers.SerializerMethodField()
     general_details = serializers.SerializerMethodField()
-    description = serializers.SerializerMethodField()
+    descriptions = serializers.SerializerMethodField()
     class Meta:
         model = Product
         fields = '__all__'
@@ -1153,7 +1153,7 @@ class ProductSerializer(serializers.ModelSerializer):
             ]
         }
 
-    def get_description(self, obj):
+    def get_descriptions(self, obj):
         return {
             "title": "Description",
             "content": [

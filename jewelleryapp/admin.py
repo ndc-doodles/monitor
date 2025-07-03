@@ -6,7 +6,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from .models import (
     Register, Material, Metal, Gemstone, Product, ProductStone, Occasion,
     Category, Gender, UserVisit, UserProfile, Wishlist, ProductRating,
-    Header, NavbarCategory, SearchGif,ProductEnquiry
+    Header, NavbarCategory, SearchGif,ProductEnquiry, AdminLogin
 )
 
 # ------------ Inline Admin for ProductStones ------------
@@ -65,7 +65,7 @@ admin.site.register(ProductRating)
 admin.site.register(Header)
 admin.site.register(NavbarCategory)
 admin.site.register(SearchGif)
-
+admin.site.register(AdminLogin)
 # ------------ Custom UserAdmin for Register Model ------------
 @admin.register(Register)
 class RegisterAdmin(UserAdmin):

@@ -154,72 +154,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 
-
-# REST_FRAMEWORK = {
-   
-#     'DEFAULT_AUTHENTICATION_CLASSES': (
-#         'dj_rest_auth.jwt_auth.JWTCookieAuthentication',
-        
-#     )
- 
-# }
-
-# from datetime import timedelta
-
-# # djangorestframework-simplejwt
-# SIMPLE_JWT = {
-#     "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
-#     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
-# }
-
-# dj-rest-auth
-# REST_AUTH = {
-#     "USE_JWT": True,
-#     "JWT_AUTH_COOKIE": "_auth",  # Name of access token cookie
-#     "JWT_AUTH_REFRESH_COOKIE": "_refresh", # Name of refresh token cookie
-#     "JWT_AUTH_HTTPONLY": False,
-#     'REGISTER_SERIALIZER': 'dj_rest_auth.registration.serializers.RegisterSerializer',
-#     # "REGISTER_SERIALIZER": "account.serializers.CustomRegisterSerializer",  # Makes sure refresh token is sent
-# }
-
-# ACCOUNT_AUTHENTICATION_METHOD = "email"  # Use Email / Password authentication
-# ACCOUNT_USERNAME_REQUIRED = False
-# ACCOUNT_EMAIL_REQUIRED = True
-# ACCOUNT_EMAIL_VERIFICATION = "none"
-
 import os
 from dotenv import load_dotenv
 
 load_dotenv(".env")
 
-...
 
-# Google OAuth
-# GOOGLE_OAUTH_CLIENT_ID = os.getenv("GOOGLE_OAUTH_CLIENT_ID")
-# GOOGLE_OAUTH_CLIENT_SECRET = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET")
-# GOOGLE_OAUTH_CALLBACK_URL = os.getenv("GOOGLE_OAUTH_CALLBACK_URL")
-
-# django-allauth (social)
-
-# Authenticate if local account with this email address already exists
-# SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
-
-# SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
-# SOCIALACCOUNT_PROVIDERS = {
-#     "google": {
-#         "APPS": [
-#             {
-#                 "client_id": GOOGLE_OAUTH_CLIENT_ID,
-#                 "secret": GOOGLE_OAUTH_CLIENT_SECRET,
-#                 "key": "",
-#             },
-#         ],
-#         "SCOPE": ["profile", "email"],
-#         "AUTH_PARAMS": {
-#             "access_type": "online",
-#         },
-#     }
-# }
 
 import cloudinary
 import cloudinary.uploader

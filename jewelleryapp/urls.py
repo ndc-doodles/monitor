@@ -107,4 +107,5 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
     path('api/enquiry/<int:pk>/', ProductEnquiryAPIView.as_view(), name='product-enquiry'),
     path('api/enquiries/', ProductEnquiryListAPIView.as_view(), name='product-enquiry-list'),
+    path('api/admin-login/', AdminLoginAPIView.as_view(), name='admin-login'),
 ] 

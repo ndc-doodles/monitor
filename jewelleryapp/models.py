@@ -337,6 +337,19 @@ class ProductEnquiry(models.Model):
         return "I wanted to know more about this"
 
 
+class AdminLogin(models.Model):
+    username = models.CharField(max_length=100)
+    password = models.CharField(max_length=100)
+
+    def save(self, *args, **kwargs):
+        # Automatically hash password on create
+        if not self.pk:  # Only hash when creating, not updating
+            self.password = make_password(self.password)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.username
+    
 # class Register(models.Model):
 #     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 #     username = models.CharField(max_length=150, unique=True)

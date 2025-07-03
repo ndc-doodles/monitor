@@ -51,44 +51,7 @@ from rest_framework import permissions, status
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework import parsers
 
-# class GoogleLogin(SocialLoginView):
-#     adapter_class = GoogleOAuth2Adapter
-#     callback_url = settings.GOOGLE_OAUTH_CALLBACK_URL
-#     client_class = OAuth2Client
 
-
-# class GoogleLoginCallback(APIView):
-#     def get(self, request, *args, **kwargs):
-#         """
-#         If you are building a fullstack application (eq. with React app next to Django)
-#         you can place this endpoint in your frontend application to receive
-#         the JWT tokens there - and store them in the state
-#         """
-
-#         code = request.GET.get("code")
-
-#         if code is None:
-#             return Response(status=status.HTTP_400_BAD_REQUEST)
-        
-#         # Remember to replace the localhost:8000 with the actual domain name before deployment
-#         token_endpoint_url = urljoin("http://localhost:8000/", reverse("google_login"))
-#         response = requests.post(url=token_endpoint_url, data={"code": code})
-
-#         return Response(response.json(), status=status.HTTP_200_OK)
-    
-# class LoginPage(View):
-#     def get(self, request, *args, **kwargs):
-       
-#         return render(
-#             request,
-#             "login.html",
-#             {
-#                 "google_callback_uri": settings.GOOGLE_OAUTH_CALLBACK_URL,
-#                 "google_client_id": settings.GOOGLE_OAUTH_CLIENT_ID,
-                
-#             },
-            
-#         )
     
 
 def index(request):
@@ -202,93 +165,6 @@ class ProductListCreateAPIView(APIView):
 
 
 
-# class ProductDetailAPIView(APIView):
-#     permission_classes = [AllowAny]
-#     def get_object(self, pk):
-#         try:
-#             return Product.objects.get(pk=pk)
-#         except Product.DoesNotExist:
-#             raise NotFound("Product not found")
-
-#     def get(self, request, pk, *args, **kwargs):
-#         product = self.get_object(pk)
-#         serializer = ProductSerializer(product, context={'request': request})
-#         return Response(serializer.data)
-
-#     def put(self, request, pk, *args, **kwargs):
-#         product = self.get_object(pk)
-#         data = dict(request.data)
-
-#         new_images = request.FILES.getlist('images')
-#         if new_images:
-#             uploaded_images = []
-#             try:
-#                 for image in new_images[:5]:
-#                     upload_result = uploader.upload(image)
-#                     uploaded_images.append(upload_result["secure_url"])
-#                 data['images'] = json.dumps(uploaded_images)
-#             except Exception as e:
-#                 return Response({"error": f"Image upload failed: {str(e)}"}, status=500)
-#         else:
-#             data.pop('images', None)
-
-#         if 'ar_model_glb' in request.FILES:
-#             glb_upload = uploader.upload(request.FILES['ar_model_glb'], resource_type='raw')
-#             data['ar_model_glb'] = f"https://res.cloudinary.com/dvllntzo0/raw/upload/v{glb_upload['version']}/{glb_upload['public_id']}"
-
-#         if 'ar_model_gltf' in request.FILES:
-#             gltf_upload = uploader.upload(request.FILES['ar_model_gltf'], resource_type='raw')
-#             data['ar_model_gltf'] = gltf_upload['secure_url']
-
-#         if 'images' in data and isinstance(data['images'], str):
-#             try:
-#                 data['images'] = json.loads(data['images'])
-#             except json.JSONDecodeError:
-#                 return Response({"images": ["Value must be valid JSON."]}, status=400)
-
-#         messages = []
-
-#         if 'total_stock' in data:
-#             try:
-#                 stock_value = data['total_stock'][0] if isinstance(data['total_stock'], list) else data['total_stock']
-#                 added_stock = int(stock_value)
-#                 product.total_stock += added_stock
-#                 product.save()
-#                 messages.append(f"Added {added_stock} to stock.")
-#             except ValueError:
-#                 return Response({"total_stock": ["A valid integer is required."]}, status=400)
-#             data.pop('total_stock')
-
-#         if 'sold_count' in data:
-#             try:
-#                 sold_value = data['sold_count'][0] if isinstance(data['sold_count'], list) else data['sold_count']
-#                 sold_increment = int(sold_value)
-#                 if sold_increment < 0:
-#                     return Response({"sold_count": ["Sold count cannot be negative."]}, status=400)
-
-#                 available_stock = product.total_stock - product.sold_count
-#                 if sold_increment > available_stock:
-#                     return Response({
-#                         "message": "Not enough stock to sell.",
-#                         "product": ProductSerializer(product).data
-#                     }, status=400)
-
-#                 product.sold_count += sold_increment
-#                 product.save()
-#                 messages.append(f"{sold_increment} items sold.")
-#             except ValueError:
-#                 return Response({"sold_count": ["A valid integer is required."]}, status=400)
-#             data.pop('sold_count')
-
-#         serializer = ProductSerializer(product, data=data, partial=True)
-#         if serializer.is_valid():
-#             serializer.save()
-#             return Response({
-#                 "message": " ".join(messages) or "Product updated successfully.",
-#                 "product": serializer.data
-#             })
-
-#         return Response(serializer.errors, status=400)
 
 
 class ProductDetailAPIView(APIView):
@@ -742,85 +618,6 @@ class ProductStoneDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = ProductStone.objects.all()
     serializer_class = ProductStoneSerializer
 
-# class RegisterView(APIView):
-#     def post(self, request, *args, **kwargs):
-#         # Create the serializer instance with the request data
-#         serializer = RegisterSerializer(data=request.data)
-        
-#         # Check if the serializer is valid
-#         if serializer.is_valid():
-#             # Save the data (create the user) if valid
-#             serializer.save()
-#             return Response({"message": "User registered successfully"}, status=status.HTTP_201_CREATED)
-        
-#         # Return validation errors if the data is not valid
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-
-# class RegisterView(APIView):
-#     def get(self, request, *args, **kwargs):
-#         user_id = request.query_params.get('id')
-#         if user_id:
-#             try:
-#                 user = Register.objects.get(id=user_id)
-#                 print(f"Fetched User ID: {user.id}")
-#                 serializer = RegisterSerializer(user)
-#                 return Response(serializer.data, status=status.HTTP_200_OK)
-#             except Register.DoesNotExist:
-#                 return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
-#         else:
-#             users = Register.objects.all()
-#             for user in users:
-#                 print(f"User ID: {user.id}")
-#             serializer = RegisterSerializer(users, many=True)
-#             return Response(serializer.data, status=status.HTTP_200_OK)
-
-#     def post(self, request, *args, **kwargs):
-#         serializer = RegisterSerializer(data=request.data)
-#         if serializer.is_valid():
-#             user = serializer.save()
-#             print(f"New User Registered with ID: {user.id}")
-#             return Response({"message": "User registered successfully", "id": str(user.id)}, status=status.HTTP_201_CREATED)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
-
-
-# class UserProfileCreateView(generics.CreateAPIView):
-#     queryset = UserProfile.objects.all()
-#     serializer_class = UserProfileSerializer
-
-#     def perform_create(self, serializer):
-#         # Get the user (Register model) ID from the request data
-#         user_id = self.request.data.get('user') # Get the 'user' field from the request body (which should be an ID)
-#         user_id = int(user_id)
-#         print("sangu mon",type(user_id))
-#         # Fetch the Register instance using the provided user ID
-#         user = get_object_or_404(Register, id=user_id)
-#         print('the user is',user)
-#         username = user.username
-        
-#         # Save the UserProfile with the user (Register model)
-#         serializer.save(user=username)
-
-# class UserProfileUpdateView(generics.UpdateAPIView):
-#     queryset = UserProfile.objects.all()
-#     serializer_class = UserProfileSerializer
-
-#     def get_object(self):
-#         # Get the UserProfile instance by ID from the URL
-#         obj = UserProfile.objects.get(id=self.kwargs["id"])
-#         return obj
-# class RegisterDetailView(APIView):
-#     def get(self, request, id, *args, **kwargs):
-#         try:
-#             user = Register.objects.get(id=id)
-#             print(f"Fetched User ID: {user.id}")
-#             serializer = RegisterSerializer(user)
-#             return Response(serializer.data, status=status.HTTP_200_OK)
-#         except Register.DoesNotExist:
-#             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
-
 
 
 class LoginAPIView(APIView):
@@ -913,38 +710,7 @@ class UserProfileUpdateView(generics.UpdateAPIView):
     def get_object(self):
         return get_object_or_404(UserProfile, id=self.kwargs["id"])
 
-# class UserProfileDetailView(APIView):
-#     permission_classes = [permissions.IsAuthenticated]
 
-#     def get(self, request):
-#         try:
-#             profile = UserProfile.objects.get(username=request.user)
-#             serializer = UserProfileSerializer(profile)
-#             return Response(serializer.data)
-#         except UserProfile.DoesNotExist:
-#             return Response({"detail": "Profile not found."}, status=404)
-
-#     def post(self, request):
-#         if UserProfile.objects.filter(username=request.user).exists():
-#             return Response({"detail": "Profile already exists."}, status=400)
-
-#         serializer = UserProfileSerializer(data=request.data)
-#         if serializer.is_valid():
-#             serializer.save(username=request.user)
-#             return Response(serializer.data, status=201)
-#         return Response(serializer.errors, status=400)
-
-#     def put(self, request):
-#         try:
-#             profile = UserProfile.objects.get(username=request.user)
-#         except UserProfile.DoesNotExist:
-#             return Response({"detail": "Profile not found."}, status=404)
-
-#         serializer = UserProfileSerializer(profile, data=request.data, partial=True)
-#         if serializer.is_valid():
-#             serializer.save()
-#             return Response(serializer.data)
-#         return Response(serializer.errors, status=400)
 class UserProfileDetailView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -1098,95 +864,6 @@ class ProductEnquiryAPIView(APIView):
         )
 
 
-# from dotenv import load_dotenv
-# load_dotenv()
-
-# TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
-# TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
-# TWILIO_WHATSAPP_NUMBER = os.getenv("TWILIO_WHATSAPP_NUMBER")
-# ADMIN_WHATSAPP_NUMBER = os.getenv("ADMIN_WHATSAPP_NUMBER")
-
-# if not all([TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER, ADMIN_WHATSAPP_NUMBER]):
-#     raise ImproperlyConfigured("One or more Twilio environment variables are missing.")
-
-# class ProductEnquiryAPIView(APIView):
-#     parser_classes = [parsers.MultiPartParser, parsers.FormParser]
-
-#     def post(self, request, pk, *args, **kwargs):
-#         try:
-#             product = Product.objects.get(pk=pk)
-#         except Product.DoesNotExist:
-#             return Response({"error": "Product not found"}, status=404)
-
-#         data = request.data.copy()
-#         data['product'] = str(product.id)
-
-#         if request.user.is_authenticated:
-#             try:
-#                 profile = request.user.profile
-#                 data.setdefault('name', profile.full_name)
-#                 data.setdefault('email', profile.email)
-#                 data.setdefault('phone', profile.phone_number)
-#             except Exception:
-#                 pass
-
-#         serializer = ProductEnquirySerializer(data=data)
-#         if serializer.is_valid():
-#             enquiry = serializer.save()
-#             try:
-#                 self.send_whatsapp_message(enquiry)
-#             except Exception as e:
-#                 print("WhatsApp error:", e)
-
-#             return Response({"message": "Enquiry submitted successfully."}, status=201)
-
-#         return Response(serializer.errors, status=400)
-
-#     def send_whatsapp_message(self, enquiry):
-#         client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-#         message_text = enquiry.get_message_or_default()
-
-#         body = f"""
-#     🟡 *New Product Enquiry!*
-
-#     📦 Product ID: {enquiry.product.id}
-#     📦 Product: {enquiry.product.head}
-#     📦 Quantity: {enquiry.quantity}
-
-#     👤 Name: {enquiry.name}
-#     📧 Email: {enquiry.email}
-#     📱 Phone: {enquiry.phone}
-
-#     💬 Message: {message_text}
-#     """
-
-#         # Use enquiry.image if uploaded, else fallback to product.images[0]
-#         image_url = None
-#         if enquiry.image:
-#             image_url = enquiry.image.url
-#         elif enquiry.product.images:
-#             image_url = enquiry.product.images[0]
-
-#         try:
-#             if image_url:
-#                 message = client.messages.create(
-#                     from_=TWILIO_WHATSAPP_NUMBER,
-#                     to=ADMIN_WHATSAPP_NUMBER,
-#                     body=body.strip(),
-#                     media_url=[image_url]
-#                 )
-#             else:
-#                 message = client.messages.create(
-#                     from_=TWILIO_WHATSAPP_NUMBER,
-#                     to=ADMIN_WHATSAPP_NUMBER,
-#                     body=body.strip()
-#                 )
-#             print("WhatsApp message SID:", message.sid)
-#         except Exception as e:
-#             print("WhatsApp send failed:", str(e))
-
-
-
 
 class ProductEnquiryListAPIView(APIView):
     def get(self, request, *args, **kwargs):
@@ -1199,54 +876,6 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
-# class WishlistAPIView(APIView):
-#     permission_classes = [permissions.IsAuthenticated]
-
-#     def get(self, request):
-#         user = request.user
-#         wishlist = Wishlist.objects.filter(user=user).select_related('product')
-#         serializer = WishlistSerializer(wishlist, many=True, context={'request': request})
-#         return Response(serializer.data, status=status.HTTP_200_OK)
-
-#     def post(self, request):
-#         user = request.user
-#         product_id = request.data.get("product_id")
-
-#         if not product_id:
-#             return Response({"error": "product_id is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-#         try:
-#             product = Product.objects.get(id=product_id)
-#         except Product.DoesNotExist:
-#             return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
-
-#         wishlist_item, created = Wishlist.objects.get_or_create(user=user, product=product)
-
-#         wishlist = Wishlist.objects.filter(user=user).select_related('product')
-#         serializer = WishlistSerializer(wishlist, many=True, context={'request': request})
-
-#         if created:
-#             return Response({"message": "Product added to wishlist", "wishlist": serializer.data}, status=status.HTTP_201_CREATED)
-#         else:
-#             return Response({"message": "Product already in wishlist", "wishlist": serializer.data}, status=status.HTTP_200_OK)
-
-#     def delete(self, request):
-#         user = request.user
-#         product_id = request.data.get("product_id")
-
-#         if not product_id:
-#             return Response({"error": "product_id is required"}, status=status.HTTP_400_BAD_REQUEST)
-
-#         try:
-#             product = Product.objects.get(id=product_id)
-#         except Product.DoesNotExist:
-#             return Response({"error": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
-
-#         deleted, _ = Wishlist.objects.filter(user=user, product=product).delete()
-#         if deleted:
-#             return Response({"message": "Removed from wishlist"}, status=status.HTTP_204_NO_CONTENT)
-#         else:
-#             return Response({"error": "Wishlist item not found"}, status=status.HTTP_404_NOT_FOUND)
 class WishlistAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -1531,13 +1160,6 @@ class ProductListByGender(ListAPIView):
             return Product.objects.filter(gender_id=gender_id)
         return Product.objects.all()
     
-# class SevenCategoriesAPIView(APIView):
-#     def get(self, request, *args, **kwargs):
-#         categories = Category.objects.order_by('?')[:7]  # Get 7 random categories
-#         serializer = CategorySerializer(categories, many=True)
-#         return Response({
-#             "categories": serializer.data
-#         },status=status.HTTP_200_OK)
 
 
 class SevenCategoriesAPIView(APIView):
@@ -1546,37 +1168,7 @@ class SevenCategoriesAPIView(APIView):
         serializer = CategorySerializer(categories, many=True)
         return Response({"categories": serializer.data}, status=status.HTTP_200_OK)
 
-# class SevenCategoryDetailAPIView(APIView):
-#     def get(self, request, pk, *args, **kwargs):
-#         # 1️⃣ Load & validate optional user_id UUID
-#         raw_user_id = request.query_params.get('user_id')
-#         user_uuid   = None
-#         if raw_user_id:
-#             try:
-#                 user_uuid = uuid.UUID(raw_user_id)
-#             except ValueError:
-#                 return Response(
-#                     {"error": "Invalid user_id. Must be a valid UUID."},
-#                     status=status.HTTP_400_BAD_REQUEST
-#                 )
-
-#         # 2️⃣ Fetch the category and its products
-#         category = get_object_or_404(Category, pk=pk)
-#         products = Product.objects.filter(category=category)
-
-#         # 3️⃣ Serialize, passing user_id into context
-#         serializer = FinestProductSerializer(
-#             products,
-#             many=True,
-#             context={'user_id': user_uuid}
-#         )
-
-#         # 4️⃣ Return the response
-#         return Response({
-#             "category": category.name,
-#             "products": serializer.data
-#         }, status=status.HTTP_200_OK)
-    
+ 
 class SevenCategoryDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]  # Enforce JWT authentication
 
@@ -1794,253 +1386,7 @@ class MegaNavbar(APIView):
 
 
 
-# class CombinedSuggestionsView(APIView):
-#     permission_classes = [AllowAny]
 
-#     def get(self, request):
-#         user = request.user if request.user.is_authenticated else None
-#         query = request.GET.get('query', '').strip()
-
-#         # Suggested Categories (filtered by search query)
-#         if query:
-#             suggested_categories = Category.objects.filter(name__icontains=query)
-#         elif user:
-#             cat_ids = (
-#                 UserVisit.objects.filter(user=user)
-#                 .values('product__category')
-#                 .annotate(visits=Count('id'))
-#                 .order_by('-visits')
-#                 .values_list('product__category', flat=True)[:5]
-#             )
-#             suggested_categories = Category.objects.filter(id__in=cat_ids)
-#         else:
-#             suggested_categories = Category.objects.order_by('?')[:5]
-
-#         # Popular Categories (unchanged, based on visits)
-#         pop_cat_ids = (
-#             UserVisit.objects
-#             .values('product__category')
-#             .annotate(visits=Count('id'))
-#             .order_by('-visits')
-#             .values_list('product__category', flat=True)[:5]
-#         )
-#         popular_categories = Category.objects.filter(id__in=pop_cat_ids) if pop_cat_ids else Category.objects.order_by('?')[:5]
-
-#         # Suggested Products (filtered by search query)
-#         if query:
-#             suggested_products = Product.objects.filter(head__icontains=query)
-#         elif user:
-#             prod_ids = (
-#                 UserVisit.objects.filter(user=user)
-#                 .values('product')
-#                 .annotate(visits=Count('id'))
-#                 .order_by('-visits')
-#                 .values_list('product', flat=True)[:10]
-#             )
-#             suggested_products = Product.objects.filter(id__in=prod_ids)
-#         else:
-#             suggested_products = Product.objects.order_by('?')[:10]
-
-#         # Popular Products (unchanged, based on visits)
-#         pop_prod_ids = (
-#             UserVisit.objects
-#             .values('product')
-#             .annotate(visits=Count('id'))
-#             .order_by('-visits')
-#             .values_list('product', flat=True)[:10]
-#         )
-#         popular_products = Product.objects.filter(id__in=pop_prod_ids) if pop_prod_ids else Product.objects.order_by('?')[:10]
-
-#         # Search GIF
-#         gif = SearchGif.objects.first()
-#         gif_url = gif.image.url if gif else None
-
-#         data = {
-#             "gif": gif_url,
-#             "suggested_categories": CategoryNameSerializer(suggested_categories, many=True).data,
-#             "popular_categories": CategoryNameSerializer(popular_categories, many=True).data,
-#             "suggested_products": PopularProductSerializer(suggested_products, many=True).data,
-#             "popular_products": PopularProductSerializer(popular_products, many=True).data,
-#         }
-#         return Response(data)
-
-
-# class GifUpdateView(APIView):
-#     permission_classes = [AllowAny]
-
-#     def put(self, request):
-#         gif = SearchGif.objects.first()
-#         if not gif:
-#             return Response({"detail": "Gif not found."}, status=status.HTTP_404_NOT_FOUND)
-
-#         serializer = SearchGifSerializer(gif, data=request.data, partial=True)
-#         if serializer.is_valid():
-#             serializer.save()
-#             return Response(serializer.data)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-#     def patch(self, request):
-#         return self.put(request)  # Allow patch to call the same update logic
-
-# class GifViewSet(viewsets.ModelViewSet):
-#     queryset = SearchGif.objects.all()
-#     serializer_class = SearchGifSerializer
-#     parser_classes = [MultiPartParser, FormParser]
-
-
-
-
-
-# class CombinedSuggestionsView(APIView):
-#     permission_classes = [AllowAny]
-
-#     def get(self, request):
-#         user = request.user if request.user.is_authenticated else None
-#         query = request.GET.get('query', '').strip()
-
-#         # Suggested Categories (filtered by search query)
-#         if query:
-#             suggested_categories = Category.objects.filter(name__icontains=query)
-#         elif user:
-#             cat_ids = (
-#                 UserVisit.objects.filter(user=user)
-#                 .values('product__category')
-#                 .annotate(visits=Count('id'))
-#                 .order_by('-visits')
-#                 .values_list('product__category', flat=True)[:5]
-#             )
-#             suggested_categories = Category.objects.filter(id__in=cat_ids)
-#         else:
-#             suggested_categories = Category.objects.order_by('?')[:5]
-
-#         # Popular Categories (unchanged, based on visits)
-#         pop_cat_ids = (
-#             UserVisit.objects
-#             .values('product__category')
-#             .annotate(visits=Count('id'))
-#             .order_by('-visits')
-#             .values_list('product__category', flat=True)[:5]
-#         )
-#         popular_categories = Category.objects.filter(id__in=pop_cat_ids) if pop_cat_ids else Category.objects.order_by('?')[:5]
-
-#         # Suggested Products (filtered by search query)
-#         if query:
-#             suggested_products = Product.objects.filter(head__icontains=query)
-#         elif user:
-#             prod_ids = (
-#                 UserVisit.objects.filter(user=user)
-#                 .values('product')
-#                 .annotate(visits=Count('id'))
-#                 .order_by('-visits')
-#                 .values_list('product', flat=True)[:10]
-#             )
-#             suggested_products = Product.objects.filter(id__in=prod_ids)
-#         else:
-#             suggested_products = Product.objects.order_by('?')[:10]
-
-#         # Popular Products (unchanged, based on visits)
-#         pop_prod_ids = (
-#             UserVisit.objects
-#             .values('product')
-#             .annotate(visits=Count('id'))
-#             .order_by('-visits')
-#             .values_list('product', flat=True)[:10]
-#         )
-#         popular_products = Product.objects.filter(id__in=pop_prod_ids) if pop_prod_ids else Product.objects.order_by('?')[:10]
-
-#         # Search GIF
-#         gif = SearchGif.objects.first()
-#         gif_url = gif.image.url if gif else None
-
-#         data = {
-#             "gif": gif_url,
-#             "suggested_categories": CategoryNameSerializer(suggested_categories, many=True).data,
-#             "popular_categories": CategoryNameSerializer(popular_categories, many=True).data,
-#             "suggested_products": PopularProductSerializer(suggested_products, many=True).data,
-#             "popular_products": PopularProductSerializer(popular_products, many=True).data,
-#         }
-#         return Response(data)
-
-# class CombinedSuggestionsView(APIView):
-#     permission_classes = [AllowAny]
-
-#     def get(self, request):
-#         user = request.user if request.user.is_authenticated else None
-#         query = request.GET.get('query', '').strip()
-
-#         # Suggested Categories (filtered by search query or material name)
-#         if query:
-#             # Try to find matching material by name
-#             material_match = Material.objects.filter(name__icontains=query).first()
-#             if material_match:
-#                 # Get categories where products have metal with this material
-#                 suggested_categories = Category.objects.filter(
-#                     product__metal__material=material_match
-#                 ).distinct()
-#             else:
-#                 # Otherwise fallback to category name search
-#                 suggested_categories = Category.objects.filter(name__icontains=query)
-#         elif user:
-#             # Categories based on user visits
-#             cat_ids = (
-#                 UserVisit.objects.filter(user=user)
-#                 .values('product__category')
-#                 .annotate(visits=Count('id'))
-#                 .order_by('-visits')
-#                 .values_list('product__category', flat=True)[:5]
-#             )
-#             suggested_categories = Category.objects.filter(id__in=cat_ids)
-#         else:
-#             # Random categories fallback
-#             suggested_categories = Category.objects.order_by('?')[:5]
-
-#         # Popular Categories (top visited)
-#         pop_cat_ids = (
-#             UserVisit.objects
-#             .values('product__category')
-#             .annotate(visits=Count('id'))
-#             .order_by('-visits')
-#             .values_list('product__category', flat=True)[:5]
-#         )
-#         popular_categories = Category.objects.filter(id__in=pop_cat_ids) if pop_cat_ids else Category.objects.order_by('?')[:5]
-
-#         # Suggested Products (filtered by search query)
-#         if query:
-#             suggested_products = Product.objects.filter(head__icontains=query)
-#         elif user:
-#             prod_ids = (
-#                 UserVisit.objects.filter(user=user)
-#                 .values('product')
-#                 .annotate(visits=Count('id'))
-#                 .order_by('-visits')
-#                 .values_list('product', flat=True)[:10]
-#             )
-#             suggested_products = Product.objects.filter(id__in=prod_ids)
-#         else:
-#             suggested_products = Product.objects.order_by('?')[:10]
-
-#         # Popular Products (top visited)
-#         pop_prod_ids = (
-#             UserVisit.objects
-#             .values('product')
-#             .annotate(visits=Count('id'))
-#             .order_by('-visits')
-#             .values_list('product', flat=True)[:10]
-#         )
-#         popular_products = Product.objects.filter(id__in=pop_prod_ids) if pop_prod_ids else Product.objects.order_by('?')[:10]
-
-#         # Search GIF
-#         gif = SearchGif.objects.first()
-#         gif_url = gif.image.url if gif else None
-
-#         data = {
-#             "gif": gif_url,
-#             "suggested_categories": CategoryNameSerializer(suggested_categories, many=True).data,
-#             "popular_categories": CategoryNameSerializer(popular_categories, many=True).data,
-#             "suggested_products": PopularProductSerializer(suggested_products, many=True).data,
-#             "popular_products": PopularProductSerializer(popular_products, many=True).data,
-#         }
-#         return Response(data)
 
 
 class CombinedSuggestionsView(APIView):
@@ -2156,22 +1502,6 @@ class SearchGifAPIView(APIView):
 
 
 
-# class SendOTP(APIView):
-#     def post(self, request):
-#         serializer = PhoneSerializer(data=request.data)
-#         if serializer.is_valid():
-#             phone = serializer.validated_data['phone']
-#             otp = str(random.randint(100000, 999999))  # ✅ Generate OTP here
-
-#             otp_obj, created = PhoneOTP.objects.update_or_create(
-#                 phone=phone,
-#                 defaults={'otp': otp, 'is_verified': False}  # ✅ Save OTP
-#             )
-
-#             send_otp_via_sms(phone, otp)  # ✅ Send this OTP
-#             return Response({'message': 'OTP sent successfully.'}, status=status.HTTP_200_OK)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 class SendOTP(APIView):
@@ -2200,40 +1530,6 @@ class SendOTP(APIView):
 
 
 import uuid
-
-
-
-# class VerifyOTP(APIView):
-#     def post(self, request):
-#         phone = request.data.get("phone")
-#         otp = request.data.get("otp")
-
-#         if not phone or not otp:
-#             return Response({"error": "Phone and OTP are required"}, status=400)
-
-#         try:
-#             otp_obj = PhoneOTP.objects.get(phone=phone, otp=otp, is_verified=False)
-#         except PhoneOTP.DoesNotExist:
-#             return Response({"error": "Invalid OTP"}, status=400)
-
-#         otp_obj.is_verified = True
-#         otp_obj.save()
-
-#         user, created = Register.objects.get_or_create(
-#             mobile=phone,
-#             defaults={"username": f"user_{phone[-4:]}", "password": "otp_auth"}  # Placeholder password
-#         )
-
-#         refresh = RefreshToken.for_user(user)
-
-#         return Response({
-#             "message": "Login successful" if not created else "Account created and login successful",
-#             "refresh": str(refresh),
-#             "access": str(refresh.access_token),
-#             "user_id": str(user.id),
-#             "username": user.username,
-#             "mobile": user.mobile,
-#         }, status=200)
 
 from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST
 from django.shortcuts import get_object_or_404
@@ -2287,3 +1583,19 @@ class VerifyOTP(APIView):
 
 
 
+class AdminLoginAPIView(APIView):
+    def post(self, request):
+        serializer = AdminLoginSerializer(data=request.data)
+        if serializer.is_valid():
+            admin = serializer.validated_data['admin']
+
+            # Create JWT tokens
+            refresh = RefreshToken.for_user(admin)
+
+            return Response({
+                "message": "Login successful",
+                "username": admin.username,
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+            })
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

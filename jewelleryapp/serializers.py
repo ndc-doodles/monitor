@@ -1438,39 +1438,23 @@ class VerifyOTPSerializer(serializers.Serializer):
     otp = serializers.CharField(max_length=6)
 
 
-# class PhoneSerializer(serializers.Serializer):
-#     phone = serializers.CharField(max_length=15)
+from django.contrib.auth.hashers import check_password
 
-# class VerifyOTPSerializer(serializers.Serializer):
-#     phone = serializers.CharField(max_length=15)
-#     otp = serializers.CharField(max_length=6)
-# class PhoneSerializer(serializers.Serializer):
-#     phone = serializers.CharField(max_length=15)
+class AdminLoginSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    password = serializers.CharField(write_only=True)
 
-# class VerifyOTPSerializer(serializers.Serializer):
-#     phone = serializers.CharField(max_length=15)
-#     otp = serializers.CharField(max_length=6)
+    def validate(self, data):
+        username = data['username']
+        password = data['password']
 
+        try:
+            admin = AdminLogin.objects.get(username=username)
+        except AdminLogin.DoesNotExist:
+            raise serializers.ValidationError("Invalid username or password")
 
-# class CategoryNameSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Category
-#         fields = ['name']
+        if not check_password(password, admin.password):
+            raise serializers.ValidationError("Invalid username or password")
 
-
-# class PopularProductSerializer(serializers.ModelSerializer):
-#     image = serializers.SerializerMethodField()
-
-#     class Meta:
-#         model = Product
-#         fields = ['head', 'image']
-
-#     def get_image(self, obj):
-#         images = obj.images
-#         if isinstance(images, list) and images:
-#             return images[0]  # Return first image from list
-#         elif isinstance(images, dict) and images:
-#             return next(iter(images.values()), None)  # Return first value from dict
-#         return None  # No image
-
-
+        data['admin'] = admin
+        return data

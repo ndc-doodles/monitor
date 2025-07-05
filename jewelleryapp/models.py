@@ -297,26 +297,18 @@ class Register(AbstractBaseUser, PermissionsMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     username = models.CharField(max_length=150, unique=True)
     mobile = models.BigIntegerField(unique=True)
+    email = models.EmailField(null=True, blank=True)  # <- NEW for Google login
+    name = models.CharField(max_length=150, null=True, blank=True)  # <- NEW (Google display name)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
 
     objects = RegisterManager()
 
-    USERNAME_FIELD = 'mobile'
-    REQUIRED_FIELDS = ['username']
+    USERNAME_FIELD = 'mobile'  # Keep this if login is still based on mobile
+    REQUIRED_FIELDS = ['username']  # Email not required for signup
 
     def __str__(self):
         return self.username
-
-class PhoneOTP(models.Model):
-    phone = models.CharField(max_length=15, unique=True)
-    otp = models.CharField(max_length=6)
-    is_verified = models.BooleanField(default=False)
-    timestamp = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return self.phone
-
 
 class ProductEnquiry(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='enquiries')

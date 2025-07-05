@@ -1642,22 +1642,22 @@ def google_login_callback(request):
         if not email:
             return JsonResponse({'error': 'Email not returned by Google'}, status=400)
 
-        # Get or create the user
+        # Generate dummy mobile number (e.g., use part of hash or timestamp)
+        dummy_mobile = int("91" + str(abs(hash(email)))[0:8])  # ensures uniqueness
+
+        # Get or create the user using username=email
         user, created = User.objects.get_or_create(
-            email=email,
-            defaults={"username": email, "first_name": name}
+            username=email,
+            defaults={"mobile": dummy_mobile}
         )
 
-        # Optional: log in the user to Django session system
         login(request, user)
 
-        # Generate JWT tokens
         refresh = RefreshToken.for_user(user)
 
         return JsonResponse({
             'message': 'Login successful',
-            'email': user.email,
-            'name': user.first_name,
+            'username': user.username,
             'access': str(refresh.access_token),
             'refresh': str(refresh)
         })

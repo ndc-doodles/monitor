@@ -108,4 +108,5 @@ urlpatterns = [
     path('api/enquiry/<int:pk>/', ProductEnquiryAPIView.as_view(), name='product-enquiry'),
     path('api/enquiries/', ProductEnquiryListAPIView.as_view(), name='product-enquiry-list'),
     path('api/admin-login/', AdminLoginAPIView.as_view(), name='admin-login'),
+    path('api/dj-rest-auth/google/', google_login_callback),
 ] 

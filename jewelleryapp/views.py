@@ -1599,3 +1599,68 @@ class AdminLoginAPIView(APIView):
                 "refresh": str(refresh),
             })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+import os
+import json
+import requests
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth import get_user_model, login
+from dotenv import load_dotenv
+from rest_framework_simplejwt.tokens import RefreshToken
+
+load_dotenv()
+User = get_user_model()
+
+@csrf_exempt
+def google_login_callback(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST allowed'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        access_token = data.get('access_token')
+
+        if not access_token:
+            return JsonResponse({'error': 'Missing access token'}, status=400)
+
+        # Get user info from Google
+        userinfo_url = "https://www.googleapis.com/oauth2/v3/userinfo"
+        response = requests.get(
+            userinfo_url,
+            headers={"Authorization": f"Bearer {access_token}"}
+        )
+
+        if response.status_code != 200:
+            return JsonResponse({'error': 'Failed to fetch user info'}, status=400)
+
+        user_info = response.json()
+        email = user_info.get("email")
+        name = user_info.get("name")
+
+        if not email:
+            return JsonResponse({'error': 'Email not returned by Google'}, status=400)
+
+        # Get or create the user
+        user, created = User.objects.get_or_create(
+            email=email,
+            defaults={"username": email, "first_name": name}
+        )
+
+        # Optional: log in the user to Django session system
+        login(request, user)
+
+        # Generate JWT tokens
+        refresh = RefreshToken.for_user(user)
+
+        return JsonResponse({
+            'message': 'Login successful',
+            'email': user.email,
+            'name': user.first_name,
+            'access': str(refresh.access_token),
+            'refresh': str(refresh)
+        })
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

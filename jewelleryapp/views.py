@@ -52,7 +52,6 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework import parsers
 
 from jewelleryapp.models import PhoneOTP
-
     
 
 def index(request):
@@ -1610,8 +1609,63 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth import get_user_model, login
 from dotenv import load_dotenv
 from rest_framework_simplejwt.tokens import RefreshToken
-
 load_dotenv()
+# load_dotenv()
+# User = get_user_model()
+
+# @csrf_exempt
+# def google_login_callback(request):
+#     if request.method != 'POST':
+#         return JsonResponse({'error': 'Only POST allowed'}, status=405)
+
+#     try:
+#         data = json.loads(request.body)
+#         access_token = data.get('access_token')
+
+#         if not access_token:
+#             return JsonResponse({'error': 'Missing access token'}, status=400)
+
+#         # Get user info from Google
+#         userinfo_url = "https://www.googleapis.com/oauth2/v3/userinfo"
+#         response = requests.get(
+#             userinfo_url,
+#             headers={"Authorization": f"Bearer {access_token}"}
+#         )
+
+#         if response.status_code != 200:
+#             return JsonResponse({'error': 'Failed to fetch user info'}, status=400)
+
+#         user_info = response.json()
+#         email = user_info.get("email")
+#         name = user_info.get("name")
+
+#         if not email:
+#             return JsonResponse({'error': 'Email not returned by Google'}, status=400)
+
+#         # Generate dummy mobile number (e.g., use part of hash or timestamp)
+#         dummy_mobile = int("91" + str(abs(hash(email)))[0:8])  # ensures uniqueness
+
+#         # Get or create the user using username=email
+#         user, created = User.objects.get_or_create(
+#             username=email,
+#             defaults={"mobile": dummy_mobile}
+#         )
+
+#         login(request, user)
+
+#         refresh = RefreshToken.for_user(user)
+
+#         return JsonResponse({
+#             'message': 'Login successful',
+#             'username': user.username,
+#             'access': str(refresh.access_token),
+#             'refresh': str(refresh)
+#         })
+
+#     except Exception as e:
+#         return JsonResponse({'error': str(e)}, status=500)
+
+
 User = get_user_model()
 
 @csrf_exempt
@@ -1639,21 +1693,37 @@ def google_login_callback(request):
         user_info = response.json()
         email = user_info.get("email")
         name = user_info.get("name")
+        # picture = user_info.get("picture")  # optional
 
         if not email:
             return JsonResponse({'error': 'Email not returned by Google'}, status=400)
 
-        # Generate dummy mobile number (e.g., use part of hash or timestamp)
-        dummy_mobile = int("91" + str(abs(hash(email)))[0:8])  # ensures uniqueness
+        # Generate dummy mobile number using email hash
+        dummy_mobile = int("91" + str(abs(hash(email)))[0:8])
 
-        # Get or create the user using username=email
+        # Create or get user
         user, created = User.objects.get_or_create(
             username=email,
             defaults={"mobile": dummy_mobile}
         )
 
+        # ✅ Create UserProfile if it doesn't exist
+        if not hasattr(user, 'profile'):
+            try:
+                UserProfile.objects.create(
+                    username=user,
+                    full_name=name,
+                    email=email,
+                    phone_number=dummy_mobile
+                )
+                print(f"✅ Created UserProfile for {user.username}")
+            except Exception as profile_error:
+                print("❌ Failed to create UserProfile:", profile_error)
+
+        # Log in the user
         login(request, user)
 
+        # Generate JWT tokens
         refresh = RefreshToken.for_user(user)
 
         return JsonResponse({

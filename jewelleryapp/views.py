@@ -51,6 +51,7 @@ from rest_framework import permissions, status
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework import parsers
 
+from jewelleryapp.models import PhoneOTP
 
     
 

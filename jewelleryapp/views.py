@@ -52,7 +52,9 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework import parsers
 
 from jewelleryapp.models import PhoneOTP
-    
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from jewelleryapp.auth.admin_authentication import AdminJWTAuthentication
 
 def index(request):
     return render(request, 'index.html')
@@ -117,7 +119,8 @@ class BaseDetailAPIView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 class ProductListCreateAPIView(APIView):
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [JWTAuthentication,AdminJWTAuthentication] 
 
     def get(self, request, *args, **kwargs):
         user = request.user if request.user.is_authenticated else None
@@ -409,14 +412,53 @@ class MaterialDetailAPIView(BaseDetailAPIView):
     model = Material
     serializer_class = MaterialSerializer
 
-# Category API
-class CategoryListCreateAPIView(BaseListCreateAPIView):                                          
-    model = Category
-    serializer_class = CategorySerializer
 
-class CategoryDetailAPIView(BaseDetailAPIView):
-    model = Category
-    serializer_class = CategorySerializer
+
+class CategoryListCreateAPIView(APIView):
+    parser_classes = [MultiPartParser, FormParser]
+
+    # ✅ Handle GET request to list all categories
+    def get(self, request):
+        categories = Category.objects.all()
+        serializer = CategorySerializer(categories, many=True)
+        return Response(serializer.data)
+
+    # ✅ Handle POST request to create a new category with subcategories
+    def post(self, request):
+        serializer = CategorySerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=201)
+        return Response(serializer.errors, status=400)
+
+
+class CategoryDetailAPIView(APIView):
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_object(self, pk):
+        return get_object_or_404(Category, pk=pk)
+
+    # ✅ Handle GET request for one category
+    def get(self, request, pk):
+        category = self.get_object(pk)
+        serializer = CategorySerializer(category)
+        return Response(serializer.data)
+
+    # ✅ Handle PUT request to update category
+    def put(self, request, pk):
+        category = self.get_object(pk)
+        serializer = CategorySerializer(category, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
+
+    # ✅ Handle DELETE request to remove category
+    def delete(self, request, pk):
+        category = self.get_object(pk)
+        category.delete()
+        return Response({'message': 'Category deleted'}, status=204)
+
 
 class SevenCategoriesAPIView(APIView):
     def get(self, request, *args, **kwargs):
@@ -1151,15 +1193,71 @@ class RecentProductsWithFallbackAPIView(ListAPIView):
 
     
 
+# class ProductListByGender(ListAPIView):
+#     serializer_class = ProductSerializer
+
+#     def get_queryset(self):
+#         gender_id = self.request.query_params.get('gender')
+#         if gender_id:
+#             return Product.objects.filter(gender_id=gender_id)
+#         return Product.objects.all()
+
+
 class ProductListByGender(ListAPIView):
     serializer_class = ProductSerializer
 
-    def get_queryset(self):
-        gender_id = self.request.query_params.get('gender')
+    def get(self, request, *args, **kwargs):
+        gender_id = request.query_params.get('gender')
+        category_ids = request.query_params.getlist('category')
+        material_names = request.query_params.getlist('material')
+        gemstone_names = request.query_params.getlist('gemstone')
+        color_names = request.query_params.getlist('color')
+        price_min = request.query_params.get('price_min')
+        price_max = request.query_params.get('price_max')
+
+        # Base queryset
+        queryset = Product.objects.all()
+
         if gender_id:
-            return Product.objects.filter(gender_id=gender_id)
-        return Product.objects.all()
-    
+            queryset = queryset.filter(gender_id=gender_id)
+        if category_ids:
+            queryset = queryset.filter(category_id__in=category_ids)
+        if material_names:
+            queryset = queryset.filter(metal__material__name__in=material_names)
+        if gemstone_names:
+            queryset = queryset.filter(productstone__stone__name__in=gemstone_names).distinct()
+        if color_names:
+            queryset = queryset.filter(metal__color__in=color_names)
+        if price_min and price_max:
+            queryset = queryset.filter(frozen_unit_price__gte=price_min, frozen_unit_price__lte=price_max)
+
+        serializer = self.get_serializer(queryset, many=True)
+
+        # Filter options
+        categories = Category.objects.all().values('id', 'name')
+        materials = Material.objects.all().values('id', 'name')
+        gemstones = Gemstone.objects.all().values('id', 'name')
+        colors = Metal.objects.values_list('color', flat=True).distinct()
+
+        price_range = Product.objects.aggregate(
+            min_price=Min('frozen_unit_price'),
+            max_price=Max('frozen_unit_price')
+        )
+
+        return Response({
+            "filter_options": {
+                "categories": list(categories),
+                "materials": list(materials),
+                "gemstones": list(gemstones),
+                "colors": list(colors),
+                "price_range": {
+                    "min": price_range['min_price'] or 0,
+                    "max": price_range['max_price'] or 0
+                }
+            },
+            "total_products": queryset.count(),
+            "products": serializer.data
+        }, status=status.HTTP_200_OK)
 
 
 class SevenCategoriesAPIView(APIView):
@@ -1170,28 +1268,137 @@ class SevenCategoriesAPIView(APIView):
 
  
 class SevenCategoryDetailAPIView(APIView):
-    permission_classes = [IsAuthenticated]  # Enforce JWT authentication
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, pk, *args, **kwargs):
-        user = request.user  # Comes from the JWT token
+        user = request.user
 
-        # Fetch category by ID
+        # Fetch category or return 404
         category = get_object_or_404(Category, pk=pk)
 
-        # Get all products in that category
+        # Fetch products in the category
         products = Product.objects.filter(category=category)
 
-        # Serialize products with user context
         serializer = FinestProductSerializer(
-            products,
-            many=True,
-            context={'user': user}
+            products, many=True, context={'user': user}
         )
 
         return Response({
-            "category": category.name,
+            "category": {
+                "id": category.id,
+                "name": category.name,
+                "image": category.image.url if category.image else None
+            },
+            "total_products": products.count(),
             "products": serializer.data
         }, status=status.HTTP_200_OK)
+
+from django.db.models import Min, Max
+
+# class CategoryFilterOptionsAPIView(APIView):
+#     def get(self, request, category_id, *args, **kwargs):
+#         # Fetch active category
+#         category = get_object_or_404(Category, pk=category_id)
+
+#         # Get only subcategories related to the active category
+#         subcategories = Subcategories.objects.filter(category=category).values('id', 'name')
+
+#         # All materials
+#         materials = Material.objects.all().values('id', 'name')
+
+#         # All stones
+#         stones = Gemstone.objects.all().values('id', 'name')
+
+#         # Distinct metal colors
+#         colors = Metal.objects.values_list('color', flat=True).distinct()
+
+#         return Response({
+#             "filter_category": {
+#                 "category": {
+#                     "id": category.id,
+#                     "name": category.name
+#                 },
+#                 "subcategories": list(subcategories),
+#                 "price_range": {
+#                     "min": 10000,
+#                     "max": 50000
+#                 },
+#                 "brand": "my jewelry my design",
+#                 "materials": list(materials),
+#                 "stones": list(stones),
+#                 "colors": list(colors)
+#             }
+#         }, status=status.HTTP_200_OK)
+
+
+class CategoryFilterOptionsAPIView(APIView):
+    def get(self, request, category_id, *args, **kwargs):
+        # Get active category
+        category = get_object_or_404(Category, pk=category_id)
+
+        # Get filter query params
+        subcategories = request.query_params.getlist('subcategory')
+        price_min = request.query_params.get('price_min')
+        price_max = request.query_params.get('price_max')
+        brand = request.query_params.get('brand')
+        materials = request.query_params.getlist('material')
+        gemstones = request.query_params.getlist('gemstone')
+        colors = request.query_params.getlist('color')
+
+        # Base queryset
+        products = Product.objects.filter(category=category)
+
+        # Apply filters
+        if subcategories:
+            products = products.filter(Subcategories__id__in=subcategories)
+        if price_min and price_max:
+            products = products.filter(frozen_unit_price__gte=price_min, frozen_unit_price__lte=price_max)
+        if brand:
+            products = products.filter(head__icontains=brand)
+        if materials:
+            products = products.filter(metal__material__name__in=materials)
+        if gemstones:
+            products = products.filter(productstone__stone__name__in=gemstones).distinct()
+        if colors:
+            products = products.filter(metal__color__in=colors)
+
+        # Serialize filtered products
+        serializer = FinestProductSerializer(products, many=True, context={'request': request})
+
+        # Filter options data
+        subcategory_list = Subcategories.objects.filter(category=category).values('id', 'name')
+        material_list = Material.objects.all().values('id', 'name')
+        gemstone_list = Gemstone.objects.all().values('id', 'name')
+        color_list = Metal.objects.values_list('color', flat=True).distinct()
+
+        # Price range (from all products in this category)
+        price_range = Product.objects.filter(category=category).aggregate(
+            min_price=Min('frozen_unit_price'),
+            max_price=Max('frozen_unit_price')
+        )
+
+        return Response({
+            "filter_category": {
+                "category": {
+                    "id": category.id,
+                    "name": category.name
+                },
+                "subcategories": list(subcategory_list),
+                "price_range": {
+                    "min": price_range['min_price'] or 0,
+                    "max": price_range['max_price'] or 0
+                },
+                "brand": "my jewelry my design",
+                "materials": list(material_list),
+                "gemstones": list(gemstone_list),
+                "colors": list(color_list)
+            },
+            "total_products": products.count(),
+            "products": serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+
 class RelatedProductsAPIView(APIView):
     def get(self, request, *args, **kwargs):
         product_id = request.query_params.get('product_id')
@@ -1583,23 +1790,43 @@ class VerifyOTP(APIView):
 
 
 
+# class AdminLoginAPIView(APIView):
+#     def post(self, request):
+#         serializer = AdminLoginSerializer(data=request.data)
+#         if serializer.is_valid():
+#             admin = serializer.validated_data['admin']
+
+#             # Create JWT tokens
+#             refresh = RefreshToken.for_user(admin)
+
+#             return Response({
+#                 "message": "Login successful",
+#                 "username": admin.username,
+#                 "access": str(refresh.access_token),
+#                 "refresh": str(refresh),
+#             })
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 class AdminLoginAPIView(APIView):
     def post(self, request):
         serializer = AdminLoginSerializer(data=request.data)
         if serializer.is_valid():
             admin = serializer.validated_data['admin']
 
-            # Create JWT tokens
-            refresh = RefreshToken.for_user(admin)
+            # Create custom refresh token
+            refresh = RefreshToken()
+            refresh['admin_id'] = str(admin.id)
+            refresh['username'] = admin.username
+            refresh['is_admin'] = True  # Custom claim
 
             return Response({
-                "message": "Login successful",
+                "message": "Admin login successful",
                 "username": admin.username,
                 "access": str(refresh.access_token),
                 "refresh": str(refresh),
             })
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
 
 import os
 import json

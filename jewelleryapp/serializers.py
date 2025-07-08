@@ -12,15 +12,48 @@ class MaterialSerializer(serializers.ModelSerializer):
         model = Material
         fields = '__all__'
 
+
+class SubcategoriesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subcategories
+        fields = ['id', 'name']
+
 class CategorySerializer(serializers.ModelSerializer):
+    subcategories = SubcategoriesSerializer(many=True, required=False)
+    
     class Meta:
         model = Category
-        fields = '__all__'
+        fields = ['id', 'name', 'image', 'subcategories']
+
+    def create(self, validated_data):
+        subcategories_data = validated_data.pop('subcategories', [])
+        category = Category.objects.create(**validated_data)
+        for subcat_data in subcategories_data:
+            Subcategories.objects.create(category=category, **subcat_data)
+        return category
+
+    def update(self, instance, validated_data):
+        subcategories_data = validated_data.pop('subcategories', None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if subcategories_data is not None:
+            instance.subcategories.all().delete()
+            for subcat_data in subcategories_data:
+                Subcategories.objects.create(category=instance, **subcat_data)
+
+        return instance
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
-        rep['image'] = instance.image.url if instance.image else None
+        try:
+            rep['image'] = instance.image.url if instance.image else None
+        except:
+            rep['image'] = str(instance.image)
         return rep
+
 
 class MetalSerializer(serializers.ModelSerializer):
     material = MaterialSerializer(read_only=True)
@@ -1176,13 +1209,27 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_stock_message(self, obj):
         return "Out of stock" if obj.available_stock == 0 else "In stock"
 
+    # def get_is_wishlisted(self, obj):
+    #     request = self.context.get('request')
+    #     if not request or not hasattr(request, 'user'):
+    #         return False
+    #     user = request.user
+    #     if not user or not user.is_authenticated:
+    #         return False
+    #     return Wishlist.objects.filter(user=user, product=obj).exists()
     def get_is_wishlisted(self, obj):
         request = self.context.get('request')
         if not request or not hasattr(request, 'user'):
             return False
+
         user = request.user
         if not user or not user.is_authenticated:
             return False
+
+        # ✅ Check that user is an instance of Register
+        if not isinstance(user, Register):
+            return False
+
         return Wishlist.objects.filter(user=user, product=obj).exists()
 
     def get_category(self, obj):
@@ -1440,26 +1487,43 @@ class VerifyOTPSerializer(serializers.Serializer):
 
 from django.contrib.auth.hashers import check_password
 
+# class AdminLoginSerializer(serializers.Serializer):
+#     username = serializers.CharField()
+#     password = serializers.CharField(write_only=True)
+
+#     def validate(self, data):
+#         username = data['username']
+#         password = data['password']
+
+#         try:
+#             admin = AdminLogin.objects.get(username=username)
+#         except AdminLogin.DoesNotExist:
+#             raise serializers.ValidationError("Invalid username or password")
+
+#         if not check_password(password, admin.password):
+#             raise serializers.ValidationError("Invalid username or password")
+
+#         data['admin'] = admin
+#         return data
+
 class AdminLoginSerializer(serializers.Serializer):
     username = serializers.CharField()
-    password = serializers.CharField(write_only=True)
+    password = serializers.CharField()
 
     def validate(self, data):
-        username = data['username']
-        password = data['password']
+        username = data.get("username")
+        password = data.get("password")
 
         try:
             admin = AdminLogin.objects.get(username=username)
         except AdminLogin.DoesNotExist:
-            raise serializers.ValidationError("Invalid username or password")
+            raise serializers.ValidationError("Admin not found")
 
         if not check_password(password, admin.password):
-            raise serializers.ValidationError("Invalid username or password")
+            raise serializers.ValidationError("Incorrect password")
 
         data['admin'] = admin
         return data
-
-
 
 
 class AuthSerializer(serializers.Serializer):

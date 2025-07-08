@@ -19,8 +19,8 @@ from rest_framework_simplejwt.views import TokenRefreshView
 
 urlpatterns = [
     path('', views.index),
-    path('api/categories/', CategoryListCreateAPIView.as_view()),
-    path('api/categories/<int:pk>/', CategoryDetailAPIView.as_view()),
+    path('api/categories/', CategoryListCreateAPIView.as_view(), name='category-list-create'),
+    path('api/categories/<int:pk>/', CategoryDetailAPIView.as_view(), name='category-detail'),
     path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
 
     # Metal
@@ -82,7 +82,7 @@ urlpatterns = [
     path('api/products/classic/', ClassicProductListAPIView.as_view(), name='product-classic'),  # GET classic only
     path('api/products/classic/<int:pk>/', ClassicProductDetailAPIView.as_view(), name='product-classic-detail'),
     path('api/categories/seven/', SevenCategoriesAPIView.as_view(), name='seven-categories'),
-    path('api/categories/seven/<int:pk>/', SevenCategoryDetailAPIView.as_view(), name='category-detail'),
+    path('api/categories/seven/<int:pk>/',SevenCategoryDetailAPIView.as_view(), name='category-detail'),
     path('api/products/related/', RelatedProductsAPIView.as_view(), name='related-products'),
     path('api/ratings/', ProductRatingAPIView.as_view(), name='rating-list-create'),        # POST, GET all
     path('api/ratings/<int:pk>/', ProductRatingAPIView.as_view(), name='rating-detail'),
@@ -91,12 +91,12 @@ urlpatterns = [
     path('api/navbar-category-subdata/', NavbarCategorySubDataAPIView.as_view(), name='navbarcategory-subdata'),
     path('api/navbar-categories/mega/', NavbarCategoryListCreateAPIView.as_view(), name='navbar-categories-mega'),
     path('api/MegaNavbar/', MegaNavbar.as_view(), name='MegaNavbar'),
-
+    # path('api/filter-products-by-payload/', FilterProductByPayloadAPIView.as_view(), name='filter-products-by-payload'),
     # path('api/search-and-popular/', SearchAndPopularView.as_view(), name='search-and-popular'),
     # path('api/combined-suggestions/', CombinedSuggestionsView.as_view(), name='combined-suggestions'),
     # path('api/gif/', gif_list, name='gif-list'),
     # path('api/gif/<int:pk>/', gif_detail, name='gif-detail'),
-
+    path('api/filter-options/<int:category_id>/', CategoryFilterOptionsAPIView.as_view()),
     path('api/combined-suggestions/', CombinedSuggestionsView.as_view(), name='combined-suggestions'),
     path('api/combined-suggestions/?query=', CombinedSuggestionsView.as_view(), name='combined-suggestions'),
     path('api/gifs/', SearchGifAPIView.as_view()),          
@@ -109,4 +109,4 @@ urlpatterns = [
     path('api/enquiries/', ProductEnquiryListAPIView.as_view(), name='product-enquiry-list'),
     path('api/admin-login/', AdminLoginAPIView.as_view(), name='admin-login'),
     path('api/dj-rest-auth/google/', google_login_callback),
-] 
+]

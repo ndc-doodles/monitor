@@ -31,6 +31,11 @@ class Category(models.Model):
 
     def __str__(self):
         return self.name
+class Subcategories(models.Model):
+    name=models.CharField(max_length=50)
+    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='subcategories')
+    def __str__(self):
+        return self.name
 
 class Occasion(models.Model):
     name = models.CharField(max_length=50)
@@ -77,6 +82,7 @@ class Product(models.Model):
     gender = models.ForeignKey(Gender, on_delete=models.CASCADE)
     metal = models.ForeignKey(Metal, on_delete=models.CASCADE)
     size = models.CharField(max_length=100)
+    Subcategories=models.ForeignKey(Subcategories, on_delete=models.CASCADE, null=True, blank=True)
     metal_weight = models.DecimalField(max_digits=10, decimal_places=3, default=0)
     karat = models.FloatField(null=True, blank=True)
     images = models.JSONField(blank=True, null=True)
@@ -334,13 +340,16 @@ class AdminLogin(models.Model):
     password = models.CharField(max_length=100)
 
     def save(self, *args, **kwargs):
-        # Automatically hash password on create
-        if not self.pk:  # Only hash when creating, not updating
+        if not self.pk:
             self.password = make_password(self.password)
         super().save(*args, **kwargs)
 
     def __str__(self):
         return self.username
+
+    @property
+    def is_authenticated(self):  # ✅ Required by DRF
+        return True
     
 # class Register(models.Model):
 #     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

@@ -1334,71 +1334,71 @@ from django.db.models import Min, Max
 #         }, status=status.HTTP_200_OK)
 
 
-class CategoryFilterOptionsAPIView(APIView):
-    def get(self, request, category_id, *args, **kwargs):
-        # Get active category
-        category = get_object_or_404(Category, pk=category_id)
+# class CategoryFilterOptionsAPIView(APIView):
+#     def get(self, request, category_id, *args, **kwargs):
+#         # Get active category
+#         category = get_object_or_404(Category, pk=category_id)
 
-        # Get filter query params
-        subcategories = request.query_params.getlist('subcategory')
-        price_min = request.query_params.get('price_min')
-        price_max = request.query_params.get('price_max')
-        brand = request.query_params.get('brand')
-        materials = request.query_params.getlist('material')
-        gemstones = request.query_params.getlist('gemstone')
-        colors = request.query_params.getlist('color')
+#         # Get filter query params
+#         subcategories = request.query_params.getlist('subcategory')
+#         price_min = request.query_params.get('price_min')
+#         price_max = request.query_params.get('price_max')
+#         brand = request.query_params.get('brand')
+#         materials = request.query_params.getlist('material')
+#         gemstones = request.query_params.getlist('gemstone')
+#         colors = request.query_params.getlist('color')
 
-        # Base queryset
-        products = Product.objects.filter(category=category)
+#         # Base queryset
+#         products = Product.objects.filter(category=category)
 
-        # Apply filters
-        if subcategories:
-            products = products.filter(Subcategories__id__in=subcategories)
-        if price_min and price_max:
-            products = products.filter(frozen_unit_price__gte=price_min, frozen_unit_price__lte=price_max)
-        if brand:
-            products = products.filter(head__icontains=brand)
-        if materials:
-            products = products.filter(metal__material__name__in=materials)
-        if gemstones:
-            products = products.filter(productstone__stone__name__in=gemstones).distinct()
-        if colors:
-            products = products.filter(metal__color__in=colors)
+#         # Apply filters
+#         if subcategories:
+#             products = products.filter(Subcategories__id__in=subcategories)
+#         if price_min and price_max:
+#             products = products.filter(frozen_unit_price__gte=price_min, frozen_unit_price__lte=price_max)
+#         if brand:
+#             products = products.filter(head__icontains=brand)
+#         if materials:
+#             products = products.filter(metal__material__name__in=materials)
+#         if gemstones:
+#             products = products.filter(productstone__stone__name__in=gemstones).distinct()
+#         if colors:
+#             products = products.filter(metal__color__in=colors)
 
-        # Serialize filtered products
-        serializer = FinestProductSerializer(products, many=True, context={'request': request})
+#         # Serialize filtered products
+#         serializer = FinestProductSerializer(products, many=True, context={'request': request})
 
-        # Filter options data
-        subcategory_list = Subcategories.objects.filter(category=category).values('id', 'name')
-        material_list = Material.objects.all().values('id', 'name')
-        gemstone_list = Gemstone.objects.all().values('id', 'name')
-        color_list = Metal.objects.values_list('color', flat=True).distinct()
+#         # Filter options data
+#         subcategory_list = Subcategories.objects.filter(category=category).values('id', 'name')
+#         material_list = Material.objects.all().values('id', 'name')
+#         gemstone_list = Gemstone.objects.all().values('id', 'name')
+#         color_list = Metal.objects.values_list('color', flat=True).distinct()
 
-        # Price range (from all products in this category)
-        price_range = Product.objects.filter(category=category).aggregate(
-            min_price=Min('frozen_unit_price'),
-            max_price=Max('frozen_unit_price')
-        )
+#         # Price range (from all products in this category)
+#         price_range = Product.objects.filter(category=category).aggregate(
+#             min_price=Min('frozen_unit_price'),
+#             max_price=Max('frozen_unit_price')
+#         )
 
-        return Response({
-            "filter_category": {
-                "category": {
-                    "id": category.id,
-                    "name": category.name
-                },
-                "subcategories": list(subcategory_list),
-                "price_range": {
-                    "min": price_range['min_price'] or 0,
-                    "max": price_range['max_price'] or 0
-                },
-                "brand": "my jewelry my design",
-                "materials": list(material_list),
-                "gemstones": list(gemstone_list),
-                "colors": list(color_list)
-            },
-            "total_products": products.count(),
-            "products": serializer.data
-        }, status=status.HTTP_200_OK)
+#         return Response({
+#             "filter_category": {
+#                 "category": {
+#                     "id": category.id,
+#                     "name": category.name
+#                 },
+#                 "subcategories": list(subcategory_list),
+#                 "price_range": {
+#                     "min": price_range['min_price'] or 0,
+#                     "max": price_range['max_price'] or 0
+#                 },
+#                 "brand": "my jewelry my design",
+#                 "materials": list(material_list),
+#                 "gemstones": list(gemstone_list),
+#                 "colors": list(color_list)
+#             },
+#             "total_products": products.count(),
+#             "products": serializer.data
+#         }, status=status.HTTP_200_OK)
 
 
 

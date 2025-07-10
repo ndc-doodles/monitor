@@ -1270,32 +1270,54 @@ class SevenCategoriesAPIView(APIView):
         return Response({"categories": serializer.data}, status=status.HTTP_200_OK)
 
  
+# class SevenCategoryDetailAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request, pk, *args, **kwargs):
+#         user = request.user
+
+#         # Fetch category or return 404
+#         category = get_object_or_404(Category, pk=pk)
+
+#         # Fetch products in the category
+#         products = Product.objects.filter(category=category)
+
+#         serializer = FinestProductSerializer(
+#             products, many=True, context={'user': user}
+#         )
+
+#         return Response({
+#             "category": {
+               
+#                 "name": category.name,
+                
+#             },
+           
+#             "products": serializer.data
+#         }, status=status.HTTP_200_OK)
 class SevenCategoryDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk, *args, **kwargs):
         user = request.user
 
-        # Fetch category or return 404
+        # Get the category object or 404
         category = get_object_or_404(Category, pk=pk)
 
-        # Fetch products in the category
+        # Get all products in the given category
         products = Product.objects.filter(category=category)
 
+        # Serialize products with context for user-specific fields
         serializer = FinestProductSerializer(
             products, many=True, context={'user': user}
         )
 
+        # Return the category name as string and serialized products
         return Response({
-            "category": {
-                "id": category.id,
-                "name": category.name,
-                "image": category.image.url if category.image else None
-            },
-            "total_products": products.count(),
+            "category": category.name,
             "products": serializer.data
         }, status=status.HTTP_200_OK)
-
+    
 from django.db.models import Min, Max
 
 # class CategoryFilterOptionsAPIView(APIView):

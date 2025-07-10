@@ -6,7 +6,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from .models import (
     Register, Material, Metal, Gemstone, Product, ProductStone, Occasion,
     Category, Gender, UserVisit, UserProfile, Wishlist, ProductRating,
-    Header, NavbarCategory, SearchGif,ProductEnquiry, AdminLogin,Subcategories,
+    Header, NavbarCategory, SearchGif,ProductEnquiry, AdminLogin,
 )
 
 # ------------ Inline Admin for ProductStones ------------
@@ -65,6 +65,7 @@ admin.site.register(Header)
 admin.site.register(NavbarCategory)
 admin.site.register(SearchGif)
 admin.site.register(AdminLogin)
+admin.site.register(Category)
 # ------------ Custom UserAdmin for Register Model ------------
 @admin.register(Register)
 class RegisterAdmin(UserAdmin):
@@ -95,16 +96,16 @@ class ProductEnquiryAdmin(admin.ModelAdmin):
     display_message.short_description = 'Message'
 
 
-@admin.register(Subcategories)
-class SubcategoriesAdmin(admin.ModelAdmin):
-    list_display = ['name', 'category']
-    list_filter = ['category']
+# @admin.register(Subcategories)
+# class SubcategoriesAdmin(admin.ModelAdmin):
+#     list_display = ['name', 'category']
+#     list_filter = ['category']
 
-class SubcategoriesInline(admin.TabularInline):
-    model = Subcategories
-    extra = 1
+# class SubcategoriesInline(admin.TabularInline):
+#     model = Subcategories
+#     extra = 1
 
-@admin.register(Category)
-class CategoryAdmin(admin.ModelAdmin):
-    list_display = ['name']
-    inlines = [SubcategoriesInline]
+# @admin.register(Category)
+# class CategoryAdmin(admin.ModelAdmin):
+#     list_display = ['name']
+#     inlines = [SubcategoriesInline]

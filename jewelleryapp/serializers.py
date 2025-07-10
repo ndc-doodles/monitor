@@ -13,38 +13,51 @@ class MaterialSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class SubcategoriesSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Subcategories
-        fields = ['id', 'name']
+# class SubcategoriesSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Subcategories
+#         fields = ['id', 'name']
+
+# class CategorySerializer(serializers.ModelSerializer):
+#     subcategories = SubcategoriesSerializer(many=True, required=False)
+    
+#     class Meta:
+#         model = Category
+#         fields = ['id', 'name', 'image', 'subcategories']
+
+#     def create(self, validated_data):
+#         subcategories_data = validated_data.pop('subcategories', [])
+#         category = Category.objects.create(**validated_data)
+#         for subcat_data in subcategories_data:
+#             Subcategories.objects.create(category=category, **subcat_data)
+#         return category
+
+#     def update(self, instance, validated_data):
+#         subcategories_data = validated_data.pop('subcategories', None)
+
+#         for attr, value in validated_data.items():
+#             setattr(instance, attr, value)
+#         instance.save()
+
+#         if subcategories_data is not None:
+#             instance.subcategories.all().delete()
+#             for subcat_data in subcategories_data:
+#                 Subcategories.objects.create(category=instance, **subcat_data)
+
+#         return instance
+
+#     def to_representation(self, instance):
+#         rep = super().to_representation(instance)
+#         try:
+#             rep['image'] = instance.image.url if instance.image else None
+#         except:
+#             rep['image'] = str(instance.image)
+#         return rep
 
 class CategorySerializer(serializers.ModelSerializer):
-    subcategories = SubcategoriesSerializer(many=True, required=False)
-    
     class Meta:
         model = Category
-        fields = ['id', 'name', 'image', 'subcategories']
-
-    def create(self, validated_data):
-        subcategories_data = validated_data.pop('subcategories', [])
-        category = Category.objects.create(**validated_data)
-        for subcat_data in subcategories_data:
-            Subcategories.objects.create(category=category, **subcat_data)
-        return category
-
-    def update(self, instance, validated_data):
-        subcategories_data = validated_data.pop('subcategories', None)
-
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-
-        if subcategories_data is not None:
-            instance.subcategories.all().delete()
-            for subcat_data in subcategories_data:
-                Subcategories.objects.create(category=instance, **subcat_data)
-
-        return instance
+        fields = ['id', 'name', 'image']
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
@@ -53,7 +66,6 @@ class CategorySerializer(serializers.ModelSerializer):
         except:
             rep['image'] = str(instance.image)
         return rep
-
 
 class MetalSerializer(serializers.ModelSerializer):
     material = MaterialSerializer(read_only=True)

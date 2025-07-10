@@ -170,107 +170,9 @@ class ProductListCreateAPIView(APIView):
 
 
 
-# class ProductDetailAPIView(APIView):
-#     permission_classes = [IsAuthenticated]
-#     authentication_classes = [JWTAuthentication,AdminJWTAuthentication] 
-
-#     def get_object(self, pk):
-#         try:
-#             return Product.objects.get(pk=pk)
-#         except Product.DoesNotExist:
-#             raise NotFound("Product not found")
-
-#     def get(self, request, pk, *args, **kwargs):
-#         product = self.get_object(pk)
-#         serializer = ProductSerializer(product, context={'request': request})
-#         return Response(serializer.data)
-
-#     def put(self, request, pk, *args, **kwargs):
-#         product = self.get_object(pk)
-#         data = dict(request.data)
-
-#         # ✅ Handle multiple image uploads (up to 5)
-#         new_images = request.FILES.getlist('images')
-#         if new_images:
-#             uploaded_images = []
-#             try:
-#                 for image in new_images[:5]:
-#                     upload_result = uploader.upload(image)
-#                     uploaded_images.append(upload_result["secure_url"])
-#                 data['images'] = json.dumps(uploaded_images)
-#             except Exception as e:
-#                 return Response({"error": f"Image upload failed: {str(e)}"}, status=500)
-#         else:
-#             data.pop('images', None)
-
-#         # ✅ Handle AR model GLB
-#         if 'ar_model_glb' in request.FILES:
-#             glb_upload = uploader.upload(request.FILES['ar_model_glb'], resource_type='raw')
-#             data['ar_model_glb'] = f"https://res.cloudinary.com/dvllntzo0/raw/upload/v{glb_upload['version']}/{glb_upload['public_id']}"
-
-#         # ✅ Handle AR model GLTF
-#         if 'ar_model_gltf' in request.FILES:
-#             gltf_upload = uploader.upload(request.FILES['ar_model_gltf'], resource_type='raw')
-#             data['ar_model_gltf'] = gltf_upload['secure_url']
-
-#         # ✅ Parse JSON string for 'images' if needed
-#         if 'images' in data and isinstance(data['images'], str):
-#             try:
-#                 data['images'] = json.loads(data['images'])
-#             except json.JSONDecodeError:
-#                 return Response({"images": ["Value must be valid JSON."]}, status=400)
-
-#         messages = []
-
-#         # ✅ Handle stock increment
-#         if 'total_stock' in data:
-#             try:
-#                 stock_value = data['total_stock'][0] if isinstance(data['total_stock'], list) else data['total_stock']
-#                 added_stock = int(stock_value)
-#                 product.total_stock += added_stock
-#                 product.save()
-#                 messages.append(f"Added {added_stock} to stock.")
-#             except ValueError:
-#                 return Response({"total_stock": ["A valid integer is required."]}, status=400)
-#             data.pop('total_stock')
-
-#         # ✅ Handle sold_count increment
-#         if 'sold_count' in data:
-#             try:
-#                 sold_value = data['sold_count'][0] if isinstance(data['sold_count'], list) else data['sold_count']
-#                 sold_increment = int(sold_value)
-#                 if sold_increment < 0:
-#                     return Response({"sold_count": ["Sold count cannot be negative."]}, status=400)
-
-#                 available_stock = product.total_stock - product.sold_count
-#                 if sold_increment > available_stock:
-#                     return Response({
-#                         "message": "Not enough stock to sell.",
-#                         "product": ProductSerializer(product).data
-#                     }, status=400)
-
-#                 product.sold_count += sold_increment
-#                 product.save()
-#                 messages.append(f"{sold_increment} items sold.")
-#             except ValueError:
-#                 return Response({"sold_count": ["A valid integer is required."]}, status=400)
-#             data.pop('sold_count')
-
-#         # ✅ Save changes
-#         serializer = ProductSerializer(product, data=data, partial=True)
-#         if serializer.is_valid():
-#             serializer.save()
-#             return Response({
-#                 "message": " ".join(messages) or "Product updated successfully.",
-#                 "product": serializer.data
-#             })
-
-#         return Response(serializer.errors, status=400)
-
-
 class ProductDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
-    authentication_classes = [JWTAuthentication, AdminJWTAuthentication]
+    authentication_classes = [JWTAuthentication,AdminJWTAuthentication] 
 
     def get_object(self, pk):
         try:
@@ -281,55 +183,7 @@ class ProductDetailAPIView(APIView):
     def get(self, request, pk, *args, **kwargs):
         product = self.get_object(pk)
         serializer = ProductSerializer(product, context={'request': request})
-        product_data = serializer.data
-
-        # ✅ Construct the details_data array for the frontend
-        details_data = [
-            {
-                "title": "Metal Details",
-                "content": [
-                    {"heading": str(product_data.get("karat", "")) + "K", "discription": "Karatage"},
-                    {"heading": "Yellow", "discription": "Material Colour"},
-                    {"heading": str(product_data.get("metal_weight", "")) + "g", "discription": "Gross Weight"},
-                    {"heading": product_data.get("metal", "Gold"), "discription": "Metal"},
-                    {"heading": str(product_data.get("pendant_height", "")) + " cm", "discription": "Pendant Height"},
-                    {"heading": str(product_data.get("pendant_width", "")) + " cm", "discription": "Pendant Width"},
-                ]
-            },
-            {
-                "title": "Diamond Details",
-                "content": [
-                    {"heading": product_data.get("clarity", "SI2"), "discription": "Clarity"},
-                    {"heading": product_data.get("diamond_colour", "G-H"), "discription": "Diamond Colour"},
-                    {"heading": str(product_data.get("diamond_count", 0)), "discription": "No of Diamonds"},
-                    {"heading": product_data.get("diamond_shape", "Round"), "discription": "Shape"},
-                ]
-            },
-            {
-                "title": "General Details",
-                "content": [
-                    {"heading": product_data.get("jewellery_type", "Jewelry"), "discription": "Jewellery Type"},
-                    {"heading": product_data.get("brand", "My Jewellery"), "discription": "Brand"},
-                    {"heading": product_data.get("collection", "Best Sellers"), "discription": "Collection"},
-                    {"heading": product_data.get("gender", "Unisex"), "discription": "Gender"},
-                    {"heading": product_data.get("occasion", "Wedding"), "discription": "Occasion"},
-                ]
-            },
-            {
-                "title": "Description",
-                "content": [
-                    {
-                        "heading": product_data.get("description", "No description provided."),
-                        "discription": "Description"
-                    }
-                ]
-            }
-        ]
-
-        return Response({
-            "product": serializer.data,
-            "details_data": details_data
-        })
+        return Response(serializer.data)
 
     def put(self, request, pk, *args, **kwargs):
         product = self.get_object(pk)
@@ -402,7 +256,7 @@ class ProductDetailAPIView(APIView):
                 return Response({"sold_count": ["A valid integer is required."]}, status=400)
             data.pop('sold_count')
 
-        # ✅ Save product changes
+        # ✅ Save changes
         serializer = ProductSerializer(product, data=data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -412,6 +266,152 @@ class ProductDetailAPIView(APIView):
             })
 
         return Response(serializer.errors, status=400)
+
+
+# class ProductDetailAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+#     authentication_classes = [JWTAuthentication, AdminJWTAuthentication]
+
+#     def get_object(self, pk):
+#         try:
+#             return Product.objects.get(pk=pk)
+#         except Product.DoesNotExist:
+#             raise NotFound("Product not found")
+
+#     def get(self, request, pk, *args, **kwargs):
+#         product = self.get_object(pk)
+#         serializer = ProductSerializer(product, context={'request': request})
+#         product_data = serializer.data
+
+#         # ✅ Construct the details_data array for the frontend
+#         details_data = [
+#             {
+#                 "title": "Metal Details",
+#                 "content": [
+#                     {"heading": str(product_data.get("karat", "")) + "K", "discription": "Karatage"},
+#                     {"heading": "Yellow", "discription": "Material Colour"},
+#                     {"heading": str(product_data.get("metal_weight", "")) + "g", "discription": "Gross Weight"},
+#                     {"heading": product_data.get("metal", "Gold"), "discription": "Metal"},
+#                     {"heading": str(product_data.get("pendant_height", "")) + " cm", "discription": "Pendant Height"},
+#                     {"heading": str(product_data.get("pendant_width", "")) + " cm", "discription": "Pendant Width"},
+#                 ]
+#             },
+#             {
+#                 "title": "Diamond Details",
+#                 "content": [
+#                     {"heading": product_data.get("clarity", "SI2"), "discription": "Clarity"},
+#                     {"heading": product_data.get("diamond_colour", "G-H"), "discription": "Diamond Colour"},
+#                     {"heading": str(product_data.get("diamond_count", 0)), "discription": "No of Diamonds"},
+#                     {"heading": product_data.get("diamond_shape", "Round"), "discription": "Shape"},
+#                 ]
+#             },
+#             {
+#                 "title": "General Details",
+#                 "content": [
+#                     {"heading": product_data.get("jewellery_type", "Jewelry"), "discription": "Jewellery Type"},
+#                     {"heading": product_data.get("brand", "My Jewellery"), "discription": "Brand"},
+#                     {"heading": product_data.get("collection", "Best Sellers"), "discription": "Collection"},
+#                     {"heading": product_data.get("gender", "Unisex"), "discription": "Gender"},
+#                     {"heading": product_data.get("occasion", "Wedding"), "discription": "Occasion"},
+#                 ]
+#             },
+#             {
+#                 "title": "Description",
+#                 "content": [
+#                     {
+#                         "heading": product_data.get("description", "No description provided."),
+#                         "discription": "Description"
+#                     }
+#                 ]
+#             }
+#         ]
+
+#         return Response({
+#             "product": serializer.data,
+#             "details_data": details_data
+#         })
+
+#     def put(self, request, pk, *args, **kwargs):
+#         product = self.get_object(pk)
+#         data = dict(request.data)
+
+#         # ✅ Handle multiple image uploads (up to 5)
+#         new_images = request.FILES.getlist('images')
+#         if new_images:
+#             uploaded_images = []
+#             try:
+#                 for image in new_images[:5]:
+#                     upload_result = uploader.upload(image)
+#                     uploaded_images.append(upload_result["secure_url"])
+#                 data['images'] = json.dumps(uploaded_images)
+#             except Exception as e:
+#                 return Response({"error": f"Image upload failed: {str(e)}"}, status=500)
+#         else:
+#             data.pop('images', None)
+
+#         # ✅ Handle AR model GLB
+#         if 'ar_model_glb' in request.FILES:
+#             glb_upload = uploader.upload(request.FILES['ar_model_glb'], resource_type='raw')
+#             data['ar_model_glb'] = f"https://res.cloudinary.com/dvllntzo0/raw/upload/v{glb_upload['version']}/{glb_upload['public_id']}"
+
+#         # ✅ Handle AR model GLTF
+#         if 'ar_model_gltf' in request.FILES:
+#             gltf_upload = uploader.upload(request.FILES['ar_model_gltf'], resource_type='raw')
+#             data['ar_model_gltf'] = gltf_upload['secure_url']
+
+#         # ✅ Parse JSON string for 'images' if needed
+#         if 'images' in data and isinstance(data['images'], str):
+#             try:
+#                 data['images'] = json.loads(data['images'])
+#             except json.JSONDecodeError:
+#                 return Response({"images": ["Value must be valid JSON."]}, status=400)
+
+#         messages = []
+
+#         # ✅ Handle stock increment
+#         if 'total_stock' in data:
+#             try:
+#                 stock_value = data['total_stock'][0] if isinstance(data['total_stock'], list) else data['total_stock']
+#                 added_stock = int(stock_value)
+#                 product.total_stock += added_stock
+#                 product.save()
+#                 messages.append(f"Added {added_stock} to stock.")
+#             except ValueError:
+#                 return Response({"total_stock": ["A valid integer is required."]}, status=400)
+#             data.pop('total_stock')
+
+#         # ✅ Handle sold_count increment
+#         if 'sold_count' in data:
+#             try:
+#                 sold_value = data['sold_count'][0] if isinstance(data['sold_count'], list) else data['sold_count']
+#                 sold_increment = int(sold_value)
+#                 if sold_increment < 0:
+#                     return Response({"sold_count": ["Sold count cannot be negative."]}, status=400)
+
+#                 available_stock = product.total_stock - product.sold_count
+#                 if sold_increment > available_stock:
+#                     return Response({
+#                         "message": "Not enough stock to sell.",
+#                         "product": ProductSerializer(product).data
+#                     }, status=400)
+
+#                 product.sold_count += sold_increment
+#                 product.save()
+#                 messages.append(f"{sold_increment} items sold.")
+#             except ValueError:
+#                 return Response({"sold_count": ["A valid integer is required."]}, status=400)
+#             data.pop('sold_count')
+
+#         # ✅ Save product changes
+#         serializer = ProductSerializer(product, data=data, partial=True)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response({
+#                 "message": " ".join(messages) or "Product updated successfully.",
+#                 "product": serializer.data
+#             })
+
+#         return Response(serializer.errors, status=400)
 
 
 class ProductListAPIView(APIView):

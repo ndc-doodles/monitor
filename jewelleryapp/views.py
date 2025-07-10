@@ -1196,71 +1196,71 @@ class RecentProductsWithFallbackAPIView(ListAPIView):
 
     
 
-# class ProductListByGender(ListAPIView):
-#     serializer_class = ProductSerializer
-
-#     def get_queryset(self):
-#         gender_id = self.request.query_params.get('gender')
-#         if gender_id:
-#             return Product.objects.filter(gender_id=gender_id)
-#         return Product.objects.all()
-
-
 class ProductListByGender(ListAPIView):
     serializer_class = ProductSerializer
 
-    def get(self, request, *args, **kwargs):
-        gender_id = request.query_params.get('gender')
-        category_ids = request.query_params.getlist('category')
-        material_names = request.query_params.getlist('material')
-        gemstone_names = request.query_params.getlist('gemstone')
-        color_names = request.query_params.getlist('color')
-        price_min = request.query_params.get('price_min')
-        price_max = request.query_params.get('price_max')
-
-        # Base queryset
-        queryset = Product.objects.all()
-
+    def get_queryset(self):
+        gender_id = self.request.query_params.get('gender')
         if gender_id:
-            queryset = queryset.filter(gender_id=gender_id)
-        if category_ids:
-            queryset = queryset.filter(category_id__in=category_ids)
-        if material_names:
-            queryset = queryset.filter(metal__material__name__in=material_names)
-        if gemstone_names:
-            queryset = queryset.filter(productstone__stone__name__in=gemstone_names).distinct()
-        if color_names:
-            queryset = queryset.filter(metal__color__in=color_names)
-        if price_min and price_max:
-            queryset = queryset.filter(frozen_unit_price__gte=price_min, frozen_unit_price__lte=price_max)
+            return Product.objects.filter(gender_id=gender_id)
+        return Product.objects.all()
 
-        serializer = self.get_serializer(queryset, many=True)
 
-        # Filter options
-        categories = Category.objects.all().values('id', 'name')
-        materials = Material.objects.all().values('id', 'name')
-        gemstones = Gemstone.objects.all().values('id', 'name')
-        colors = Metal.objects.values_list('color', flat=True).distinct()
+# class ProductListByGender(ListAPIView):
+#     serializer_class = ProductSerializer
 
-        price_range = Product.objects.aggregate(
-            min_price=Min('frozen_unit_price'),
-            max_price=Max('frozen_unit_price')
-        )
+#     def get(self, request, *args, **kwargs):
+#         gender_id = request.query_params.get('gender')
+#         category_ids = request.query_params.getlist('category')
+#         material_names = request.query_params.getlist('material')
+#         gemstone_names = request.query_params.getlist('gemstone')
+#         color_names = request.query_params.getlist('color')
+#         price_min = request.query_params.get('price_min')
+#         price_max = request.query_params.get('price_max')
 
-        return Response({
-            "filter_options": {
-                "categories": list(categories),
-                "materials": list(materials),
-                "gemstones": list(gemstones),
-                "colors": list(colors),
-                "price_range": {
-                    "min": price_range['min_price'] or 0,
-                    "max": price_range['max_price'] or 0
-                }
-            },
-            "total_products": queryset.count(),
-            "products": serializer.data
-        }, status=status.HTTP_200_OK)
+#         # Base queryset
+#         queryset = Product.objects.all()
+
+#         if gender_id:
+#             queryset = queryset.filter(gender_id=gender_id)
+#         if category_ids:
+#             queryset = queryset.filter(category_id__in=category_ids)
+#         if material_names:
+#             queryset = queryset.filter(metal__material__name__in=material_names)
+#         if gemstone_names:
+#             queryset = queryset.filter(productstone__stone__name__in=gemstone_names).distinct()
+#         if color_names:
+#             queryset = queryset.filter(metal__color__in=color_names)
+#         if price_min and price_max:
+#             queryset = queryset.filter(frozen_unit_price__gte=price_min, frozen_unit_price__lte=price_max)
+
+#         serializer = self.get_serializer(queryset, many=True)
+
+#         # Filter options
+#         categories = Category.objects.all().values('id', 'name')
+#         materials = Material.objects.all().values('id', 'name')
+#         gemstones = Gemstone.objects.all().values('id', 'name')
+#         colors = Metal.objects.values_list('color', flat=True).distinct()
+
+#         price_range = Product.objects.aggregate(
+#             min_price=Min('frozen_unit_price'),
+#             max_price=Max('frozen_unit_price')
+#         )
+
+#         return Response({
+#             "filter_options": {
+#                 "categories": list(categories),
+#                 "materials": list(materials),
+#                 "gemstones": list(gemstones),
+#                 "colors": list(colors),
+#                 "price_range": {
+#                     "min": price_range['min_price'] or 0,
+#                     "max": price_range['max_price'] or 0
+#                 }
+#             },
+#             "total_products": queryset.count(),
+#             "products": serializer.data
+#         }, status=status.HTTP_200_OK)
 
 
 class SevenCategoriesAPIView(APIView):

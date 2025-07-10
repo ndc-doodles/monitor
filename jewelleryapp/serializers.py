@@ -1459,7 +1459,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
         # Description
         description = obj.description or "-"
-        details.append({"title": "Description", "content": [{"text": description}]})
+        details.append({"title": "Description", "content": [{"description": description}]})
 
         return details
 

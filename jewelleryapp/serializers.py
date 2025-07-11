@@ -86,8 +86,60 @@ class SubcategoriesSerializer(serializers.ModelSerializer):
 
 #         return instance
 
+# class CategorySerializer(serializers.ModelSerializer):
+#     subcategories = SubcategoriesSerializer(many=True, required=False)
+
+#     class Meta:
+#         model = Category
+#         fields = ['id', 'name', 'image', 'subcategories']
+
+#     def __init__(self, *args, **kwargs):
+#         initial_data = kwargs.get('data')
+
+#         if isinstance(initial_data, QueryDict):
+#             qdict = initial_data.copy()  # mutable
+#             raw_subs = qdict.getlist('subcategories')
+#             data_dict = dict(qdict)
+
+#             # Flatten all single-value lists like {'name': ['Necklace']} → {'name': 'Necklace'}
+#             for key in data_dict:
+#                 if isinstance(data_dict[key], list) and len(data_dict[key]) == 1:
+#                     data_dict[key] = data_dict[key][0]
+
+#             if raw_subs:
+#                 try:
+#                     data_dict['subcategories'] = json.loads(raw_subs[0])
+#                 except json.JSONDecodeError:
+#                     data_dict['subcategories'] = []
+
+#             kwargs['data'] = data_dict
+
+#         super().__init__(*args, **kwargs)
+
+#     def create(self, validated_data):
+#         subcategories_data = validated_data.pop('subcategories', [])
+#         category = Category.objects.create(**validated_data)
+#         for sub_data in subcategories_data:
+#             Subcategories.objects.create(category=category, **sub_data)
+#         return category
+
+#     def update(self, instance, validated_data):
+#         subcategories_data = validated_data.pop('subcategories', None)
+#         print("✅ Received subcategories:", subcategories_data)
+
+#         instance.name = validated_data.get('name', instance.name)
+#         instance.image = validated_data.get('image', instance.image)
+#         instance.save()
+
+#         if subcategories_data is not None:
+#             Subcategories.objects.filter(category=instance).delete()
+#             for sub_data in subcategories_data:
+#                 Subcategories.objects.create(category=instance, **sub_data)
+
+#         return instance
 class CategorySerializer(serializers.ModelSerializer):
     subcategories = SubcategoriesSerializer(many=True, required=False)
+    image = serializers.ImageField(required=False)
 
     class Meta:
         model = Category
@@ -95,13 +147,12 @@ class CategorySerializer(serializers.ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         initial_data = kwargs.get('data')
-
         if isinstance(initial_data, QueryDict):
-            qdict = initial_data.copy()  # mutable
+            qdict = initial_data.copy()
             raw_subs = qdict.getlist('subcategories')
             data_dict = dict(qdict)
 
-            # Flatten all single-value lists like {'name': ['Necklace']} → {'name': 'Necklace'}
+            # Flatten single-element lists
             for key in data_dict:
                 if isinstance(data_dict[key], list) and len(data_dict[key]) == 1:
                     data_dict[key] = data_dict[key][0]
@@ -125,8 +176,6 @@ class CategorySerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         subcategories_data = validated_data.pop('subcategories', None)
-        print("✅ Received subcategories:", subcategories_data)
-
         instance.name = validated_data.get('name', instance.name)
         instance.image = validated_data.get('image', instance.image)
         instance.save()
@@ -137,7 +186,6 @@ class CategorySerializer(serializers.ModelSerializer):
                 Subcategories.objects.create(category=instance, **sub_data)
 
         return instance
-
 
 class MetalSerializer(serializers.ModelSerializer):
     material = MaterialSerializer(read_only=True)

@@ -101,6 +101,7 @@ urlpatterns = [
     path('api/combined-suggestions/?query=', CombinedSuggestionsView.as_view(), name='combined-suggestions'),
     path('api/gifs/', SearchGifAPIView.as_view()),          
     path('api/gifs/<int:pk>/', SearchGifAPIView.as_view()),
+    path('api/share/<int:pk>/', ProductShareAPIView.as_view(), name='product-share'),
 
     path('api/send-otp/', SendOTP.as_view(), name='send-otp'),
     path('api/verify-otp/', VerifyOTP.as_view(), name='verify-otp'),

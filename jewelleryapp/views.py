@@ -681,23 +681,32 @@ class ProductSearchAPIView(ListAPIView):
 class ProductShareAPIView(APIView):
     def get(self, request, pk):
         product = get_object_or_404(Product, pk=pk)
-        product_url = request.build_absolute_uri(f'/product/{product.pk}/')  # Adjust path if needed
+
+        # Build the product URL
+        product_url = request.build_absolute_uri(f'/product/{product.pk}/')
         share_text = f"Check out this product: {product.head}"
+
+        # Get the first product image (from JSON list)
+        product_image = None
+        if isinstance(product.images, list) and product.images:
+            product_image = product.images[0]  # first image URL
 
         share_links = {
             "whatsapp": f"https://wa.me/?text={share_text} {product_url}",
             "facebook": f"https://www.facebook.com/sharer/sharer.php?u={product_url}",
             "telegram": f"https://t.me/share/url?url={product_url}&text={share_text}",
-            "instagram": "https://www.instagram.com/"  # Cannot share directly, provide profile or app link
+            "instagram": "https://www.instagram.com/"
         }
 
         return Response({
             "product_id": product.pk,
             "product_head": product.head,
             "product_url": product_url,
+            "product_image": product_image,
+            "grand_total": str(product.grand_total),  # Decimal to string
+            "average_rating": product.average_rating,
             "share_links": share_links
         }, status=status.HTTP_200_OK)
-    
 
 class ProductStoneListCreateAPIView(generics.ListCreateAPIView):
     queryset = ProductStone.objects.all()
@@ -1308,11 +1317,47 @@ class ProductListByGender(ListAPIView):
 #         }, status=status.HTTP_200_OK)
 
 
+# class SevenCategoriesAPIView(APIView):
+#     def get(self, request, *args, **kwargs):
+#         categories = Category.objects.order_by('?')[:7]  # 7 random categories
+#         serializer = CategorySerializer(categories, many=True)
+#         return Response({"categories": serializer.data}, status=status.HTTP_200_OK)
 class SevenCategoriesAPIView(APIView):
     def get(self, request, *args, **kwargs):
         categories = Category.objects.order_by('?')[:7]  # 7 random categories
         serializer = CategorySerializer(categories, many=True)
-        return Response({"categories": serializer.data}, status=status.HTTP_200_OK)
+
+        # Remove 'subcategories' from all serialized categories
+        cleaned_data = []
+        for item in serializer.data:
+            item.pop('subcategories', None)  # remove if exists
+            cleaned_data.append(item)
+
+        return Response({"categories": cleaned_data}, status=status.HTTP_200_OK)
+
+class SevenCategoryDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk, *args, **kwargs):
+        user = request.user
+
+        # Get the category object or 404
+        category = get_object_or_404(Category, pk=pk)
+
+        # Get all products in the given category
+        products = Product.objects.filter(category=category)
+
+        # Serialize products with context for user-specific fields
+        serializer = FinestProductSerializer(
+            products, many=True, context={'user': user}
+        )
+
+        # Return the category name as string and serialized products
+        return Response({
+            "category": category.name,
+            "products": serializer.data
+        }, status=status.HTTP_200_OK)
+
 
  
 # class SevenCategoryDetailAPIView(APIView):
@@ -1340,28 +1385,7 @@ class SevenCategoriesAPIView(APIView):
            
 #             "products": serializer.data
 #         }, status=status.HTTP_200_OK)
-class SevenCategoryDetailAPIView(APIView):
-    permission_classes = [IsAuthenticated]
 
-    def get(self, request, pk, *args, **kwargs):
-        user = request.user
-
-        # Get the category object or 404
-        category = get_object_or_404(Category, pk=pk)
-
-        # Get all products in the given category
-        products = Product.objects.filter(category=category)
-
-        # Serialize products with context for user-specific fields
-        serializer = FinestProductSerializer(
-            products, many=True, context={'user': user}
-        )
-
-        # Return the category name as string and serialized products
-        return Response({
-            "category": category.name,
-            "products": serializer.data
-        }, status=status.HTTP_200_OK)
     
 from django.db.models import Min, Max
 

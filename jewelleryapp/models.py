@@ -166,8 +166,6 @@ class Product(models.Model):
 
     def __str__(self):
         return self.head
-    
-
 class ProductStone(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     stone = models.ForeignKey(Gemstone, on_delete=models.CASCADE, null=True, blank=True)
@@ -181,7 +179,6 @@ class ProductStone(models.Model):
     
     def __str__(self):
         return self.product.head  
-
 class ProductRating(models.Model):
     product = models.ForeignKey(Product, related_name='ratings', on_delete=models.CASCADE)
     rating = models.PositiveSmallIntegerField()  # 1 to 5 stars, you can add validation

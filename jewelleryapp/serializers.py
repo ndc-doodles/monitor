@@ -6,45 +6,17 @@ from decimal import Decimal, ROUND_HALF_UP
 # from rest_framework import generics
 import json
 import cloudinary
+from django.http import QueryDict
 
 class MaterialSerializer(serializers.ModelSerializer):
     class Meta:
         model = Material
         fields = '__all__'
 
-
-# class SubcategoriesSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = Subcategories
-#         fields = ['id', 'name']
-
 # class CategorySerializer(serializers.ModelSerializer):
-#     subcategories = SubcategoriesSerializer(many=True, required=False)
-    
 #     class Meta:
 #         model = Category
-#         fields = ['id', 'name', 'image', 'subcategories']
-
-#     def create(self, validated_data):
-#         subcategories_data = validated_data.pop('subcategories', [])
-#         category = Category.objects.create(**validated_data)
-#         for subcat_data in subcategories_data:
-#             Subcategories.objects.create(category=category, **subcat_data)
-#         return category
-
-#     def update(self, instance, validated_data):
-#         subcategories_data = validated_data.pop('subcategories', None)
-
-#         for attr, value in validated_data.items():
-#             setattr(instance, attr, value)
-#         instance.save()
-
-#         if subcategories_data is not None:
-#             instance.subcategories.all().delete()
-#             for subcat_data in subcategories_data:
-#                 Subcategories.objects.create(category=instance, **subcat_data)
-
-#         return instance
+#         fields = ['id', 'name', 'image']
 
 #     def to_representation(self, instance):
 #         rep = super().to_representation(instance)
@@ -54,18 +26,118 @@ class MaterialSerializer(serializers.ModelSerializer):
 #             rep['image'] = str(instance.image)
 #         return rep
 
+
+# class SubcategoriesSerializer(serializers.ModelSerializer):
+#     class Meta:
+#         model = Subcategories
+#         fields = ['id', 'name']
+
+# class CategorySerializer(serializers.ModelSerializer):
+#     subcategories = SubcategoriesSerializer(many=True, required=False)
+
+#     class Meta:
+#         model = Category
+#         fields = ['id', 'name', 'image', 'subcategories']
+
+#     def create(self, validated_data):
+#         subcategories_data = validated_data.pop('subcategories', [])
+#         category = Category.objects.create(**validated_data)
+#         for subcat in subcategories_data:
+#             Subcategories.objects.create(category=category, **subcat)
+#         return category
+
+#     def to_representation(self, instance):
+#         rep = super().to_representation(instance)
+#         try:
+#             rep['image'] = instance.image.url if instance.image else None
+#         except:
+#             rep['image'] = str(instance.image)
+
+#         # Add subcategories in the response
+#         rep['subcategories'] = SubcategoriesSerializer(instance.subcategories.all(), many=True).data
+#         return rep
+
+
+# serializers.py
+class SubcategoriesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subcategories
+        fields = ['id', 'sub_name']
+
+# class CategorySerializer(serializers.ModelSerializer):
+#     subcategories = SubcategoriesSerializer(many=True, required=False)
+
+#     class Meta:
+#         model = Category
+#         fields = ['id', 'name', 'image', 'subcategories']
+
+#     def update(self, instance, validated_data):
+#         subcategories_data = validated_data.pop('subcategories', None)
+
+#         instance.name = validated_data.get('name', instance.name)
+#         instance.image = validated_data.get('image', instance.image)
+#         instance.save()
+
+#         if subcategories_data is not None:
+#             # Clear existing
+#             Subcategories.objects.filter(category=instance).delete()
+#             for sub_data in subcategories_data:
+#                 Subcategories.objects.create(category=instance, **sub_data)
+
+#         return instance
+
 class CategorySerializer(serializers.ModelSerializer):
+    subcategories = SubcategoriesSerializer(many=True, required=False)
+
     class Meta:
         model = Category
-        fields = ['id', 'name', 'image']
+        fields = ['id', 'name', 'image', 'subcategories']
 
-    def to_representation(self, instance):
-        rep = super().to_representation(instance)
-        try:
-            rep['image'] = instance.image.url if instance.image else None
-        except:
-            rep['image'] = str(instance.image)
-        return rep
+    def __init__(self, *args, **kwargs):
+        initial_data = kwargs.get('data')
+
+        if isinstance(initial_data, QueryDict):
+            qdict = initial_data.copy()  # mutable
+            raw_subs = qdict.getlist('subcategories')
+            data_dict = dict(qdict)
+
+            # Flatten all single-value lists like {'name': ['Necklace']} → {'name': 'Necklace'}
+            for key in data_dict:
+                if isinstance(data_dict[key], list) and len(data_dict[key]) == 1:
+                    data_dict[key] = data_dict[key][0]
+
+            if raw_subs:
+                try:
+                    data_dict['subcategories'] = json.loads(raw_subs[0])
+                except json.JSONDecodeError:
+                    data_dict['subcategories'] = []
+
+            kwargs['data'] = data_dict
+
+        super().__init__(*args, **kwargs)
+
+    def create(self, validated_data):
+        subcategories_data = validated_data.pop('subcategories', [])
+        category = Category.objects.create(**validated_data)
+        for sub_data in subcategories_data:
+            Subcategories.objects.create(category=category, **sub_data)
+        return category
+
+    def update(self, instance, validated_data):
+        subcategories_data = validated_data.pop('subcategories', None)
+        print("✅ Received subcategories:", subcategories_data)
+
+        instance.name = validated_data.get('name', instance.name)
+        instance.image = validated_data.get('image', instance.image)
+        instance.save()
+
+        if subcategories_data is not None:
+            Subcategories.objects.filter(category=instance).delete()
+            for sub_data in subcategories_data:
+                Subcategories.objects.create(category=instance, **sub_data)
+
+        return instance
+
 
 class MetalSerializer(serializers.ModelSerializer):
     material = MaterialSerializer(read_only=True)

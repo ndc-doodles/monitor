@@ -417,16 +417,60 @@ class MaterialDetailAPIView(BaseDetailAPIView):
 
 
 
+# class CategoryListCreateAPIView(APIView):
+#     parser_classes = [MultiPartParser, FormParser]
+
+#     # ✅ Handle GET request to list all categories
+#     def get(self, request):
+#         categories = Category.objects.all()
+#         serializer = CategorySerializer(categories, many=True)
+#         return Response(serializer.data)
+
+#     # ✅ Handle POST request to create a new category with subcategories
+#     def post(self, request):
+#         serializer = CategorySerializer(data=request.data)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response(serializer.data, status=201)
+#         return Response(serializer.errors, status=400)
+
+
+# class CategoryDetailAPIView(APIView):
+#     parser_classes = [MultiPartParser, FormParser]
+
+#     def get_object(self, pk):
+#         return get_object_or_404(Category, pk=pk)
+
+#     # ✅ Handle GET request for one category
+#     def get(self, request, pk):
+#         category = self.get_object(pk)
+#         serializer = CategorySerializer(category)
+#         return Response(serializer.data)
+
+#     # ✅ Handle PUT request to update category
+#     def put(self, request, pk):
+#         category = self.get_object(pk)
+#         serializer = CategorySerializer(category, data=request.data)
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response(serializer.data)
+#         return Response(serializer.errors, status=400)
+
+#     # ✅ Handle DELETE request to remove category
+#     def delete(self, request, pk):
+#         category = self.get_object(pk)
+#         category.delete()
+#         return Response({'message': 'Category deleted'}, status=204)
+
+
 class CategoryListCreateAPIView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
-    # ✅ Handle GET request to list all categories
     def get(self, request):
         categories = Category.objects.all()
         serializer = CategorySerializer(categories, many=True)
         return Response(serializer.data)
 
-    # ✅ Handle POST request to create a new category with subcategories
     def post(self, request):
         serializer = CategorySerializer(data=request.data)
         if serializer.is_valid():
@@ -434,34 +478,35 @@ class CategoryListCreateAPIView(APIView):
             return Response(serializer.data, status=201)
         return Response(serializer.errors, status=400)
 
-
 class CategoryDetailAPIView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def get_object(self, pk):
         return get_object_or_404(Category, pk=pk)
 
-    # ✅ Handle GET request for one category
     def get(self, request, pk):
         category = self.get_object(pk)
         serializer = CategorySerializer(category)
         return Response(serializer.data)
 
-    # ✅ Handle PUT request to update category
     def put(self, request, pk):
+        print("Request data:", request.data)
+        print("Request keys:", list(request.data.keys()))
+        print("Raw subcategories:", request.data.get('subcategories'))
+
         category = self.get_object(pk)
-        serializer = CategorySerializer(category, data=request.data)
+        serializer = CategorySerializer(category, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
+        
 
-    # ✅ Handle DELETE request to remove category
+
     def delete(self, request, pk):
         category = self.get_object(pk)
         category.delete()
         return Response({'message': 'Category deleted'}, status=204)
-
 
 class SevenCategoriesAPIView(APIView):
     def get(self, request, *args, **kwargs):
@@ -1356,74 +1401,89 @@ from django.db.models import Min, Max
 #         }, status=status.HTTP_200_OK)
 
 
-# class CategoryFilterOptionsAPIView(APIView):
-#     def get(self, request, category_id, *args, **kwargs):
-#         # Get active category
-#         category = get_object_or_404(Category, pk=category_id)
+class CategoryFilterOptionsAPIView(APIView):
+    def get(self, request, category_id, *args, **kwargs):
+        category = get_object_or_404(Category, pk=category_id)
 
-#         # Get filter query params
-#         subcategories = request.query_params.getlist('subcategory')
-#         price_min = request.query_params.get('price_min')
-#         price_max = request.query_params.get('price_max')
-#         brand = request.query_params.get('brand')
-#         materials = request.query_params.getlist('material')
-#         gemstones = request.query_params.getlist('gemstone')
-#         colors = request.query_params.getlist('color')
+        subcategories = request.query_params.getlist('subcategory')
+        price_min = request.query_params.get('price_min')
+        price_max = request.query_params.get('price_max')
+        brand = request.query_params.get('brand')
+        materials = request.query_params.getlist('material')
+        gemstones = request.query_params.getlist('gemstone')
+        colors = request.query_params.getlist('color')
 
-#         # Base queryset
-#         products = Product.objects.filter(category=category)
+        try:
+            price_min = float(price_min) if price_min else None
+            price_max = float(price_max) if price_max else None
+        except ValueError:
+            price_min = price_max = None
 
-#         # Apply filters
-#         if subcategories:
-#             products = products.filter(Subcategories__id__in=subcategories)
-#         if price_min and price_max:
-#             products = products.filter(frozen_unit_price__gte=price_min, frozen_unit_price__lte=price_max)
-#         if brand:
-#             products = products.filter(head__icontains=brand)
-#         if materials:
-#             products = products.filter(metal__material__name__in=materials)
-#         if gemstones:
-#             products = products.filter(productstone__stone__name__in=gemstones).distinct()
-#         if colors:
-#             products = products.filter(metal__color__in=colors)
+        # Initial queryset
+        products = Product.objects.filter(category=category)
 
-#         # Serialize filtered products
-#         serializer = FinestProductSerializer(products, many=True, context={'request': request})
+        if subcategories:
+            products = products.filter(Subcategories__id__in=subcategories)
+        if brand:
+            products = products.filter(head__icontains=brand)
+        if materials:
+            products = products.filter(metal__material__name__in=materials)
+        if gemstones:
+            products = products.filter(productstone__stone__name__in=gemstones).distinct()
+        if colors:
+            products = products.filter(metal__color__in=colors)
 
-#         # Filter options data
-#         subcategory_list = Subcategories.objects.filter(category=category).values('id', 'name')
-#         material_list = Material.objects.all().values('id', 'name')
-#         gemstone_list = Gemstone.objects.all().values('id', 'name')
-#         color_list = Metal.objects.values_list('color', flat=True).distinct()
+        # Filter by grand_total in Python
+        filtered_products = []
+        all_grand_totals = []
 
-#         # Price range (from all products in this category)
-#         price_range = Product.objects.filter(category=category).aggregate(
-#             min_price=Min('frozen_unit_price'),
-#             max_price=Max('frozen_unit_price')
-#         )
+        for product in products:
+            gt = product.grand_total
+            all_grand_totals.append(gt)
 
-#         return Response({
-#             "filter_category": {
-#                 "category": {
-#                     "id": category.id,
-#                     "name": category.name
-#                 },
-#                 "subcategories": list(subcategory_list),
-#                 "price_range": {
-#                     "min": price_range['min_price'] or 0,
-#                     "max": price_range['max_price'] or 0
-#                 },
-#                 "brand": "my jewelry my design",
-#                 "materials": list(material_list),
-#                 "gemstones": list(gemstone_list),
-#                 "colors": list(color_list)
-#             },
-#             "total_products": products.count(),
-#             "products": serializer.data
-#         }, status=status.HTTP_200_OK)
+            if price_min and gt < price_min:
+                continue
+            if price_max and gt > price_max:
+                continue
 
+            filtered_products.append({
+                "id": product.id,
+                "head": product.head,
+                "description": product.description,
+                "first_image": product.images[0] if product.images else None,
+                "average_rating": product.average_rating,
+                "grand_total": str(gt),
+                "is_wishlisted": False  # You can customize this logic
+            })
 
+        # Grand total range
+        if all_grand_totals:
+            min_gt = min(all_grand_totals)
+            max_gt = max(all_grand_totals)
+        else:
+            min_gt = max_gt = 0
 
+        return Response({
+            "filter_category": {
+                "category": {
+                    "id": category.id,
+                    "name": category.name
+                },
+                "subcategories": list(Subcategories.objects.filter(category=category).values('id', 'sub_name')),
+                "price_range": {
+                    "min": float(min_gt),
+                    "max": float(max_gt)
+                },
+                "brand": "my jewelry my design",
+                "materials": list(Material.objects.all().values('id', 'name')),
+                "gemstones": list(Gemstone.objects.all().values('id', 'name')),
+                "colors": list(Metal.objects.values_list('color', flat=True).distinct())
+            },
+            "total_products": len(filtered_products),
+            "products": filtered_products
+        }, status=status.HTTP_200_OK)
+
+    
 class RelatedProductsAPIView(APIView):
     def get(self, request, *args, **kwargs):
         product_id = request.query_params.get('product_id')

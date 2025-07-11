@@ -96,7 +96,7 @@ urlpatterns = [
     # path('api/combined-suggestions/', CombinedSuggestionsView.as_view(), name='combined-suggestions'),
     # path('api/gif/', gif_list, name='gif-list'),
     # path('api/gif/<int:pk>/', gif_detail, name='gif-detail'),
-    # path('api/filter-options/<int:category_id>/', CategoryFilterOptionsAPIView.as_view()),
+    path('api/filter-options/<int:category_id>/', CategoryFilterOptionsAPIView.as_view()),
     path('api/combined-suggestions/', CombinedSuggestionsView.as_view(), name='combined-suggestions'),
     path('api/combined-suggestions/?query=', CombinedSuggestionsView.as_view(), name='combined-suggestions'),
     path('api/gifs/', SearchGifAPIView.as_view()),          
@@ -109,4 +109,5 @@ urlpatterns = [
     path('api/enquiries/', ProductEnquiryListAPIView.as_view(), name='product-enquiry-list'),
     path('api/admin-login/', AdminLoginAPIView.as_view(), name='admin-login'),
     path('api/dj-rest-auth/google/', google_login_callback),
+    
 ]

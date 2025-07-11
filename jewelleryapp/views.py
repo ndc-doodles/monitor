@@ -1335,30 +1335,114 @@ class SevenCategoriesAPIView(APIView):
 
         return Response({"categories": cleaned_data}, status=status.HTTP_200_OK)
 
+# class SevenCategoryDetailAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request, pk, *args, **kwargs):
+#         user = request.user
+
+#         # Get the category object or 404
+#         category = get_object_or_404(Category, pk=pk)
+
+#         # Get all products in the given category
+#         products = Product.objects.filter(category=category)
+
+#         # Serialize products with context for user-specific fields
+#         serializer = FinestProductSerializer(
+#             products, many=True, context={'user': user}
+#         )
+
+#         # Return the category name as string and serialized products
+#         return Response({
+#             "category": category.name,
+#             "products": serializer.data
+#         }, status=status.HTTP_200_OK)
 class SevenCategoryDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk, *args, **kwargs):
-        user = request.user
+        return self.handle_request(request, pk)
 
-        # Get the category object or 404
+    def post(self, request, pk, *args, **kwargs):
+        return self.handle_request(request, pk, filter_data=True)
+
+    def handle_request(self, request, pk, filter_data=False):
+        user = request.user
         category = get_object_or_404(Category, pk=pk)
 
-        # Get all products in the given category
+        # Clear filter flag
+        clear_filter = request.data.get('clear', False) if filter_data else False
+
+        # Get base products
         products = Product.objects.filter(category=category)
 
-        # Serialize products with context for user-specific fields
-        serializer = FinestProductSerializer(
-            products, many=True, context={'user': user}
-        )
+        # Skip filtering if clear is true
+        if filter_data and not clear_filter:
+            data = request.data
 
-        # Return the category name as string and serialized products
+            def parse_list(field):
+                if hasattr(data, 'getlist'):
+                    return data.getlist(field)
+                val = data.get(field)
+                return val if isinstance(val, list) else [val] if val else []
+
+            subcategories = parse_list('subcategory')
+            materials = parse_list('material')
+            gemstones = parse_list('gemstone')
+            colors = parse_list('color')
+            brand = data.get('brand')
+            price_min = data.get('price_min')
+            price_max = data.get('price_max')
+
+            try:
+                price_min = float(price_min) if price_min else None
+                price_max = float(price_max) if price_max else None
+            except ValueError:
+                price_min = price_max = None
+
+            if subcategories:
+                products = products.filter(Subcategories__id__in=subcategories)
+            if brand:
+                products = products.filter(head__icontains=brand)
+            if materials:
+                products = products.filter(metal__material__name__in=materials)
+            if gemstones:
+                products = products.filter(productstone__stone__name__in=gemstones).distinct()
+            if colors:
+                products = products.filter(metal__color__in=colors)
+
+        # Apply grand_total filtering (skip if clear)
+        product_list = []
+        for product in products:
+            gt = float(product.grand_total)
+
+            if filter_data and not clear_filter:
+                price_min = float(request.data.get('price_min', 0) or 0)
+                price_max = float(request.data.get('price_max', 0) or 0)
+                if price_min and gt < price_min:
+                    continue
+                if price_max and gt > price_max:
+                    continue
+
+            product_list.append({
+                "id": product.id,
+                "head": product.head,
+                "description": product.description,
+                "first_image": product.images[0] if product.images else None,
+                "average_rating": product.average_rating,
+                "grand_total": str(product.grand_total),
+                "is_wishlisted": True  # Customize as needed
+            })
+
+        if product_list:
+            product_list.append({"message": "Products found"})
+        else:
+            product_list = [{"message": "No products found"}]
+
         return Response({
             "category": category.name,
-            "products": serializer.data
-        }, status=status.HTTP_200_OK)
-
-
+            "products": product_list
+        }, status=200)
  
 # class SevenCategoryDetailAPIView(APIView):
 #     permission_classes = [IsAuthenticated]
@@ -1391,20 +1475,65 @@ from django.db.models import Min, Max
 
 # class CategoryFilterOptionsAPIView(APIView):
 #     def get(self, request, category_id, *args, **kwargs):
-#         # Fetch active category
 #         category = get_object_or_404(Category, pk=category_id)
 
-#         # Get only subcategories related to the active category
-#         subcategories = Subcategories.objects.filter(category=category).values('id', 'name')
+#         subcategories = request.query_params.getlist('subcategory')
+#         price_min = request.query_params.get('price_min')
+#         price_max = request.query_params.get('price_max')
+#         brand = request.query_params.get('brand')
+#         materials = request.query_params.getlist('material')
+#         gemstones = request.query_params.getlist('gemstone')
+#         colors = request.query_params.getlist('color')
 
-#         # All materials
-#         materials = Material.objects.all().values('id', 'name')
+#         try:
+#             price_min = float(price_min) if price_min else None
+#             price_max = float(price_max) if price_max else None
+#         except ValueError:
+#             price_min = price_max = None
 
-#         # All stones
-#         stones = Gemstone.objects.all().values('id', 'name')
+#         # Initial queryset
+#         products = Product.objects.filter(category=category)
 
-#         # Distinct metal colors
-#         colors = Metal.objects.values_list('color', flat=True).distinct()
+#         if subcategories:
+#             products = products.filter(Subcategories__id__in=subcategories)
+#         if brand:
+#             products = products.filter(head__icontains=brand)
+#         if materials:
+#             products = products.filter(metal__material__name__in=materials)
+#         if gemstones:
+#             products = products.filter(productstone__stone__name__in=gemstones).distinct()
+#         if colors:
+#             products = products.filter(metal__color__in=colors)
+
+#         # Filter by grand_total in Python
+#         filtered_products = []
+#         all_grand_totals = []
+
+#         for product in products:
+#             gt = product.grand_total
+#             all_grand_totals.append(gt)
+
+#             if price_min and gt < price_min:
+#                 continue
+#             if price_max and gt > price_max:
+#                 continue
+
+#             filtered_products.append({
+#                 "id": product.id,
+#                 "head": product.head,
+#                 "description": product.description,
+#                 "first_image": product.images[0] if product.images else None,
+#                 "average_rating": product.average_rating,
+#                 "grand_total": str(gt),
+#                 "is_wishlisted": False  # You can customize this logic
+#             })
+
+#         # Grand total range
+#         if all_grand_totals:
+#             min_gt = min(all_grand_totals)
+#             max_gt = max(all_grand_totals)
+#         else:
+#             min_gt = max_gt = 0
 
 #         return Response({
 #             "filter_category": {
@@ -1412,102 +1541,256 @@ from django.db.models import Min, Max
 #                     "id": category.id,
 #                     "name": category.name
 #                 },
-#                 "subcategories": list(subcategories),
+#                 "subcategories": list(Subcategories.objects.filter(category=category).values('id', 'sub_name')),
 #                 "price_range": {
-#                     "min": 10000,
-#                     "max": 50000
+#                     "min": float(min_gt),
+#                     "max": float(max_gt)
 #                 },
 #                 "brand": "my jewelry my design",
-#                 "materials": list(materials),
-#                 "stones": list(stones),
-#                 "colors": list(colors)
-#             }
+#                 "materials": list(Material.objects.all().values('id', 'name')),
+#                 "gemstones": list(Gemstone.objects.all().values('id', 'name')),
+#                 "colors": list(Metal.objects.values_list('color', flat=True).distinct())
+#             },
+#             "total_products": len(filtered_products),
+#             "products": filtered_products
 #         }, status=status.HTTP_200_OK)
 
 
+# class CategoryFilterOptionsAPIView(APIView):
+#     def get_data(self, request):
+#         # Support both GET and POST
+#         return request.query_params if request.method == 'GET' else request.data
+
+#     def get(self, request, category_id, *args, **kwargs):
+#         return self.process(request, category_id)
+
+#     def post(self, request, category_id, *args, **kwargs):
+#         return self.process(request, category_id)
+
+#     def process(self, request, category_id):
+#         category = get_object_or_404(Category, pk=category_id)
+#         data = self.get_data(request)
+
+#         # Optional filters
+#         subcategories = data.getlist('subcategory')
+#         price_min = data.get('price_min')
+#         price_max = data.get('price_max')
+#         brand = data.get('brand')
+#         materials = data.getlist('material')
+#         gemstones = data.getlist('gemstone')
+#         colors = data.getlist('color')
+
+#         # Parse price range
+#         try:
+#             price_min = float(price_min) if price_min else None
+#             price_max = float(price_max) if price_max else None
+#         except ValueError:
+#             price_min = price_max = None
+
+#         # Initial DB query
+#         products = Product.objects.filter(category=category)
+
+#         if subcategories:
+#             products = products.filter(Subcategories__id__in=subcategories)
+#         if brand:
+#             products = products.filter(head__icontains=brand)
+#         if materials:
+#             products = products.filter(metal__material__name__in=materials)
+#         if gemstones:
+#             products = products.filter(productstone__stone__name__in=gemstones).distinct()
+#         if colors:
+#             products = products.filter(metal__color__in=colors)
+
+#         # Python-level grand_total filtering
+#         filtered_products = []
+#         all_grand_totals = []
+
+#         for product in products:
+#             gt = product.grand_total
+#             all_grand_totals.append(gt)
+
+#             if price_min is not None and gt < price_min:
+#                 continue
+#             if price_max is not None and gt > price_max:
+#                 continue
+
+#             filtered_products.append({
+#                 "id": product.id,
+#                 "head": product.head,
+#                 "description": product.description,
+#                 "first_image": product.images[0] if product.images else None,
+#                 "average_rating": product.average_rating,
+#                 "grand_total": str(gt),
+#                 "is_wishlisted": False  # customize if needed
+#             })
+
+#         # Grand total range for UI
+#         min_gt = float(min(all_grand_totals)) if all_grand_totals else 0
+#         max_gt = float(max(all_grand_totals)) if all_grand_totals else 0
+
+#         return Response({
+#             "filter_category": {
+#                 "category": {
+#                     "id": category.id,
+#                     "name": category.name
+#                 },
+#                 "subcategories": list(Subcategories.objects.filter(category=category).values('id', 'sub_name')),
+#                 "price_range": {
+#                     "min": min_gt,
+#                     "max": max_gt
+#                 },
+#                 "brand": "my jewelry my design",
+#                 "materials": list(Material.objects.all().values('id', 'name')),
+#                 "gemstones": list(Gemstone.objects.all().values('id', 'name')),
+#                 "colors": list(Metal.objects.values_list('color', flat=True).distinct())
+#             },
+#             "total_products": len(filtered_products),
+#             "products": filtered_products,
+#             "message": "products fetched successfully" if filtered_products else "no product available"
+#         }, status=status.HTTP_200_OK)
+
+# class CategoryFilterOptionsAPIView(APIView):
+#     def post(self, request, category_id, *args, **kwargs):
+#         from django.db.models import Q
+#         category = get_object_or_404(Category, pk=category_id)
+
+#         data = request.data
+
+#         def parse_list(value):
+#             if hasattr(data, 'getlist'):
+#                 return data.getlist(value)
+#             return data.get(value, []) if isinstance(data.get(value), list) else [data.get(value)] if data.get(value) else []
+
+#         subcategories = parse_list('subcategory')
+#         materials = parse_list('material')
+#         gemstones = parse_list('gemstone')
+#         colors = parse_list('color')
+#         brand = data.get('brand')
+#         price_min = data.get('price_min')
+#         price_max = data.get('price_max')
+
+#         try:
+#             price_min = float(price_min) if price_min else None
+#             price_max = float(price_max) if price_max else None
+#         except ValueError:
+#             price_min = price_max = None
+
+#         # Base Query
+#         products = Product.objects.filter(category=category)
+
+#         # Safe filters
+#         if subcategories:
+#             valid_sub_ids = Subcategories.objects.filter(id__in=subcategories).values_list('id', flat=True)
+#             if valid_sub_ids:
+#                 products = products.filter(Subcategories__id__in=valid_sub_ids)
+#             else:
+#                 products = Product.objects.none()
+
+#         if brand:
+#             products = products.filter(head__icontains=brand)
+
+#         if materials:
+#             valid_mat = Material.objects.filter(name__in=materials).values_list('name', flat=True)
+#             if valid_mat:
+#                 products = products.filter(metal__material__name__in=valid_mat)
+#             else:
+#                 products = Product.objects.none()
+
+#         if gemstones:
+#             valid_gems = Gemstone.objects.filter(name__in=gemstones).values_list('name', flat=True)
+#             if valid_gems:
+#                 products = products.filter(productstone__stone__name__in=valid_gems).distinct()
+#             else:
+#                 products = Product.objects.none()
+
+#         if colors:
+#             valid_colors = Metal.objects.filter(color__in=colors).values_list('color', flat=True)
+#             if valid_colors:
+#                 products = products.filter(metal__color__in=valid_colors)
+#             else:
+#                 products = Product.objects.none()
+
+#         # Final product filtering by grand_total
+#         filtered_products = []
+#         grand_totals = []
+
+#         for product in products:
+#             gt = float(product.grand_total)
+#             grand_totals.append(gt)
+#             if price_min is not None and gt < price_min:
+#                 continue
+#             if price_max is not None and gt > price_max:
+#                 continue
+#             filtered_products.append({
+#                 "id": product.id,
+#                 "head": product.head,
+#                 "description": product.description,
+#                 "first_image": product.images[0] if product.images else None,
+#                 "average_rating": product.average_rating,
+#                 "grand_total": str(product.grand_total),
+#                 "is_wishlisted": False
+#             })
+
+#         price_range = {
+#             "min": float(min(grand_totals)) if grand_totals else 0,
+#             "max": float(max(grand_totals)) if grand_totals else 0
+#         }
+
+#         return Response({
+#             "filter_category": {
+#                 "category": {
+#                     "id": category.id,
+#                     "name": category.name
+#                 },
+#                 "subcategories": list(Subcategories.objects.filter(category=category).values('id', 'sub_name')),
+#                 "price_range": price_range,
+#                 "brand": "my jewelry my design",
+#                 "materials": list(Material.objects.all().values('id', 'name')),
+#                 "gemstones": list(Gemstone.objects.all().values('id', 'name')),
+#                 "colors": list(Metal.objects.values_list('color', flat=True).distinct())
+#             },
+#             "total_products": len(filtered_products),
+#             "products": filtered_products,
+#             "message": "products fetched successfully" if filtered_products else "no product available"
+#         }, status=status.HTTP_200_OK)
+
 class CategoryFilterOptionsAPIView(APIView):
-    def get(self, request, category_id, *args, **kwargs):
+    def post(self, request, category_id, *args, **kwargs):
+        from django.db.models import Min, Max
+
         category = get_object_or_404(Category, pk=category_id)
 
-        subcategories = request.query_params.getlist('subcategory')
-        price_min = request.query_params.get('price_min')
-        price_max = request.query_params.get('price_max')
-        brand = request.query_params.get('brand')
-        materials = request.query_params.getlist('material')
-        gemstones = request.query_params.getlist('gemstone')
-        colors = request.query_params.getlist('color')
-
-        try:
-            price_min = float(price_min) if price_min else None
-            price_max = float(price_max) if price_max else None
-        except ValueError:
-            price_min = price_max = None
-
-        # Initial queryset
+        # All products under the category
         products = Product.objects.filter(category=category)
 
-        if subcategories:
-            products = products.filter(Subcategories__id__in=subcategories)
-        if brand:
-            products = products.filter(head__icontains=brand)
-        if materials:
-            products = products.filter(metal__material__name__in=materials)
-        if gemstones:
-            products = products.filter(productstone__stone__name__in=gemstones).distinct()
-        if colors:
-            products = products.filter(metal__color__in=colors)
+        # Get grand total values for min and max
+        grand_totals = [float(p.grand_total) for p in products]
+        price_range = {
+            "min": min(grand_totals) if grand_totals else 0,
+            "max": max(grand_totals) if grand_totals else 0
+        }
 
-        # Filter by grand_total in Python
-        filtered_products = []
-        all_grand_totals = []
-
-        for product in products:
-            gt = product.grand_total
-            all_grand_totals.append(gt)
-
-            if price_min and gt < price_min:
-                continue
-            if price_max and gt > price_max:
-                continue
-
-            filtered_products.append({
-                "id": product.id,
-                "head": product.head,
-                "description": product.description,
-                "first_image": product.images[0] if product.images else None,
-                "average_rating": product.average_rating,
-                "grand_total": str(gt),
-                "is_wishlisted": False  # You can customize this logic
-            })
-
-        # Grand total range
-        if all_grand_totals:
-            min_gt = min(all_grand_totals)
-            max_gt = max(all_grand_totals)
-        else:
-            min_gt = max_gt = 0
+        # Build response
+        filter_category = {
+            "category": {
+                "id": category.id,
+                "name": category.name
+            },
+            "subcategories": list(
+                Subcategories.objects.filter(category=category).values('id', 'sub_name')
+            ),
+            "price_range": price_range,
+            "brand": "my jewelry my design",  # Static or customize as needed
+            "materials": list(Material.objects.all().values('id', 'name')),
+            "gemstones": list(Gemstone.objects.all().values('id', 'name')),
+            "colors": list(Metal.objects.values_list('color', flat=True).distinct())
+        }
 
         return Response({
-            "filter_category": {
-                "category": {
-                    "id": category.id,
-                    "name": category.name
-                },
-                "subcategories": list(Subcategories.objects.filter(category=category).values('id', 'sub_name')),
-                "price_range": {
-                    "min": float(min_gt),
-                    "max": float(max_gt)
-                },
-                "brand": "my jewelry my design",
-                "materials": list(Material.objects.all().values('id', 'name')),
-                "gemstones": list(Gemstone.objects.all().values('id', 'name')),
-                "colors": list(Metal.objects.values_list('color', flat=True).distinct())
-            },
-            "total_products": len(filtered_products),
-            "products": filtered_products
+            "filter_category": filter_category
         }, status=status.HTTP_200_OK)
 
-    
+
 class RelatedProductsAPIView(APIView):
     def get(self, request, *args, **kwargs):
         product_id = request.query_params.get('product_id')

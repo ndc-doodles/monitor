@@ -1580,25 +1580,39 @@ class CategoryFilterOptionsAPIView(APIView):
         return self.build_filter_response(category_id)
 
     def post(self, request, category_id, *args, **kwargs):
-        return self.build_filter_response(category_id)
+        return self.build_filter_response(category_id, request.data)
 
-    def build_filter_response(self, category_id):
+    def build_filter_response(self, category_id, data=None):
         category = get_object_or_404(Category, pk=category_id)
-        products = Product.objects.filter(category=category)
 
-        grand_totals = [float(p.grand_total) for p in products]
-        price_range = {
-            "min": min(grand_totals) if grand_totals else 0,
-            "max": max(grand_totals) if grand_totals else 0
-        }
+        # Default values
+        default_min = 0
+        default_max = 1000000
+
+        # Use frontend data if available (POST), else fallback to default
+        if data:
+            try:
+                price_min = float(data.get("price_min", default_min))
+                price_max = float(data.get("price_max", default_max))
+            except ValueError:
+                price_min = default_min
+                price_max = default_max
+        else:
+            price_min = default_min
+            price_max = default_max
 
         filter_category = {
             "category": {
                 "id": category.id,
                 "name": category.name
             },
-            "subcategories": list(Subcategories.objects.filter(category=category).values('id', 'sub_name')),
-            "price_range": price_range,
+            "subcategories": list(
+                Subcategories.objects.filter(category=category).values('id', 'sub_name')
+            ),
+            "price_range": {
+                "min": price_min,
+                "max": price_max
+            },
             "brand": "my jewelry my design",
             "materials": list(Material.objects.all().values('id', 'name')),
             "gemstones": list(Gemstone.objects.all().values('id', 'name')),
@@ -1606,6 +1620,7 @@ class CategoryFilterOptionsAPIView(APIView):
         }
 
         return Response({"filter_category": filter_category}, status=status.HTTP_200_OK)
+
 
 class SevenCategoryDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]

@@ -82,7 +82,7 @@ urlpatterns = [
     path('api/products/classic/', ClassicProductListAPIView.as_view(), name='product-classic'),  # GET classic only
     path('api/products/classic/<int:pk>/', ClassicProductDetailAPIView.as_view(), name='product-classic-detail'),
     path('api/categories/seven/', SevenCategoriesAPIView.as_view(), name='seven-categories'),
-    path('api/categories/seven/<int:pk>/',SevenCategoryDetailAPIView.as_view(), name='category-detail'),
+    # path('api/categories/seven/<int:pk>/',SevenCategoryDetailAPIView.as_view(), name='category-detail'),
     path('api/products/related/', RelatedProductsAPIView.as_view(), name='related-products'),
     path('api/ratings/', ProductRatingAPIView.as_view(), name='rating-list-create'),        # POST, GET all
     path('api/ratings/<int:pk>/', ProductRatingAPIView.as_view(), name='rating-detail'),
@@ -96,7 +96,14 @@ urlpatterns = [
     # path('api/combined-suggestions/', CombinedSuggestionsView.as_view(), name='combined-suggestions'),
     # path('api/gif/', gif_list, name='gif-list'),
     # path('api/gif/<int:pk>/', gif_detail, name='gif-detail'),
-    path('api/filter-options/<int:category_id>/', CategoryFilterOptionsAPIView.as_view()),
+
+    path('api/filter-options/<int:category_id>/', CategoryFilterOptionsAPIView.as_view(), name='category-filter-options'),
+
+    # View all products (GET) or post filtered data (POST) for a category
+    path('api/categories/seven/<int:pk>/', SevenCategoryDetailAPIView.as_view(), name='category-detail'),
+
+
+    # path('api/filter-options/<int:category_id>/', CategoryFilterOptionsAPIView.as_view()),
     path('api/combined-suggestions/', CombinedSuggestionsView.as_view(), name='combined-suggestions'),
     path('api/combined-suggestions/?query=', CombinedSuggestionsView.as_view(), name='combined-suggestions'),
     path('api/gifs/', SearchGifAPIView.as_view()),          

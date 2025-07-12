@@ -1473,61 +1473,157 @@ class SevenCategoriesAPIView(APIView):
 #             "products": serializer.data
 #         }, status=status.HTTP_200_OK)
 
+# class SevenCategoryDetailAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request, pk, *args, **kwargs):
+#         return self.get_filtered_products(request, pk)
+
+#     def post(self, request, pk, *args, **kwargs):
+#         return self.get_filtered_products(request, pk, filter_data=True)
+
+#     def get_filtered_products(self, request, pk, filter_data=False):
+#         user = request.user
+#         category = get_object_or_404(Category, pk=pk)
+#         products = Product.objects.filter(category=category)
+
+#         if filter_data:
+#             data = request.data
+
+#             def parse_list(field):
+#                 val = data.get(field)
+#                 return val if isinstance(val, list) else [val] if val else []
+
+#             subcategories = parse_list('subcategory')
+#             materials = parse_list('material')
+#             gemstones = parse_list('gemstone')
+#             colors = parse_list('color')
+#             price_min = data.get('price_min')
+#             price_max = data.get('price_max')
+
+#             try:
+#                 price_min = float(price_min) if price_min else None
+#                 price_max = float(price_max) if price_max else None
+#             except ValueError:
+#                 price_min = price_max = None
+
+#             if subcategories:
+#                 products = products.filter(Subcategories__id__in=subcategories)
+#             if materials:
+#                 products = products.filter(metal__material__name__in=materials)
+#             if gemstones:
+#                 products = products.filter(productstone__stone__name__in=gemstones).distinct()
+#             if colors:
+#                 products = products.filter(metal__color__in=colors)
+#             if price_min is not None:
+#                 products = [p for p in products if float(p.grand_total) >= price_min]
+#             if price_max is not None:
+#                 products = [p for p in products if float(p.grand_total) <= price_max]
+
+#         serializer = FinestProductSerializer(
+#             products, many=True, context={'user': user}
+#         )
+
+#         return Response({
+#             "category": category.name,
+#             "products": serializer.data
+#         }, status=status.HTTP_200_OK)
+
+
+def get_filtered_products(data, category):
+    products = Product.objects.filter(category=category)
+
+    def parse_list(field):
+        if hasattr(data, 'getlist'):
+            return data.getlist(field)
+        val = data.get(field)
+        return val if isinstance(val, list) else [val] if val else []
+
+    subcategories = parse_list('subcategory')
+    materials = parse_list('material')
+    gemstones = parse_list('gemstone')
+    colors = parse_list('color')
+    brand = data.get('brand')
+    price_min = data.get('price_min')
+    price_max = data.get('price_max')
+
+    try:
+        price_min = float(price_min) if price_min else None
+        price_max = float(price_max) if price_max else None
+    except ValueError:
+        price_min = price_max = None
+
+    if subcategories:
+        products = products.filter(Subcategories__id__in=subcategories)
+    if brand:
+        products = products.filter(head__icontains=brand)
+    if materials:
+        products = products.filter(metal__material__name__in=materials)
+    if gemstones:
+        products = products.filter(productstone__stone__name__in=gemstones).distinct()
+    if colors:
+        products = products.filter(metal__color__in=colors)
+
+    filtered = []
+    for product in products:
+        gt = float(product.grand_total)
+        if price_min and gt < price_min:
+            continue
+        if price_max and gt > price_max:
+            continue
+        filtered.append(product)
+
+    return filtered
+
+class CategoryFilterOptionsAPIView(APIView):
+    def get(self, request, category_id, *args, **kwargs):
+        return self.build_filter_response(category_id)
+
+    def post(self, request, category_id, *args, **kwargs):
+        return self.build_filter_response(category_id)
+
+    def build_filter_response(self, category_id):
+        category = get_object_or_404(Category, pk=category_id)
+        products = Product.objects.filter(category=category)
+
+        grand_totals = [float(p.grand_total) for p in products]
+        price_range = {
+            "min": min(grand_totals) if grand_totals else 0,
+            "max": max(grand_totals) if grand_totals else 0
+        }
+
+        filter_category = {
+            "category": {
+                "id": category.id,
+                "name": category.name
+            },
+            "subcategories": list(Subcategories.objects.filter(category=category).values('id', 'sub_name')),
+            "price_range": price_range,
+            "brand": "my jewelry my design",
+            "materials": list(Material.objects.all().values('id', 'name')),
+            "gemstones": list(Gemstone.objects.all().values('id', 'name')),
+            "colors": list(Metal.objects.values_list('color', flat=True).distinct())
+        }
+
+        return Response({"filter_category": filter_category}, status=status.HTTP_200_OK)
+
 class SevenCategoryDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk, *args, **kwargs):
-        return self.get_filtered_products(request, pk)
-
-    def post(self, request, pk, *args, **kwargs):
-        return self.get_filtered_products(request, pk, filter_data=True)
-
-    def get_filtered_products(self, request, pk, filter_data=False):
         user = request.user
         category = get_object_or_404(Category, pk=pk)
         products = Product.objects.filter(category=category)
+        serializer = FinestProductSerializer(products, many=True, context={"user": user})
+        return Response({"category": category.name, "products": serializer.data}, status=status.HTTP_200_OK)
 
-        if filter_data:
-            data = request.data
+    def post(self, request, pk, *args, **kwargs):
+        user = request.user
+        category = get_object_or_404(Category, pk=pk)
+        products = get_filtered_products(request.data, category)
+        serializer = FinestProductSerializer(products, many=True, context={"user": user})
+        return Response({"category": category.name, "products": serializer.data}, status=status.HTTP_200_OK)
 
-            def parse_list(field):
-                val = data.get(field)
-                return val if isinstance(val, list) else [val] if val else []
-
-            subcategories = parse_list('subcategory')
-            materials = parse_list('material')
-            gemstones = parse_list('gemstone')
-            colors = parse_list('color')
-            price_min = data.get('price_min')
-            price_max = data.get('price_max')
-
-            try:
-                price_min = float(price_min) if price_min else None
-                price_max = float(price_max) if price_max else None
-            except ValueError:
-                price_min = price_max = None
-
-            if subcategories:
-                products = products.filter(Subcategories__id__in=subcategories)
-            if materials:
-                products = products.filter(metal__material__name__in=materials)
-            if gemstones:
-                products = products.filter(productstone__stone__name__in=gemstones).distinct()
-            if colors:
-                products = products.filter(metal__color__in=colors)
-            if price_min is not None:
-                products = [p for p in products if float(p.grand_total) >= price_min]
-            if price_max is not None:
-                products = [p for p in products if float(p.grand_total) <= price_max]
-
-        serializer = FinestProductSerializer(
-            products, many=True, context={'user': user}
-        )
-
-        return Response({
-            "category": category.name,
-            "products": serializer.data
-        }, status=status.HTTP_200_OK)
 
 
 from django.db.models import Min, Max
@@ -1851,41 +1947,41 @@ from django.db.models import Min, Max
 #             "filter_category": filter_category
 #         }, status=status.HTTP_200_OK)
 
-class CategoryFilterOptionsAPIView(APIView):
-    def get(self, request, category_id, *args, **kwargs):
-        return self.build_filter_response(category_id)
+# class CategoryFilterOptionsAPIView(APIView):
+#     def get(self, request, category_id, *args, **kwargs):
+#         return self.build_filter_response(category_id)
 
-    def post(self, request, category_id, *args, **kwargs):
-        return self.build_filter_response(category_id)
+#     def post(self, request, category_id, *args, **kwargs):
+#         return self.build_filter_response(category_id)
 
-    def build_filter_response(self, category_id):
-        category = get_object_or_404(Category, pk=category_id)
-        products = Product.objects.filter(category=category)
+#     def build_filter_response(self, category_id):
+#         category = get_object_or_404(Category, pk=category_id)
+#         products = Product.objects.filter(category=category)
 
-        grand_totals = [float(p.grand_total) for p in products]
-        price_range = {
-            "min": min(grand_totals) if grand_totals else 0,
-            "max": max(grand_totals) if grand_totals else 0
-        }
+#         grand_totals = [float(p.grand_total) for p in products]
+#         price_range = {
+#             "min": min(grand_totals) if grand_totals else 0,
+#             "max": max(grand_totals) if grand_totals else 0
+#         }
 
-        filter_category = {
-            "category": {
-                "id": category.id,
-                "name": category.name
-            },
-            "subcategories": list(
-                Subcategories.objects.filter(category=category).values('id', 'sub_name')
-            ),
-            "price_range": price_range,
-            "brand": "my jewelry my design",
-            "materials": list(Material.objects.all().values('id', 'name')),
-            "gemstones": list(Gemstone.objects.all().values('id', 'name')),
-            "colors": list(Metal.objects.values_list('color', flat=True).distinct())
-        }
+#         filter_category = {
+#             "category": {
+#                 "id": category.id,
+#                 "name": category.name
+#             },
+#             "subcategories": list(
+#                 Subcategories.objects.filter(category=category).values('id', 'sub_name')
+#             ),
+#             "price_range": price_range,
+#             "brand": "my jewelry my design",
+#             "materials": list(Material.objects.all().values('id', 'name')),
+#             "gemstones": list(Gemstone.objects.all().values('id', 'name')),
+#             "colors": list(Metal.objects.values_list('color', flat=True).distinct())
+#         }
 
-        return Response({
-            "filter_category": [filter_category]  # 👈 wrapped in a list
-        }, status=status.HTTP_200_OK)
+#         return Response({
+#             "filter_category": [filter_category]  # 👈 wrapped in a list
+#         }, status=status.HTTP_200_OK)
 
 
 class RelatedProductsAPIView(APIView):

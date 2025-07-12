@@ -1575,6 +1575,8 @@ def get_filtered_products(data, category):
 
     return filtered
 
+import webcolors
+from webcolors import name_to_hex
 class CategoryFilterOptionsAPIView(APIView):
     def get(self, request, category_id, *args, **kwargs):
         return self.build_filter_response(category_id)
@@ -1584,12 +1586,9 @@ class CategoryFilterOptionsAPIView(APIView):
 
     def build_filter_response(self, category_id, data=None):
         category = get_object_or_404(Category, pk=category_id)
-
-        # Default values
         default_min = 0
         default_max = 1000000
 
-        # Use frontend data if available (POST), else fallback to default
         if data:
             try:
                 price_min = float(data.get("price_min", default_min))
@@ -1600,6 +1599,21 @@ class CategoryFilterOptionsAPIView(APIView):
         else:
             price_min = default_min
             price_max = default_max
+
+        # Get distinct metal colors and convert to hex if known
+        metal_colors = Metal.objects.values_list('color', flat=True).distinct()
+        colors_with_codes = []
+
+        for color in metal_colors:
+            color_name = color.strip().lower()
+            try:
+                hex_code = name_to_hex(color_name)
+            except ValueError:
+                hex_code = "#CCCCCC"  # fallback if color name is not standard
+            colors_with_codes.append({
+                "color": color,
+                "code": hex_code
+            })
 
         filter_category = {
             "category": {
@@ -1616,11 +1630,10 @@ class CategoryFilterOptionsAPIView(APIView):
             "brand": "my jewelry my design",
             "materials": list(Material.objects.all().values('id', 'name')),
             "gemstones": list(Gemstone.objects.all().values('id', 'name')),
-            "colors": list(Metal.objects.values_list('color', flat=True).distinct())
+            "colors": colors_with_codes
         }
 
         return Response({"filter_category": filter_category}, status=status.HTTP_200_OK)
-
 
 class SevenCategoryDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]

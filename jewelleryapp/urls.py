@@ -99,7 +99,6 @@ urlpatterns = [
 
     path('api/filter-options/<int:category_id>/', CategoryFilterOptionsAPIView.as_view(), name='category-filter-options'),
 
-    # View all products (GET) or post filtered data (POST) for a category
     path('api/categories/seven/<int:pk>/', SevenCategoryDetailAPIView.as_view(), name='category-detail'),
 
 

@@ -43,4 +43,5 @@ sqlparse==0.5.3
 twilio==9.6.2
 tzdata==2024.2
 urllib3==2.2.3
+webcolors==24.11.1
 yarl==1.20.1

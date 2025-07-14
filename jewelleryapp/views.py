@@ -1471,6 +1471,140 @@ from webcolors import name_to_hex
 
 
 
+# class SevenCategoryDetailAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request, pk, *args, **kwargs):
+#         return self.handle_request(request, pk)
+
+#     def post(self, request, pk, *args, **kwargs):
+#         return self.handle_request(request, pk, filter_data=True)
+
+#     def handle_request(self, request, pk, filter_data=False):
+#         category = get_object_or_404(Category, pk=pk)
+#         clear_filter = request.data.get('clear', False) if filter_data else False
+#         products = Product.objects.filter(category=category)
+
+#         price_min = price_max = None
+
+#         if filter_data and not clear_filter:
+#             data = request.data
+
+#             def parse_list(field):
+#                 if hasattr(data, 'getlist'):
+#                     return data.getlist(field)
+#                 val = data.get(field)
+#                 return val if isinstance(val, list) else [val] if val else []
+
+#             subcategories = parse_list('subcategory')
+#             materials = parse_list('materials')
+#             gemstones = parse_list('gemstones')
+#             colors = parse_list('colors')
+#             brand = data.get('brand')
+#             price_raw = data.get('price')
+
+#             print("📥 Subcategories (names):", subcategories)
+#             print("📥 Materials (names):", materials)
+
+#             if price_raw and "-" in price_raw:
+#                 try:
+#                     price_min, price_max = map(float, price_raw.split("-"))
+#                 except ValueError:
+#                     price_min = price_max = None
+
+#             if subcategories:
+#                 products = products.filter(Subcategories__sub_name__in=subcategories)
+#             if brand:
+#                 products = products.filter(head__icontains=brand)
+#             if materials:
+#                 products = products.filter(metal__material__name__in=materials)
+#             if gemstones:
+#                 products = products.filter(productstone__stone__name__in=gemstones).distinct()
+#             if colors:
+#                 products = products.filter(metal__color__in=colors)
+
+#         # Build product list
+#         product_list = []
+#         for product in products:
+#             gt = float(product.grand_total)
+#             if filter_data and not clear_filter and price_min is not None and price_max is not None:
+#                 if gt < price_min or gt > price_max:
+#                     continue
+
+#             print("✅ Matched Product:", product.head)
+
+#             product_list.append({
+#                 "id": product.id,
+#                 "head": product.head,
+#                 "description": product.description,
+#                 "first_image": product.images[0] if product.images else None,
+#                 "average_rating": product.average_rating,
+#                 "grand_total": str(product.grand_total),
+#                 "is_wishlisted": True  # Replace with actual logic if needed
+#             })
+
+#         # Set message
+#         if filter_data and not clear_filter:
+#             message = "Filters Applied" if product_list else "No Matching Filters"
+#         else:
+#             message = None
+
+#         # Filter metadata
+#         default_min = 0
+#         default_max = 1000000
+
+#         if filter_data:
+#             try:
+#                 price_min_val = float(request.data.get("price_min", default_min))
+#                 price_max_val = float(request.data.get("price_max", default_max))
+#             except ValueError:
+#                 price_min_val = default_min
+#                 price_max_val = default_max
+#         else:
+#             price_min_val = default_min
+#             price_max_val = default_max
+
+#         metal_colors = Metal.objects.values_list('color', flat=True).distinct()
+#         colors_with_codes = []
+#         for color in metal_colors:
+#             color_name = str(color).strip().lower()
+#             try:
+#                 hex_code = name_to_hex(color_name)
+#             except ValueError:
+#                 hex_code = "#CCCCCC"
+#             colors_with_codes.append({
+#                 "color": color,
+#                 "code": hex_code
+#             })
+
+#         filter_category_data = [{
+#             "category": {
+#                 "id": category.id,
+#                 "name": category.name
+#             },
+#             "subcategories": list(Subcategories.objects.filter(category=category).values('id', 'sub_name')),
+#             "price_range": {
+#                 "min": price_min_val,
+#                 "max": price_max_val
+#             },
+#             "brand": "my jewelry my design",
+#             "materials": list(Material.objects.all().values('id', 'name')),
+#             "gemstones": list(Gemstone.objects.all().values('id', 'name')),
+#             "colors": colors_with_codes
+#         }]
+
+#         # Final response
+#         response_data = {
+#             "category": category.name,
+#             "products": product_list,
+#             "filter_category": filter_category_data
+#         }
+
+#         if message:
+#             response_data["message"] = message
+
+#         return Response(response_data, status=200)
+
 class SevenCategoryDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -1492,10 +1626,11 @@ class SevenCategoryDetailAPIView(APIView):
 
             def parse_list(field):
                 if hasattr(data, 'getlist'):
-                    return data.getlist(field)
+                    return [v for v in data.getlist(field) if v]
                 val = data.get(field)
-                return val if isinstance(val, list) else [val] if val else []
+                return [val] if val else []
 
+            # Parse inputs
             subcategories = parse_list('subcategory')
             materials = parse_list('materials')
             gemstones = parse_list('gemstones')
@@ -1503,15 +1638,22 @@ class SevenCategoryDetailAPIView(APIView):
             brand = data.get('brand')
             price_raw = data.get('price')
 
-            print("Subcategories (names):", subcategories)
-            print("Materials (names):", materials)
+            print("📥 Filters Received:")
+            print("Subcategories:", subcategories)
+            print("Materials:", materials)
+            print("Gemstones:", gemstones)
+            print("Colors:", colors)
+            print("Brand:", brand)
+            print("Price:", price_raw)
 
+            # Parse price range
             if price_raw and "-" in price_raw:
                 try:
                     price_min, price_max = map(float, price_raw.split("-"))
                 except ValueError:
                     price_min = price_max = None
 
+            # Apply filters conditionally
             if subcategories:
                 products = products.filter(Subcategories__sub_name__in=subcategories)
             if brand:
@@ -1531,6 +1673,8 @@ class SevenCategoryDetailAPIView(APIView):
                 if gt < price_min or gt > price_max:
                     continue
 
+            print("✅ Matched Product:", product.head)
+
             product_list.append({
                 "id": product.id,
                 "head": product.head,
@@ -1538,19 +1682,18 @@ class SevenCategoryDetailAPIView(APIView):
                 "first_image": product.images[0] if product.images else None,
                 "average_rating": product.average_rating,
                 "grand_total": str(product.grand_total),
-                "is_wishlisted": True  # Replace with actual check if needed
+                "is_wishlisted": True  # Replace with real check if needed
             })
 
-        # Set filter message
+        # Message logic
         if filter_data and not clear_filter:
             message = "Filters Applied" if product_list else "No Matching Filters"
         else:
             message = None
 
-        # Filter meta (used for filter_category)
+        # Metadata
         default_min = 0
         default_max = 1000000
-
         if filter_data:
             try:
                 price_min_val = float(request.data.get("price_min", default_min))
@@ -1562,6 +1705,7 @@ class SevenCategoryDetailAPIView(APIView):
             price_min_val = default_min
             price_max_val = default_max
 
+        # Color conversion
         metal_colors = Metal.objects.values_list('color', flat=True).distinct()
         colors_with_codes = []
         for color in metal_colors:
@@ -1575,6 +1719,7 @@ class SevenCategoryDetailAPIView(APIView):
                 "code": hex_code
             })
 
+        # Filter category metadata
         filter_category_data = [{
             "category": {
                 "id": category.id,
@@ -1591,97 +1736,16 @@ class SevenCategoryDetailAPIView(APIView):
             "colors": colors_with_codes
         }]
 
+        # Final response
         response_data = {
             "category": category.name,
             "products": product_list,
             "filter_category": filter_category_data
         }
-
         if message:
             response_data["message"] = message
 
         return Response(response_data, status=200)
-# class SevenCategoryDetailAPIView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-#     def get(self, request, pk, *args, **kwargs):
-#         user = request.user
-
-#         # Fetch category or return 404
-#         category = get_object_or_404(Category, pk=pk)
-
-#         # Fetch products in the category
-#         products = Product.objects.filter(category=category)
-
-#         serializer = FinestProductSerializer(
-#             products, many=True, context={'user': user}
-#         )
-
-#         return Response({
-#             "category": {
-               
-#                 "name": category.name,
-                
-#             },
-           
-#             "products": serializer.data
-#         }, status=status.HTTP_200_OK)
-
-# class SevenCategoryDetailAPIView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-#     def get(self, request, pk, *args, **kwargs):
-#         return self.get_filtered_products(request, pk)
-
-#     def post(self, request, pk, *args, **kwargs):
-#         return self.get_filtered_products(request, pk, filter_data=True)
-
-#     def get_filtered_products(self, request, pk, filter_data=False):
-#         user = request.user
-#         category = get_object_or_404(Category, pk=pk)
-#         products = Product.objects.filter(category=category)
-
-#         if filter_data:
-#             data = request.data
-
-#             def parse_list(field):
-#                 val = data.get(field)
-#                 return val if isinstance(val, list) else [val] if val else []
-
-#             subcategories = parse_list('subcategory')
-#             materials = parse_list('material')
-#             gemstones = parse_list('gemstone')
-#             colors = parse_list('color')
-#             price_min = data.get('price_min')
-#             price_max = data.get('price_max')
-
-#             try:
-#                 price_min = float(price_min) if price_min else None
-#                 price_max = float(price_max) if price_max else None
-#             except ValueError:
-#                 price_min = price_max = None
-
-#             if subcategories:
-#                 products = products.filter(Subcategories__id__in=subcategories)
-#             if materials:
-#                 products = products.filter(metal__material__name__in=materials)
-#             if gemstones:
-#                 products = products.filter(productstone__stone__name__in=gemstones).distinct()
-#             if colors:
-#                 products = products.filter(metal__color__in=colors)
-#             if price_min is not None:
-#                 products = [p for p in products if float(p.grand_total) >= price_min]
-#             if price_max is not None:
-#                 products = [p for p in products if float(p.grand_total) <= price_max]
-
-#         serializer = FinestProductSerializer(
-#             products, many=True, context={'user': user}
-#         )
-
-#         return Response({
-#             "category": category.name,
-#             "products": serializer.data
-#         }, status=status.HTTP_200_OK)
 
 
 def get_filtered_products(data, category):

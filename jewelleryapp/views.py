@@ -55,6 +55,8 @@ from jewelleryapp.models import PhoneOTP
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from jewelleryapp.auth.admin_authentication import AdminJWTAuthentication
+from urllib.parse import quote_plus
+
 
 def index(request):
     return render(request, 'index.html')
@@ -681,21 +683,29 @@ class ProductSearchAPIView(ListAPIView):
 class ProductShareAPIView(APIView):
     def get(self, request, pk):
         product = get_object_or_404(Product, pk=pk)
+        product_url = request.build_absolute_uri(f'/api/products/{product.pk}/')
 
-        # Build the product URL
-        product_url = request.build_absolute_uri(f'/product/{product.pk}/')
-        share_text = f"Check out this product: {product.head}"
-
-        # Get the first product image (from JSON list)
         product_image = None
         if isinstance(product.images, list) and product.images:
-            product_image = product.images[0]  # first image URL
+            product_image = product.images[0]
+
+        # 🎉 Share message with brand + greeting
+        share_text = (
+            f"Hey! Check this out from *My Jewelry My Design* \n\n"
+            f"{product.head}\n"
+            f"Price: ₹{product.grand_total}\n"
+            f"Rating: {product.average_rating}/5\n"
+            f"Shop Now: {product_url}\n\n"
+            f"Wishing you a sparkling day ahead!"
+        )
+
+        encoded_text = quote_plus(share_text)
 
         share_links = {
-            "whatsapp": f"https://wa.me/?text={share_text} {product_url}",
+            "whatsapp": f"https://wa.me/?text={encoded_text}",
+            "telegram": f"https://t.me/share/url?url={product_url}&text={quote_plus(product.head)}",
             "facebook": f"https://www.facebook.com/sharer/sharer.php?u={product_url}",
-            "telegram": f"https://t.me/share/url?url={product_url}&text={share_text}",
-            "instagram": "https://www.instagram.com/"
+            "instagram": "https://www.instagram.com/"  # Placeholder only
         }
 
         return Response({
@@ -703,11 +713,21 @@ class ProductShareAPIView(APIView):
             "product_head": product.head,
             "product_url": product_url,
             "product_image": product_image,
-            "grand_total": str(product.grand_total),  # Decimal to string
+            "grand_total": str(product.grand_total),
             "average_rating": product.average_rating,
             "share_links": share_links
         }, status=status.HTTP_200_OK)
 
+class ProductPreviewView(APIView):
+    def get(self, request, pk):
+        product = get_object_or_404(Product, pk=pk)
+        product_image = product.images[0] if isinstance(product.images, list) and product.images else None
+
+        return render(request, "product_preview.html", {
+            "product": product,
+            "product_image": product_image,
+            "product_url": request.build_absolute_uri()
+        })
 class ProductStoneListCreateAPIView(generics.ListCreateAPIView):
     queryset = ProductStone.objects.all()
     serializer_class = ProductStoneSerializer
@@ -1446,6 +1466,99 @@ class SevenCategoriesAPIView(APIView):
 #             "category": category.name,
 #             "products": product_list
 #         }, status=200)
+
+
+
+class SevenCategoryDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk, *args, **kwargs):
+        return self.handle_request(request, pk)
+
+    def post(self, request, pk, *args, **kwargs):
+        return self.handle_request(request, pk, filter_data=True)
+
+    def handle_request(self, request, pk, filter_data=False):
+        user = request.user
+        category = get_object_or_404(Category, pk=pk)
+
+        # Clear filter flag
+        clear_filter = request.data.get('clear', False) if filter_data else False
+
+        # Get base queryset
+        products = Product.objects.filter(category=category)
+
+        if filter_data and not clear_filter:
+            data = request.data
+
+            def parse_list(field):
+                # Handles both single value and multi-value (like FormData)
+                if hasattr(data, 'getlist'):
+                    return data.getlist(field)
+                val = data.get(field)
+                return val if isinstance(val, list) else [val] if val else []
+
+            subcategories = parse_list('subcategory')
+            materials = parse_list('materials')  # match JS key
+            gemstones = parse_list('gemstones')  # match JS key
+            colors = parse_list('colors')        # match JS key
+            brand = data.get('brand')
+
+            # Handle price range if sent as string "min-max"
+            price_raw = data.get('price')
+            price_min = price_max = None
+            if price_raw and isinstance(price_raw, str) and "-" in price_raw:
+                try:
+                    price_min, price_max = map(float, price_raw.split("-"))
+                except ValueError:
+                    price_min = price_max = None
+
+            # Apply filters
+            if subcategories:
+                products = products.filter(Subcategories__id__in=subcategories)
+
+            if brand:
+                products = products.filter(head__icontains=brand)
+
+            if materials:
+                products = products.filter(metal__material__name__in=materials)
+
+            if gemstones:
+                products = products.filter(productstone__stone__name__in=gemstones).distinct()
+
+            if colors:
+                products = products.filter(metal__color__in=colors)
+
+        # Now filter by grand_total manually (only if grand_total is a property, not DB field)
+        product_list = []
+        for product in products:
+            gt = float(product.grand_total)
+
+            if filter_data and not clear_filter and price_min is not None and price_max is not None:
+                if gt < price_min or gt > price_max:
+                    continue
+
+            product_list.append({
+                "id": product.id,
+                "head": product.head,
+                "description": product.description,
+                "first_image": product.images[0] if product.images else None,
+                "average_rating": product.average_rating,
+                "grand_total": str(product.grand_total),
+                "is_wishlisted": True  # You can replace with actual logic
+            })
+
+        if product_list:
+            product_list.append({"message": "Products found"})
+        else:
+            product_list = [{"message": "No products found"}]
+
+        return Response({
+            "category": category.name,
+            "products": product_list
+        }, status=200)
+
+
  
 # class SevenCategoryDetailAPIView(APIView):
 #     permission_classes = [IsAuthenticated]
@@ -1575,82 +1688,82 @@ def get_filtered_products(data, category):
 
     return filtered
 
-import webcolors
-from webcolors import name_to_hex
-class CategoryFilterOptionsAPIView(APIView):
-    def get(self, request, category_id, *args, **kwargs):
-        return self.build_filter_response(category_id)
+# import webcolors
+# from webcolors import name_to_hex
+# class CategoryFilterOptionsAPIView(APIView):
+#     def get(self, request, category_id, *args, **kwargs):
+#         return self.build_filter_response(category_id)
 
-    def post(self, request, category_id, *args, **kwargs):
-        return self.build_filter_response(category_id, request.data)
+#     def post(self, request, category_id, *args, **kwargs):
+#         return self.build_filter_response(category_id, request.data)
 
-    def build_filter_response(self, category_id, data=None):
-        category = get_object_or_404(Category, pk=category_id)
-        default_min = 0
-        default_max = 1000000
+#     def build_filter_response(self, category_id, data=None):
+#         category = get_object_or_404(Category, pk=category_id)
+#         default_min = 0
+#         default_max = 1000000
 
-        if data:
-            try:
-                price_min = float(data.get("price_min", default_min))
-                price_max = float(data.get("price_max", default_max))
-            except ValueError:
-                price_min = default_min
-                price_max = default_max
-        else:
-            price_min = default_min
-            price_max = default_max
+#         if data:
+#             try:
+#                 price_min = float(data.get("price_min", default_min))
+#                 price_max = float(data.get("price_max", default_max))
+#             except ValueError:
+#                 price_min = default_min
+#                 price_max = default_max
+#         else:
+#             price_min = default_min
+#             price_max = default_max
 
-        # Get distinct metal colors and convert to hex if known
-        metal_colors = Metal.objects.values_list('color', flat=True).distinct()
-        colors_with_codes = []
+#         # Get distinct metal colors and convert to hex if known
+#         metal_colors = Metal.objects.values_list('color', flat=True).distinct()
+#         colors_with_codes = []
 
-        for color in metal_colors:
-            color_name = color.strip().lower()
-            try:
-                hex_code = name_to_hex(color_name)
-            except ValueError:
-                hex_code = "#CCCCCC"  # fallback if color name is not standard
-            colors_with_codes.append({
-                "color": color,
-                "code": hex_code
-            })
+#         for color in metal_colors:
+#             color_name = color.strip().lower()
+#             try:
+#                 hex_code = name_to_hex(color_name)
+#             except ValueError:
+#                 hex_code = "#CCCCCC"  # fallback if color name is not standard
+#             colors_with_codes.append({
+#                 "color": color,
+#                 "code": hex_code
+#             })
 
-        filter_category = {
-            "category": {
-                "id": category.id,
-                "name": category.name
-            },
-            "subcategories": list(
-                Subcategories.objects.filter(category=category).values('id', 'sub_name')
-            ),
-            "price_range": {
-                "min": price_min,
-                "max": price_max
-            },
-            "brand": "my jewelry my design",
-            "materials": list(Material.objects.all().values('id', 'name')),
-            "gemstones": list(Gemstone.objects.all().values('id', 'name')),
-            "colors": colors_with_codes
-        }
+#         filter_category = {
+#             "category": {
+#                 "id": category.id,
+#                 "name": category.name
+#             },
+#             "subcategories": list(
+#                 Subcategories.objects.filter(category=category).values('id', 'sub_name')
+#             ),
+#             "price_range": {
+#                 "min": price_min,
+#                 "max": price_max
+#             },
+#             "brand": "my jewelry my design",
+#             "materials": list(Material.objects.all().values('id', 'name')),
+#             "gemstones": list(Gemstone.objects.all().values('id', 'name')),
+#             "colors": colors_with_codes
+#         }
 
-        return Response({"filter_category": filter_category}, status=status.HTTP_200_OK)
+#         return Response({"filter_category": filter_category}, status=status.HTTP_200_OK)
 
-class SevenCategoryDetailAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+# class SevenCategoryDetailAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
 
-    def get(self, request, pk, *args, **kwargs):
-        user = request.user
-        category = get_object_or_404(Category, pk=pk)
-        products = Product.objects.filter(category=category)
-        serializer = FinestProductSerializer(products, many=True, context={"user": user})
-        return Response({"category": category.name, "products": serializer.data}, status=status.HTTP_200_OK)
+#     def get(self, request, pk, *args, **kwargs):
+#         user = request.user
+#         category = get_object_or_404(Category, pk=pk)
+#         products = Product.objects.filter(category=category)
+#         serializer = FinestProductSerializer(products, many=True, context={"user": user})
+#         return Response({"category": category.name, "products": serializer.data}, status=status.HTTP_200_OK)
 
-    def post(self, request, pk, *args, **kwargs):
-        user = request.user
-        category = get_object_or_404(Category, pk=pk)
-        products = get_filtered_products(request.data, category)
-        serializer = FinestProductSerializer(products, many=True, context={"user": user})
-        return Response({"category": category.name, "products": serializer.data}, status=status.HTTP_200_OK)
+#     def post(self, request, pk, *args, **kwargs):
+#         user = request.user
+#         category = get_object_or_404(Category, pk=pk)
+#         products = get_filtered_products(request.data, category)
+#         serializer = FinestProductSerializer(products, many=True, context={"user": user})
+#         return Response({"category": category.name, "products": serializer.data}, status=status.HTTP_200_OK)
 
 
 

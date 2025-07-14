@@ -97,7 +97,7 @@ urlpatterns = [
     # path('api/gif/', gif_list, name='gif-list'),
     # path('api/gif/<int:pk>/', gif_detail, name='gif-detail'),
 
-    path('api/filter-options/<int:category_id>/', CategoryFilterOptionsAPIView.as_view(), name='category-filter-options'),
+    # path('api/filter-options/<int:category_id>/', CategoryFilterOptionsAPIView.as_view(), name='category-filter-options'),
 
     path('api/categories/seven/<int:pk>/', SevenCategoryDetailAPIView.as_view(), name='category-detail'),
 
@@ -116,5 +116,6 @@ urlpatterns = [
     path('api/enquiries/', ProductEnquiryListAPIView.as_view(), name='product-enquiry-list'),
     path('api/admin-login/', AdminLoginAPIView.as_view(), name='admin-login'),
     path('api/dj-rest-auth/google/', google_login_callback),
+    path('api/product/<int:pk>/', ProductPreviewView.as_view(), name='product-preview'),
     
 ]

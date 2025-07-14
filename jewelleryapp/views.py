@@ -1467,6 +1467,8 @@ class SevenCategoriesAPIView(APIView):
 #             "products": product_list
 #         }, status=200)
 
+from webcolors import name_to_hex
+
 
 
 class SevenCategoryDetailAPIView(APIView):
@@ -1482,54 +1484,43 @@ class SevenCategoryDetailAPIView(APIView):
         user = request.user
         category = get_object_or_404(Category, pk=pk)
 
-        # Clear filter flag
         clear_filter = request.data.get('clear', False) if filter_data else False
-
-        # Get base queryset
         products = Product.objects.filter(category=category)
 
         if filter_data and not clear_filter:
             data = request.data
 
             def parse_list(field):
-                # Handles both single value and multi-value (like FormData)
                 if hasattr(data, 'getlist'):
                     return data.getlist(field)
                 val = data.get(field)
                 return val if isinstance(val, list) else [val] if val else []
 
             subcategories = parse_list('subcategory')
-            materials = parse_list('materials')  # match JS key
-            gemstones = parse_list('gemstones')  # match JS key
-            colors = parse_list('colors')        # match JS key
+            materials = parse_list('materials')
+            gemstones = parse_list('gemstones')
+            colors = parse_list('colors')
             brand = data.get('brand')
 
-            # Handle price range if sent as string "min-max"
             price_raw = data.get('price')
             price_min = price_max = None
-            if price_raw and isinstance(price_raw, str) and "-" in price_raw:
+            if price_raw and "-" in price_raw:
                 try:
                     price_min, price_max = map(float, price_raw.split("-"))
                 except ValueError:
                     price_min = price_max = None
 
-            # Apply filters
             if subcategories:
                 products = products.filter(Subcategories__id__in=subcategories)
-
             if brand:
                 products = products.filter(head__icontains=brand)
-
             if materials:
                 products = products.filter(metal__material__name__in=materials)
-
             if gemstones:
                 products = products.filter(productstone__stone__name__in=gemstones).distinct()
-
             if colors:
                 products = products.filter(metal__color__in=colors)
 
-        # Now filter by grand_total manually (only if grand_total is a property, not DB field)
         product_list = []
         for product in products:
             gt = float(product.grand_total)
@@ -1545,7 +1536,7 @@ class SevenCategoryDetailAPIView(APIView):
                 "first_image": product.images[0] if product.images else None,
                 "average_rating": product.average_rating,
                 "grand_total": str(product.grand_total),
-                "is_wishlisted": True  # You can replace with actual logic
+                "is_wishlisted": True
             })
 
         if product_list:
@@ -1553,10 +1544,57 @@ class SevenCategoryDetailAPIView(APIView):
         else:
             product_list = [{"message": "No products found"}]
 
+        # 🔽 Add filter metadata like CategoryFilterOptionsAPIView
+        default_min = 0
+        default_max = 1000000
+
+        # Use posted values or defaults
+        if filter_data:
+            try:
+                price_min_val = float(request.data.get("price_min", default_min))
+                price_max_val = float(request.data.get("price_max", default_max))
+            except ValueError:
+                price_min_val = default_min
+                price_max_val = default_max
+        else:
+            price_min_val = default_min
+            price_max_val = default_max
+
+        # Colors with hex codes
+        metal_colors = Metal.objects.values_list('color', flat=True).distinct()
+        colors_with_codes = []
+        for color in metal_colors:
+            color_name = color.strip().lower()
+            try:
+                hex_code = name_to_hex(color_name)
+            except ValueError:
+                hex_code = "#CCCCCC"
+            colors_with_codes.append({
+                "color": color,
+                "code": hex_code
+            })
+
+        # Final response
         return Response({
             "category": category.name,
-            "products": product_list
+            "products": product_list,
+            "filter_category": {
+                "category": {
+                    "id": category.id,
+                    "name": category.name
+                },
+                "subcategories": list(Subcategories.objects.filter(category=category).values('id', 'sub_name')),
+                "price_range": {
+                    "min": price_min_val,
+                    "max": price_max_val
+                },
+                "brand": "my jewelry my design",
+                "materials": list(Material.objects.all().values('id', 'name')),
+                "gemstones": list(Gemstone.objects.all().values('id', 'name')),
+                "colors": colors_with_codes
+            }
         }, status=200)
+
 
 
  

@@ -1503,6 +1503,9 @@ class SevenCategoryDetailAPIView(APIView):
             brand = data.get('brand')
             price_raw = data.get('price')
 
+            print("Subcategories (names):", subcategories)
+            print("Materials (names):", materials)
+
             if price_raw and "-" in price_raw:
                 try:
                     price_min, price_max = map(float, price_raw.split("-"))
@@ -1510,7 +1513,7 @@ class SevenCategoryDetailAPIView(APIView):
                     price_min = price_max = None
 
             if subcategories:
-                products = products.filter(Subcategories__id__in=subcategories)
+                products = products.filter(Subcategories__sub_name__in=subcategories)
             if brand:
                 products = products.filter(head__icontains=brand)
             if materials:
@@ -1520,7 +1523,7 @@ class SevenCategoryDetailAPIView(APIView):
             if colors:
                 products = products.filter(metal__color__in=colors)
 
-        # Final filtering based on grand_total
+        # Build product list
         product_list = []
         for product in products:
             gt = float(product.grand_total)
@@ -1535,16 +1538,16 @@ class SevenCategoryDetailAPIView(APIView):
                 "first_image": product.images[0] if product.images else None,
                 "average_rating": product.average_rating,
                 "grand_total": str(product.grand_total),
-                "is_wishlisted": True  # Replace with actual logic if needed
+                "is_wishlisted": True  # Replace with actual check if needed
             })
 
-        # ✅ Only add message if filter was applied
+        # Set filter message
         if filter_data and not clear_filter:
             message = "Filters Applied" if product_list else "No Matching Filters"
         else:
             message = None
 
-        # Filter metadata
+        # Filter meta (used for filter_category)
         default_min = 0
         default_max = 1000000
 
@@ -1588,7 +1591,6 @@ class SevenCategoryDetailAPIView(APIView):
             "colors": colors_with_codes
         }]
 
-        # ✅ Construct response
         response_data = {
             "category": category.name,
             "products": product_list,
@@ -1599,7 +1601,6 @@ class SevenCategoryDetailAPIView(APIView):
             response_data["message"] = message
 
         return Response(response_data, status=200)
- 
 # class SevenCategoryDetailAPIView(APIView):
 #     permission_classes = [IsAuthenticated]
 

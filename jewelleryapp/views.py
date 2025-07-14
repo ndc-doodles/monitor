@@ -1481,11 +1481,11 @@ class SevenCategoryDetailAPIView(APIView):
         return self.handle_request(request, pk, filter_data=True)
 
     def handle_request(self, request, pk, filter_data=False):
-        user = request.user
         category = get_object_or_404(Category, pk=pk)
-
         clear_filter = request.data.get('clear', False) if filter_data else False
         products = Product.objects.filter(category=category)
+
+        price_min = price_max = None
 
         if filter_data and not clear_filter:
             data = request.data
@@ -1501,9 +1501,8 @@ class SevenCategoryDetailAPIView(APIView):
             gemstones = parse_list('gemstones')
             colors = parse_list('colors')
             brand = data.get('brand')
-
             price_raw = data.get('price')
-            price_min = price_max = None
+
             if price_raw and "-" in price_raw:
                 try:
                     price_min, price_max = map(float, price_raw.split("-"))
@@ -1521,6 +1520,7 @@ class SevenCategoryDetailAPIView(APIView):
             if colors:
                 products = products.filter(metal__color__in=colors)
 
+        # Final filtering based on grand_total
         product_list = []
         for product in products:
             gt = float(product.grand_total)
@@ -1535,15 +1535,16 @@ class SevenCategoryDetailAPIView(APIView):
                 "first_image": product.images[0] if product.images else None,
                 "average_rating": product.average_rating,
                 "grand_total": str(product.grand_total),
-                "is_wishlisted": True  # Optional: replace with actual user check
+                "is_wishlisted": True  # Replace with actual logic if needed
             })
 
-            if product_list:
-                message = "Products found"
-            else:
-                message = "No products found"
+        # ✅ Only add message if filter was applied
+        if filter_data and not clear_filter:
+            message = "Filters Applied" if product_list else "No Matching Filters"
+        else:
+            message = None
 
-        # Prepare filter metadata
+        # Filter metadata
         default_min = 0
         default_max = 1000000
 
@@ -1571,7 +1572,6 @@ class SevenCategoryDetailAPIView(APIView):
                 "code": hex_code
             })
 
-        # Return filter_category as a list
         filter_category_data = [{
             "category": {
                 "id": category.id,
@@ -1588,14 +1588,17 @@ class SevenCategoryDetailAPIView(APIView):
             "colors": colors_with_codes
         }]
 
-        return Response({
+        # ✅ Construct response
+        response_data = {
             "category": category.name,
             "products": product_list,
-            "message": message,
-            "filter_category": filter_category_data  # already returned as array
-            }, status=200)
+            "filter_category": filter_category_data
+        }
 
+        if message:
+            response_data["message"] = message
 
+        return Response(response_data, status=200)
  
 # class SevenCategoryDetailAPIView(APIView):
 #     permission_classes = [IsAuthenticated]

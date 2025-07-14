@@ -1524,7 +1524,6 @@ class SevenCategoryDetailAPIView(APIView):
         product_list = []
         for product in products:
             gt = float(product.grand_total)
-
             if filter_data and not clear_filter and price_min is not None and price_max is not None:
                 if gt < price_min or gt > price_max:
                     continue
@@ -1536,19 +1535,18 @@ class SevenCategoryDetailAPIView(APIView):
                 "first_image": product.images[0] if product.images else None,
                 "average_rating": product.average_rating,
                 "grand_total": str(product.grand_total),
-                "is_wishlisted": True
+                "is_wishlisted": True  # Optional: replace with actual user check
             })
 
-        if product_list:
-            product_list.append({"message": "Products found"})
-        else:
-            product_list = [{"message": "No products found"}]
+            if product_list:
+                message = "Products found"
+            else:
+                message = "No products found"
 
-        # 🔽 Add filter metadata like CategoryFilterOptionsAPIView
+        # Prepare filter metadata
         default_min = 0
         default_max = 1000000
 
-        # Use posted values or defaults
         if filter_data:
             try:
                 price_min_val = float(request.data.get("price_min", default_min))
@@ -1560,11 +1558,10 @@ class SevenCategoryDetailAPIView(APIView):
             price_min_val = default_min
             price_max_val = default_max
 
-        # Colors with hex codes
         metal_colors = Metal.objects.values_list('color', flat=True).distinct()
         colors_with_codes = []
         for color in metal_colors:
-            color_name = color.strip().lower()
+            color_name = str(color).strip().lower()
             try:
                 hex_code = name_to_hex(color_name)
             except ValueError:
@@ -1574,27 +1571,29 @@ class SevenCategoryDetailAPIView(APIView):
                 "code": hex_code
             })
 
-        # Final response
+        # Return filter_category as a list
+        filter_category_data = [{
+            "category": {
+                "id": category.id,
+                "name": category.name
+            },
+            "subcategories": list(Subcategories.objects.filter(category=category).values('id', 'sub_name')),
+            "price_range": {
+                "min": price_min_val,
+                "max": price_max_val
+            },
+            "brand": "my jewelry my design",
+            "materials": list(Material.objects.all().values('id', 'name')),
+            "gemstones": list(Gemstone.objects.all().values('id', 'name')),
+            "colors": colors_with_codes
+        }]
+
         return Response({
             "category": category.name,
             "products": product_list,
-            "filter_category": {
-                "category": {
-                    "id": category.id,
-                    "name": category.name
-                },
-                "subcategories": list(Subcategories.objects.filter(category=category).values('id', 'sub_name')),
-                "price_range": {
-                    "min": price_min_val,
-                    "max": price_max_val
-                },
-                "brand": "my jewelry my design",
-                "materials": list(Material.objects.all().values('id', 'name')),
-                "gemstones": list(Gemstone.objects.all().values('id', 'name')),
-                "colors": colors_with_codes
-            }
-        }, status=200)
-
+            "message": message,
+            "filter_category": filter_category_data  # already returned as array
+            }, status=200)
 
 
  

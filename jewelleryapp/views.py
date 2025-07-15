@@ -1747,6 +1747,146 @@ from webcolors import name_to_hex
 
 #         return Response(response_data, status=200)
 
+from django.db.models import Min, Max
+
+# class SevenCategoryDetailAPIView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request, pk, *args, **kwargs):
+#         return self.handle_request(request, pk)
+
+#     def post(self, request, pk, *args, **kwargs):
+#         return self.handle_request(request, pk, filter_data=True)
+
+#     def handle_request(self, request, pk, filter_data=False):
+#         category = get_object_or_404(Category, pk=pk)
+#         clear_filter = request.data.get('clear', False) if filter_data else False
+#         products = Product.objects.filter(category=category)
+
+#         price_min = price_max = None
+
+#         if filter_data and not clear_filter:
+#             data = request.data
+
+#             def parse_list(field):
+#                 if hasattr(data, 'getlist'):
+#                     return [v for v in data.getlist(field) if v]
+#                 val = data.get(field)
+#                 return [val] if val else []
+
+#             # Parse inputs
+#             subcategories = parse_list('subcategory')
+#             materials = parse_list('materials')
+#             gemstones = parse_list('gemstones')
+#             colors = parse_list('colors')
+#             brand = data.get('brand')
+#             price_raw = data.get('price')
+
+#             print("📥 Filters Received:")
+#             print("Subcategories:", subcategories)
+#             print("Materials:", materials)
+#             print("Gemstones:", gemstones)
+#             print("Colors:", colors)
+#             print("Brand:", brand)
+#             print("Price:", price_raw)
+
+#             # Parse price range
+#             if price_raw and "-" in price_raw:
+#                 try:
+#                     price_min, price_max = map(float, price_raw.split("-"))
+#                 except ValueError:
+#                     price_min = price_max = None
+
+#             # Apply filters
+#             if subcategories:
+#                 products = products.filter(Subcategories__sub_name__in=subcategories)
+#             if brand:
+#                 products = products.filter(head__icontains=brand)
+#             if materials:
+#                 products = products.filter(metal__material__name__in=materials)
+#             if gemstones:
+#                 products = products.filter(productstone__stone__name__in=gemstones).distinct()
+#             if colors:
+#                 products = products.filter(metal__color__in=colors)
+
+#         # Build product list
+#         product_list = []
+#         for product in products:
+#             gt = float(product.grand_total)
+#             if filter_data and not clear_filter and price_min is not None and price_max is not None:
+#                 if gt < price_min or gt > price_max:
+#                     continue
+
+#             print("✅ Matched Product:", product.head)
+
+#             product_list.append({
+#                 "id": product.id,
+#                 "head": product.head,
+#                 "description": product.description,
+#                 "first_image": product.images[0] if product.images else None,
+#                 "average_rating": product.average_rating,
+#                 "grand_total": str(product.grand_total),
+#                 "is_wishlisted": True  # Replace with actual logic
+#             })
+
+#         # Dynamic price range from filtered products
+#         if product_list:
+#             all_prices = [float(p['grand_total']) for p in product_list]
+#             price_range = {
+#                 "min": min(all_prices),
+#                 "max": max(all_prices)
+#             }
+#         else:
+#             price_range = {
+#                 "min": 0,
+#                 "max": 0
+#             }
+
+#         # Message logic
+#         if filter_data and not clear_filter:
+#             message = "Filters Applied" if product_list else "No Matching Filters"
+#         else:
+#             message = None
+
+#         # Color conversion
+#         metal_colors = Metal.objects.values_list('color', flat=True).distinct()
+#         colors_with_codes = []
+#         for color in metal_colors:
+#             color_name = str(color).strip().lower()
+#             try:
+#                 hex_code = name_to_hex(color_name)
+#             except ValueError:
+#                 hex_code = "#CCCCCC"
+#             colors_with_codes.append({
+#                 "color": color,
+#                 "code": hex_code
+#             })
+
+#         # Filter metadata block
+#         filter_category_data = [{
+#             "category": {
+#                 "id": category.id,
+#                 "name": category.name
+#             },
+#             "subcategories": list(Subcategories.objects.filter(category=category).values('id', 'sub_name')),
+#             "price_range": price_range,
+#             "brand": "my jewelry my design",
+#             "materials": list(Material.objects.all().values('id', 'name')),
+#             "gemstones": list(Gemstone.objects.all().values('id', 'name')),
+#             "colors": colors_with_codes
+#         }]
+
+#         # Final response
+#         response_data = {
+#             "category": category.name,
+#             "products": product_list,
+#             "filter_category": filter_category_data
+#         }
+#         if message:
+#             response_data["message"] = message
+
+#         return Response(response_data, status=200)
+
 
 
 class SevenCategoryDetailAPIView(APIView):
@@ -1774,7 +1914,7 @@ class SevenCategoryDetailAPIView(APIView):
                 val = data.get(field)
                 return [val] if val else []
 
-            # Parse inputs
+            # Parse filters
             subcategories = parse_list('subcategory')
             materials = parse_list('materials')
             gemstones = parse_list('gemstones')
@@ -1790,12 +1930,20 @@ class SevenCategoryDetailAPIView(APIView):
             print("Brand:", brand)
             print("Price:", price_raw)
 
-            # Parse price range
-            if price_raw and "-" in price_raw:
-                try:
+            # Parse price filter (object or string)
+            try:
+                if isinstance(price_raw, str) and "-" in price_raw:
                     price_min, price_max = map(float, price_raw.split("-"))
-                except ValueError:
-                    price_min = price_max = None
+                elif isinstance(price_raw, dict):
+                    price_min = float(price_raw.get("min", 0))
+                    price_max = float(price_raw.get("max", 1000000))
+                elif isinstance(price_raw, str) and price_raw.strip().startswith("{"):
+                    import json
+                    price_dict = json.loads(price_raw)
+                    price_min = float(price_dict.get("min", 0))
+                    price_max = float(price_dict.get("max", 1000000))
+            except (ValueError, TypeError, json.JSONDecodeError):
+                price_min = price_max = None
 
             # Apply filters
             if subcategories:
@@ -1809,7 +1957,7 @@ class SevenCategoryDetailAPIView(APIView):
             if colors:
                 products = products.filter(metal__color__in=colors)
 
-        # Build product list
+        # Build filtered product list
         product_list = []
         for product in products:
             gt = float(product.grand_total)
@@ -1826,12 +1974,12 @@ class SevenCategoryDetailAPIView(APIView):
                 "first_image": product.images[0] if product.images else None,
                 "average_rating": product.average_rating,
                 "grand_total": str(product.grand_total),
-                "is_wishlisted": True  # Replace with actual logic
+                "is_wishlisted": True  # Replace with real logic if needed
             })
 
-        # Dynamic price range from filtered products
+        # Build price_range from matched products
         if product_list:
-            all_prices = [float(p['grand_total']) for p in product_list]
+            all_prices = [float(p["grand_total"]) for p in product_list]
             price_range = {
                 "min": min(all_prices),
                 "max": max(all_prices)
@@ -1842,14 +1990,8 @@ class SevenCategoryDetailAPIView(APIView):
                 "max": 0
             }
 
-        # Message logic
-        if filter_data and not clear_filter:
-            message = "Filters Applied" if product_list else "No Matching Filters"
-        else:
-            message = None
-
-        # Color conversion
-        metal_colors = Metal.objects.values_list('color', flat=True).distinct()
+        # Filter metadata
+        metal_colors = Metal.objects.values_list("color", flat=True).distinct()
         colors_with_codes = []
         for color in metal_colors:
             color_name = str(color).strip().lower()
@@ -1862,19 +2004,22 @@ class SevenCategoryDetailAPIView(APIView):
                 "code": hex_code
             })
 
-        # Filter metadata block
         filter_category_data = [{
             "category": {
                 "id": category.id,
                 "name": category.name
             },
-            "subcategories": list(Subcategories.objects.filter(category=category).values('id', 'sub_name')),
+            "subcategories": list(Subcategories.objects.filter(category=category).values("id", "sub_name")),
             "price_range": price_range,
             "brand": "my jewelry my design",
-            "materials": list(Material.objects.all().values('id', 'name')),
-            "gemstones": list(Gemstone.objects.all().values('id', 'name')),
+            "materials": list(Material.objects.all().values("id", "name")),
+            "gemstones": list(Gemstone.objects.all().values("id", "name")),
             "colors": colors_with_codes
         }]
+
+        message = None
+        if filter_data and not clear_filter:
+            message = "Filters Applied" if product_list else "No Matching Filters"
 
         # Final response
         response_data = {
@@ -1886,6 +2031,7 @@ class SevenCategoryDetailAPIView(APIView):
             response_data["message"] = message
 
         return Response(response_data, status=200)
+
 
 
 
@@ -2013,7 +2159,7 @@ def get_filtered_products(data, category):
 
 
 
-from django.db.models import Min, Max
+
 
 # class CategoryFilterOptionsAPIView(APIView):
 #     def get(self, request, category_id, *args, **kwargs):

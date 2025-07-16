@@ -1894,7 +1894,7 @@ from django.contrib.auth.hashers import check_password
 
 class AdminLoginSerializer(serializers.Serializer):
     username = serializers.CharField()
-    password = serializers.CharField()
+    password = serializers.CharField(write_only=True)
 
     def validate(self, data):
         username = data.get("username")
@@ -1903,14 +1903,13 @@ class AdminLoginSerializer(serializers.Serializer):
         try:
             admin = AdminLogin.objects.get(username=username)
         except AdminLogin.DoesNotExist:
-            raise serializers.ValidationError("Admin not found")
+            raise serializers.ValidationError("Invalid credentials")
 
-        if not check_password(password, admin.password):
-            raise serializers.ValidationError("Incorrect password")
+        if not admin.check_password(password):
+            raise serializers.ValidationError("Invalid credentials")
 
-        data['admin'] = admin
+        data["admin"] = admin
         return data
-
 
 class AuthSerializer(serializers.Serializer):
     code = serializers.CharField(required=False)

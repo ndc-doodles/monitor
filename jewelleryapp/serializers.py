@@ -1905,7 +1905,8 @@ class AdminLoginSerializer(serializers.Serializer):
         except AdminLogin.DoesNotExist:
             raise serializers.ValidationError("Invalid credentials")
 
-        if not admin.check_password(password):
+        # ✅ Use Django's check_password function
+        if not check_password(password, admin.password):
             raise serializers.ValidationError("Invalid credentials")
 
         data["admin"] = admin

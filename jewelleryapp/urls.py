@@ -100,7 +100,7 @@ urlpatterns = [
     # path('api/filter-options/<int:category_id>/', CategoryFilterOptionsAPIView.as_view(), name='category-filter-options'),
 
     path('api/categories/seven/<int:pk>/', SevenCategoryDetailAPIView.as_view(), name='category-detail'),
-
+    path('api/products-by-occasion/<int:pk>/', ProductByOccasion.as_view(), name='products-by-occasion'),
 
     # path('api/filter-options/<int:category_id>/', CategoryFilterOptionsAPIView.as_view()),
     path('api/combined-suggestions/', CombinedSuggestionsView.as_view(), name='combined-suggestions'),

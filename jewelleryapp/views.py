@@ -680,6 +680,647 @@ class OccasionDetailAPIView(BaseDetailAPIView):
     model = Occasion
     serializer_class = OccasionSerializer
 
+
+
+# class ProductByOccasion(APIView):
+#     permission_classes = [AllowAny]
+
+#     def get_filter_data(self, products):
+#         grand_totals = [float(p.grand_total) for p in products if p.grand_total is not None]
+#         min_price = min(grand_totals) if grand_totals else 0
+#         max_price = max(grand_totals) if grand_totals else 0
+
+#         materials = Material.objects.filter(
+#             id__in=products.values_list('metal__material_id', flat=True)
+#         ).values('id', 'name').distinct()
+
+#         gemstones = Gemstone.objects.filter(
+#             productstone__product__in=products
+#         ).values('id', 'name').distinct()
+
+#         metal_colors = Metal.objects.filter(
+#             id__in=products.values_list('metal_id', flat=True)
+#         ).values_list("color", flat=True).distinct()
+
+#         colors_with_codes = []
+#         for color in metal_colors:
+#             color_name = str(color).strip().lower()
+#             try:
+#                 hex_code = name_to_hex(color_name)
+#             except ValueError:
+#                 hex_code = "#CCCCCC"
+#             colors_with_codes.append({"color": color, "code": hex_code})
+
+#         subcategories = Subcategories.objects.filter(
+#             category__in=products.values_list('category_id', flat=True)
+#         ).values("id", "sub_name").distinct()
+
+#         categories = products.values('category__id', 'category__name').distinct()
+#         category_list = [{"id": c["category__id"], "name": c["category__name"]} for c in categories]
+
+#         return {
+#             "price_range": {"min": min_price, "max": max_price},
+#             "materials": list(materials),
+#             "gemstones": list(gemstones),
+#             "colors": colors_with_codes,
+#             "subcategories": list(subcategories),
+#             "categories": category_list,
+#             "brand": "my jewelry my design"
+#         }
+
+#     def filter_products(self, products, data):
+#         price_min = price_max = None
+
+#         def parse_list(field):
+#             if hasattr(data, 'getlist'):
+#                 return [v for v in data.getlist(field) if v]
+#             val = data.get(field)
+#             return [val] if val else []
+
+#         subcategories = parse_list('subcategory')
+#         materials = parse_list('materials')
+#         gemstones = parse_list('gemstones')
+#         colors = parse_list('colors')
+#         brand = data.get('brand')
+#         price_raw = data.get('price')
+
+#         try:
+#             if isinstance(price_raw, str) and "-" in price_raw:
+#                 price_min, price_max = map(float, price_raw.split("-"))
+#             elif isinstance(price_raw, dict):
+#                 price_min = float(price_raw.get("min", 0))
+#                 price_max = float(price_raw.get("max", 1000000))
+#             elif isinstance(price_raw, str) and price_raw.strip().startswith("{"):
+#                 price_dict = json.loads(price_raw)
+#                 price_min = float(price_dict.get("min", 0))
+#                 price_max = float(price_dict.get("max", 1000000))
+#         except (ValueError, TypeError, json.JSONDecodeError):
+#             price_min = price_max = None
+
+#         if subcategories:
+#             products = products.filter(Subcategories__sub_name__in=subcategories)
+#         if brand:
+#             products = products.filter(head__icontains=brand)
+#         if materials:
+#             products = products.filter(metal__material__name__in=materials)
+#         if gemstones:
+#             products = products.filter(productstone__stone__name__in=gemstones).distinct()
+#         if colors:
+#             products = products.filter(metal__color__in=colors)
+
+#         filtered = []
+#         for product in products:
+#             try:
+#                 grand_total = float(product.grand_total)
+#             except Exception:
+#                 continue
+
+#             if price_min is not None and price_max is not None:
+#                 if grand_total < price_min or grand_total > price_max:
+#                     continue
+#             filtered.append(product)
+
+#         return filtered
+
+#     def get(self, request, pk, *args, **kwargs):
+#         occasion = get_object_or_404(Occasion, pk=pk)
+#         products = Product.objects.filter(occasion=occasion)
+
+#         product_list = [{
+#             "id": p.id,
+#             "head": p.head,
+#             "description": p.description,
+#             "first_image": p.images[0] if p.images else None,
+#             "average_rating": p.average_rating,
+#             "grand_total": str(p.grand_total),
+#             "is_wishlisted": True  # Replace with your wishlist logic
+#         } for p in products]
+
+#         filter_data = self.get_filter_data(products)
+
+#         return Response({
+#             "occasion": {
+#                 "id": occasion.id,
+#                 "name": occasion.name
+#             },
+#             "products": product_list,
+#             "filter_occasion": [filter_data],
+#         })
+
+#     def post(self, request, pk, *args, **kwargs):
+#         occasion = get_object_or_404(Occasion, pk=pk)
+#         clear_filter = request.data.get('clear', False)
+
+#         products = Product.objects.filter(occasion=occasion)
+#         if not clear_filter:
+#             products = self.filter_products(products, request.data)
+
+#         product_list = [{
+#             "id": p.id,
+#             "head": p.head,
+#             "description": p.description,
+#             "first_image": p.images[0] if p.images else None,
+#             "average_rating": p.average_rating,
+#             "grand_total": str(p.grand_total),
+#             "is_wishlisted": True  # Replace with your wishlist logic
+#         } for p in products]
+
+#         filter_data = self.get_filter_data(Product.objects.filter(occasion=occasion))
+
+#         message = None
+#         if not clear_filter:
+#             message = "Filters Applied" if product_list else "No Matching Filters"
+
+#         response = {
+#             "occasion": {
+#                 "id": occasion.id,
+#                 "name": occasion.name
+#             },
+#             "products": product_list,
+#             "filter_occasion": [filter_data],
+#         }
+#         if message:
+#             response["message"] = message
+
+#         return Response(response)
+
+
+# class ProductByOccasion(APIView):
+#     permission_classes = [AllowAny]
+
+#     def get_filter_data(self, products):
+#         grand_totals = [float(p.grand_total) for p in products if p.grand_total is not None]
+#         min_price = min(grand_totals) if grand_totals else 0
+#         max_price = max(grand_totals) if grand_totals else 0
+
+#         materials = Material.objects.filter(
+#             id__in=products.values_list('metal__material_id', flat=True)
+#         ).values('id', 'name').distinct()
+
+#         gemstones = Gemstone.objects.filter(
+#             productstone__product__in=products
+#         ).values('id', 'name').distinct()
+
+#         metal_colors = Metal.objects.filter(
+#             id__in=products.values_list('metal_id', flat=True)
+#         ).values_list("color", flat=True).distinct()
+
+#         colors_with_codes = []
+#         for color in metal_colors:
+#             color_name = str(color).strip().lower()
+#             try:
+#                 hex_code = name_to_hex(color_name)
+#             except ValueError:
+#                 hex_code = "#CCCCCC"
+#             colors_with_codes.append({"color": color, "code": hex_code})
+
+#         categories = products.values('category__id', 'category__name').distinct()
+#         category_list = [{"id": c["category__id"], "name": c["category__name"]} for c in categories]
+
+#         return {
+#             "price_range": {"min": min_price, "max": max_price},
+#             "materials": list(materials),
+#             "gemstones": list(gemstones),
+#             "colors": colors_with_codes,
+#             "categories": category_list,
+#             "brand": "my jewelry my design"
+#         }
+
+#     def filter_products(self, products, data):
+#         price_min = price_max = None
+
+#         def parse_list(field):
+#             if hasattr(data, 'getlist'):
+#                 return [v for v in data.getlist(field) if v]
+#             val = data.get(field)
+#             return [val] if val else []
+
+#         # Removed subcategories filter here
+#         materials = parse_list('materials')
+#         gemstones = parse_list('gemstones')
+#         colors = parse_list('colors')
+#         brand = data.get('brand')
+#         price_raw = data.get('price')
+
+#         try:
+#             if isinstance(price_raw, str) and "-" in price_raw:
+#                 price_min, price_max = map(float, price_raw.split("-"))
+#             elif isinstance(price_raw, dict):
+#                 price_min = float(price_raw.get("min", 0))
+#                 price_max = float(price_raw.get("max", 1000000))
+#             elif isinstance(price_raw, str) and price_raw.strip().startswith("{"):
+#                 price_dict = json.loads(price_raw)
+#                 price_min = float(price_dict.get("min", 0))
+#                 price_max = float(price_dict.get("max", 1000000))
+#         except (ValueError, TypeError, json.JSONDecodeError):
+#             price_min = price_max = None
+
+#         if brand:
+#             products = products.filter(head__icontains=brand)
+#         if materials:
+#             products = products.filter(metal__material__name__in=materials)
+#         if gemstones:
+#             products = products.filter(productstone__stone__name__in=gemstones).distinct()
+#         if colors:
+#             products = products.filter(metal__color__in=colors)
+
+#         filtered = []
+#         for product in products:
+#             try:
+#                 grand_total = float(product.grand_total)
+#             except Exception:
+#                 continue
+
+#             if price_min is not None and price_max is not None:
+#                 if grand_total < price_min or grand_total > price_max:
+#                     continue
+#             filtered.append(product)
+
+#         return filtered
+
+#     def get(self, request, pk, *args, **kwargs):
+#         occasion = get_object_or_404(Occasion, pk=pk)
+#         products = Product.objects.filter(occasion=occasion)
+
+#         product_list = [{
+#             "id": p.id,
+#             "head": p.head,
+#             "description": p.description,
+#             "first_image": p.images[0] if p.images else None,
+#             "average_rating": p.average_rating,
+#             "grand_total": str(p.grand_total),
+#             "is_wishlisted": True  # Replace with your wishlist logic
+#         } for p in products]
+
+#         filter_data = self.get_filter_data(products)
+
+#         return Response({
+#             "occasion": {
+#                 "id": occasion.id,
+#                 "name": occasion.name
+#             },
+#             "products": product_list,
+#             "filter_occasion": [filter_data],
+#         })
+
+#     def post(self, request, pk, *args, **kwargs):
+#         occasion = get_object_or_404(Occasion, pk=pk)
+#         clear_filter = request.data.get('clear', False)
+
+#         products = Product.objects.filter(occasion=occasion)
+#         if not clear_filter:
+#             products = self.filter_products(products, request.data)
+
+#         product_list = [{
+#             "id": p.id,
+#             "head": p.head,
+#             "description": p.description,
+#             "first_image": p.images[0] if p.images else None,
+#             "average_rating": p.average_rating,
+#             "grand_total": str(p.grand_total),
+#             "is_wishlisted": True  # Replace with your wishlist logic
+#         } for p in products]
+
+#         filter_data = self.get_filter_data(Product.objects.filter(occasion=occasion))
+
+#         message = None
+#         if not clear_filter:
+#             message = "Filters Applied" if product_list else "No Matching Filters"
+
+#         response = {
+#             "occasion": {
+#                 "id": occasion.id,
+#                 "name": occasion.name
+#             },
+#             "products": product_list,
+#             "filter_occasion": [filter_data],
+#         }
+#         if message:
+#             response["message"] = message
+
+#         return Response(response)
+
+# class ProductByOccasion(APIView):
+#     permission_classes = [AllowAny]
+
+#     def get_filter_data(self, products):
+#         grand_totals = [float(p.grand_total) for p in products if p.grand_total is not None]
+#         min_price = min(grand_totals) if grand_totals else 0
+#         max_price = max(grand_totals) if grand_totals else 0
+
+#         materials = Material.objects.filter(
+#             id__in=products.values_list('metal__material_id', flat=True)
+#         ).values('id', 'name').distinct()
+
+#         gemstones = Gemstone.objects.filter(
+#             productstone__product__in=products
+#         ).values('id', 'name').distinct()
+
+#         metal_colors = Metal.objects.filter(
+#             id__in=products.values_list('metal_id', flat=True)
+#         ).values_list("color", flat=True).distinct()
+
+#         colors_with_codes = []
+#         for color in metal_colors:
+#             color_name = str(color).strip().lower()
+#             try:
+#                 hex_code = name_to_hex(color_name)
+#             except ValueError:
+#                 hex_code = "#CCCCCC"
+#             colors_with_codes.append({"color": color, "code": hex_code})
+
+#         categories = products.values('category__id', 'category__name').distinct()
+#         category_list = [{"id": c["category__id"], "name": c["category__name"]} for c in categories]
+
+#         return {
+#             "price_range": {"min": min_price, "max": max_price},
+#             "materials": list(materials),
+#             "gemstones": list(gemstones),
+#             "colors": colors_with_codes,
+#             "categories": category_list,
+#             "brand": "my jewelry my design"
+#         }
+
+#     def filter_products(self, products, data):
+#         price_min = price_max = None
+
+#         def parse_list(field):
+#             if hasattr(data, 'getlist'):
+#                 return [v for v in data.getlist(field) if v]
+#             val = data.get(field)
+#             return [val] if val else []
+
+#         categories = parse_list('categories')  # New filter key for categories
+#         materials = parse_list('materials')
+#         gemstones = parse_list('gemstones')
+#         colors = parse_list('colors')
+#         brand = data.get('brand')
+#         price_raw = data.get('price')
+
+#         try:
+#             if isinstance(price_raw, str) and "-" in price_raw:
+#                 price_min, price_max = map(float, price_raw.split("-"))
+#             elif isinstance(price_raw, dict):
+#                 price_min = float(price_raw.get("min", 0))
+#                 price_max = float(price_raw.get("max", 1000000))
+#             elif isinstance(price_raw, str) and price_raw.strip().startswith("{"):
+#                 price_dict = json.loads(price_raw)
+#                 price_min = float(price_dict.get("min", 0))
+#                 price_max = float(price_dict.get("max", 1000000))
+#         except (ValueError, TypeError, json.JSONDecodeError):
+#             price_min = price_max = None
+
+#         if brand:
+#             products = products.filter(head__icontains=brand)
+#         if categories:
+#             # convert category IDs to integers, just in case
+#             try:
+#                 category_ids = [int(cat) for cat in categories]
+#                 products = products.filter(category__id__in=category_ids)
+#             except ValueError:
+#                 pass  # Ignore invalid category IDs
+#         if materials:
+#             products = products.filter(metal__material__name__in=materials)
+#         if gemstones:
+#             products = products.filter(productstone__stone__name__in=gemstones).distinct()
+#         if colors:
+#             products = products.filter(metal__color__in=colors)
+
+#         filtered = []
+#         for product in products:
+#             try:
+#                 grand_total = float(product.grand_total)
+#             except Exception:
+#                 continue
+
+#             if price_min is not None and price_max is not None:
+#                 if grand_total < price_min or grand_total > price_max:
+#                     continue
+#             filtered.append(product)
+
+#         return filtered
+
+#     def get(self, request, pk, *args, **kwargs):
+#         occasion = get_object_or_404(Occasion, pk=pk)
+#         products = Product.objects.filter(occasion=occasion)
+
+#         product_list = [{
+#             "id": p.id,
+#             "head": p.head,
+#             "description": p.description,
+#             "first_image": p.images[0] if p.images else None,
+#             "average_rating": p.average_rating,
+#             "grand_total": str(p.grand_total),
+#             "is_wishlisted": True  # Replace with your wishlist logic
+#         } for p in products]
+
+#         filter_data = self.get_filter_data(products)
+
+#         return Response({
+#             "occasion": {
+#                 "id": occasion.id,
+#                 "name": occasion.name
+#             },
+#             "products": product_list,
+#             "filter_occasion": [filter_data],
+#         })
+
+#     def post(self, request, pk, *args, **kwargs):
+#         occasion = get_object_or_404(Occasion, pk=pk)
+#         clear_filter = request.data.get('clear', False)
+
+#         products = Product.objects.filter(occasion=occasion)
+#         if not clear_filter:
+#             products = self.filter_products(products, request.data)
+
+#         product_list = [{
+#             "id": p.id,
+#             "head": p.head,
+#             "description": p.description,
+#             "first_image": p.images[0] if p.images else None,
+#             "average_rating": p.average_rating,
+#             "grand_total": str(p.grand_total),
+#             "is_wishlisted": True  # Replace with your wishlist logic
+#         } for p in products]
+
+#         filter_data = self.get_filter_data(Product.objects.filter(occasion=occasion))
+
+#         message = None
+#         if not clear_filter:
+#             message = "Filters Applied" if product_list else "No Matching Filters"
+
+#         response = {
+#             "occasion": {
+#                 "id": occasion.id,
+#                 "name": occasion.name
+#             },
+#             "products": product_list,
+#             "filter_occasion": [filter_data],
+#         }
+#         if message:
+#             response["message"] = message
+
+#         return Response(response)
+
+class ProductByOccasion(APIView):
+    permission_classes = [AllowAny]
+
+    def get_filter_data(self, products):
+        grand_totals = [float(p.grand_total) for p in products if p.grand_total is not None]
+        min_price = min(grand_totals) if grand_totals else 0
+        max_price = max(grand_totals) if grand_totals else 0
+
+        materials = Material.objects.filter(
+            id__in=products.values_list('metal__material_id', flat=True)
+        ).values('id', 'name').distinct()
+
+        gemstones = Gemstone.objects.filter(
+            productstone__product__in=products
+        ).values('id', 'name').distinct()
+
+        metal_colors = Metal.objects.filter(
+            id__in=products.values_list('metal_id', flat=True)
+        ).values_list("color", flat=True).distinct()
+
+        colors_with_codes = []
+        for color in metal_colors:
+            color_name = str(color).strip().lower()
+            try:
+                hex_code = name_to_hex(color_name)
+            except ValueError:
+                hex_code = "#CCCCCC"
+            colors_with_codes.append({"color": color, "code": hex_code})
+
+        # Categories as list of names only
+        categories = products.values_list('category__name', flat=True).distinct()
+        category_list = list(categories)
+
+        return {
+            "price_range": {"min": min_price, "max": max_price},
+            "materials": list(materials),
+            "gemstones": list(gemstones),
+            "colors": colors_with_codes,
+            "categories": category_list,  # category names only
+            "brand": "my jewelry my design"
+        }
+
+    def filter_products(self, products, data):
+        price_min = price_max = None
+
+        def parse_list(field):
+            if hasattr(data, 'getlist'):
+                return [v for v in data.getlist(field) if v]
+            val = data.get(field)
+            return [val] if val else []
+
+        categories = parse_list('categories')  # now category names expected
+        materials = parse_list('materials')
+        gemstones = parse_list('gemstones')
+        colors = parse_list('colors')
+        brand = data.get('brand')
+        price_raw = data.get('price')
+
+        try:
+            if isinstance(price_raw, str) and "-" in price_raw:
+                price_min, price_max = map(float, price_raw.split("-"))
+            elif isinstance(price_raw, dict):
+                price_min = float(price_raw.get("min", 0))
+                price_max = float(price_raw.get("max", 1000000))
+            elif isinstance(price_raw, str) and price_raw.strip().startswith("{"):
+                price_dict = json.loads(price_raw)
+                price_min = float(price_dict.get("min", 0))
+                price_max = float(price_dict.get("max", 1000000))
+        except (ValueError, TypeError, json.JSONDecodeError):
+            price_min = price_max = None
+
+        if brand:
+            products = products.filter(head__icontains=brand)
+        if categories:
+            products = products.filter(category__name__in=categories)
+        if materials:
+            products = products.filter(metal__material__name__in=materials)
+        if gemstones:
+            products = products.filter(productstone__stone__name__in=gemstones).distinct()
+        if colors:
+            products = products.filter(metal__color__in=colors)
+
+        filtered = []
+        for product in products:
+            try:
+                grand_total = float(product.grand_total)
+            except Exception:
+                continue
+
+            if price_min is not None and price_max is not None:
+                if grand_total < price_min or grand_total > price_max:
+                    continue
+            filtered.append(product)
+
+        return filtered
+
+    def get(self, request, pk, *args, **kwargs):
+        occasion = get_object_or_404(Occasion, pk=pk)
+        products = Product.objects.filter(occasion=occasion)
+
+        product_list = [{
+            "id": p.id,
+            "head": p.head,
+            "description": p.description,
+            "first_image": p.images[0] if p.images else None,
+            "average_rating": p.average_rating,
+            "grand_total": str(p.grand_total),
+            "is_wishlisted": True  # Replace with your wishlist logic
+        } for p in products]
+
+        filter_data = self.get_filter_data(products)
+
+        return Response({
+            "occasion": {
+                "id": occasion.id,
+                "name": occasion.name
+            },
+            "products": product_list,
+            "filter_occasion": [filter_data],
+        })
+
+    def post(self, request, pk, *args, **kwargs):
+        occasion = get_object_or_404(Occasion, pk=pk)
+        clear_filter = request.data.get('clear', False)
+
+        products = Product.objects.filter(occasion=occasion)
+        if not clear_filter:
+            products = self.filter_products(products, request.data)
+
+        product_list = [{
+            "id": p.id,
+            "head": p.head,
+            "description": p.description,
+            "first_image": p.images[0] if p.images else None,
+            "average_rating": p.average_rating,
+            "grand_total": str(p.grand_total),
+            "is_wishlisted": True  # Replace with your wishlist logic
+        } for p in products]
+
+        filter_data = self.get_filter_data(Product.objects.filter(occasion=occasion))
+
+        message = None
+        if not clear_filter:
+            message = "Filters Applied" if product_list else "No Matching Filters"
+
+        response = {
+            "occasion": {
+                "id": occasion.id,
+                "name": occasion.name
+            },
+            "products": product_list,
+            "filter_occasion": [filter_data],
+        }
+        if message:
+            response["message"] = message
+
+        return Response(response)
+
+
 # Gender API
 class GenderListCreateAPIView(BaseListCreateAPIView):
     model = Gender
@@ -2132,40 +2773,38 @@ class RecentProductsWithFallbackAPIView(ListAPIView):
 
 
 class ProductListByGender(APIView):
-    def get_filter_data(self, products, clear=False):
-        if not isinstance(products, models.QuerySet):
-            products = Product.objects.filter(id__in=[p.id for p in products])
+    def get_filter_data(self, products):
+        grand_totals = [float(p.grand_total) for p in products if p.grand_total is not None]
+        min_price = min(grand_totals) if grand_totals else 0
+        max_price = max(grand_totals) if grand_totals else 0
 
-        grand_totals = [p.grand_total for p in products if p.grand_total is not None]
-        min_price = float(min(grand_totals)) if grand_totals else 0.0
-        max_price = float(max(grand_totals)) if grand_totals else 0.0
+        materials = Material.objects.filter(id__in=products.values_list('metal__material_id', flat=True)).values('id', 'name').distinct()
+        gemstones = Gemstone.objects.filter(productstone__product__in=products).values('id', 'name').distinct()
+        metal_colors = Metal.objects.filter(id__in=products.values_list('metal_id', flat=True)).values_list("color", flat=True).distinct()
 
-        materials = Metal.objects.filter(id__in=products.values_list('metal_id', flat=True)).distinct()
-        material_data = [{"id": m.id, "name": m.name} for m in materials]
+        colors_with_codes = []
+        for color in metal_colors:
+            color_name = str(color).strip().lower()
+            try:
+                hex_code = name_to_hex(color_name)
+            except ValueError:
+                hex_code = "#CCCCCC"
+            colors_with_codes.append({"color": color, "code": hex_code})
 
-        gemstones = Gemstone.objects.filter(products__in=products).distinct()
-        gemstone_data = [{"id": g.id, "name": g.name} for g in gemstones]
+        subcategories = Subcategories.objects.filter(category__in=products.values_list('category_id', flat=True)).values("id", "sub_name").distinct()
 
         categories = products.values('category__id', 'category__name').distinct()
         category_list = [{"id": c["category__id"], "name": c["category__name"]} for c in categories]
 
-        metal_colors = Metal.objects.filter(id__in=products.values_list('metal_id', flat=True))\
-            .exclude(color__isnull=True).exclude(color__exact="")\
-            .values_list('color', flat=True).distinct()
-        color_data = [{"color": color, "code": "#cccccc"} for color in metal_colors]
-
-        return [{
-            "category": category_list,
-            "price_range": {
-                "min": min_price,
-                "max": max_price
-            },
-            "brand": "my jewelry my design",
-            "materials": material_data,
-            "gemstones": gemstone_data,
-            "colors": color_data,
-            "clear": clear
-        }]
+        return {
+            "price_range": {"min": min_price, "max": max_price},
+            "materials": list(materials),
+            "gemstones": list(gemstones),
+            "colors": colors_with_codes,
+            "subcategories": list(subcategories),
+            "categories": category_list,
+            "brand": "my jewelry my design"
+        }
 
     def get(self, request, gender_id=None):
         try:

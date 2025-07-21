@@ -168,6 +168,54 @@ class BaseDetailAPIView(APIView):
 #             return Response(serializer.data, status=status.HTTP_201_CREATED)
 #         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+# class ProductListCreateAPIView(APIView):
+#     authentication_classes = [CombinedJWTAuthentication]
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request, *args, **kwargs):
+#         user = request.user
+#         classic_qs = Product.objects.filter(is_classic=True)
+#         other_qs   = Product.objects.filter(is_classic=False)
+
+#         context = {'request': request}
+#         classic_data = ProductSerializer(classic_qs, many=True, context=context).data
+#         other_data   = ProductSerializer(other_qs, many=True, context=context).data
+
+#         return Response({
+#             "classic_products": classic_data,
+#             "other_products": other_data
+#         }, status=status.HTTP_200_OK)
+
+#     def post(self, request, *args, **kwargs):
+#         images     = request.FILES.getlist('images')
+#         image_urls = []
+
+#         try:
+#             for image in images[:5]:
+#                 res = uploader.upload(image)
+#                 image_urls.append(res["secure_url"])
+#         except Exception as e:
+#             return Response({"error": f"Image upload failed: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+#         data = request.data.copy()
+#         data['images'] = image_urls
+
+#         if 'ar_model_glb' in request.FILES:
+#             glb = uploader.upload(request.FILES['ar_model_glb'], resource_type='raw')
+#             data['ar_model_glb'] = f"https://res.cloudinary.com/YOUR_CLOUD_NAME/raw/upload/v{glb['version']}/{glb['public_id']}"
+
+#         if 'ar_model_gltf' in request.FILES:
+#             gltf = uploader.upload(request.FILES['ar_model_gltf'], resource_type='raw')
+#             data['ar_model_gltf'] = gltf['secure_url']
+
+#         serializer = ProductSerializer(data=data, context={'request': request})
+#         if serializer.is_valid():
+#             serializer.save()
+#             return Response(serializer.data, status=status.HTTP_201_CREATED)
+#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
 class ProductListCreateAPIView(APIView):
     authentication_classes = [CombinedJWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -175,11 +223,11 @@ class ProductListCreateAPIView(APIView):
     def get(self, request, *args, **kwargs):
         user = request.user
         classic_qs = Product.objects.filter(is_classic=True)
-        other_qs   = Product.objects.filter(is_classic=False)
+        other_qs = Product.objects.filter(is_classic=False)
 
         context = {'request': request}
         classic_data = ProductSerializer(classic_qs, many=True, context=context).data
-        other_data   = ProductSerializer(other_qs, many=True, context=context).data
+        other_data = ProductSerializer(other_qs, many=True, context=context).data
 
         return Response({
             "classic_products": classic_data,
@@ -187,7 +235,7 @@ class ProductListCreateAPIView(APIView):
         }, status=status.HTTP_200_OK)
 
     def post(self, request, *args, **kwargs):
-        images     = request.FILES.getlist('images')
+        images = request.FILES.getlist('images')
         image_urls = []
 
         try:
@@ -197,7 +245,8 @@ class ProductListCreateAPIView(APIView):
         except Exception as e:
             return Response({"error": f"Image upload failed: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        data = request.data.copy()
+        # Shallow copy of request.data without file-like objects
+        data = {k: v for k, v in request.data.items() if not hasattr(v, 'read')}
         data['images'] = image_urls
 
         if 'ar_model_glb' in request.FILES:
@@ -212,6 +261,7 @@ class ProductListCreateAPIView(APIView):
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

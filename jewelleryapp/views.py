@@ -245,13 +245,14 @@ class ProductListCreateAPIView(APIView):
         except Exception as e:
             return Response({"error": f"Image upload failed: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        # Shallow copy of request.data without file-like objects
         data = {k: v for k, v in request.data.items() if not hasattr(v, 'read')}
         data['images'] = image_urls
 
+        cloud_name = os.environ.get("CLOUDINARY_CLOUD_NAME", "dvllntzo0")  # fallback to default if not found
+
         if 'ar_model_glb' in request.FILES:
             glb = uploader.upload(request.FILES['ar_model_glb'], resource_type='raw')
-            data['ar_model_glb'] = f"https://res.cloudinary.com/YOUR_CLOUD_NAME/raw/upload/v{glb['version']}/{glb['public_id']}"
+            data['ar_model_glb'] = f"https://res.cloudinary.com/{cloud_name}/raw/upload/v{glb['version']}/{glb['public_id']}"
 
         if 'ar_model_gltf' in request.FILES:
             gltf = uploader.upload(request.FILES['ar_model_gltf'], resource_type='raw')
@@ -263,7 +264,6 @@ class ProductListCreateAPIView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 class ProductDetailAPIView(APIView):

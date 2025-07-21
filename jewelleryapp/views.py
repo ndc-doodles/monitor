@@ -1321,6 +1321,130 @@ class ProductByOccasion(APIView):
         return Response(response)
 
 
+class PriceRangeLabelsView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        price_ranges = [
+            {
+                "id": 1,
+                "label": "Below 25K",
+                "min_price": 0,
+                "max_price": 25000
+            },
+            {
+                "id": 2,
+                "label": "25K - 50K",
+                "min_price": 25000,
+                "max_price": 50000
+            },
+            {
+                "id": 3,
+                "label": "50K - 1L",
+                "min_price": 50000,
+                "max_price": 100000
+            },
+            {
+                "id": 4,
+                "label": "Above 1L",
+                "min_price": 100000,
+                "max_price": None
+            }
+        ]
+        return Response({"price_ranges": price_ranges})
+    
+
+from django.db.models import F, ExpressionWrapper, DecimalField
+# class ProductByPriceRangeAPIView(APIView):
+#     def post(self, request):
+#         price_id = request.data.get("price_id")
+
+#         if not price_id:
+#             return Response({"error": "price_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+#         try:
+#             price_id = int(price_id)
+#         except ValueError:
+#             return Response({"error": "Invalid price_id."}, status=status.HTTP_400_BAD_REQUEST)
+
+#         # Define ranges based on the same labels used in MegaNavbar
+#         price_ranges = {
+#             1: {"min": Decimal("0.00"), "max": Decimal("25000.00")},
+#             2: {"min": Decimal("25000.01"), "max": Decimal("50000.00")},
+#             3: {"min": Decimal("50000.01"), "max": Decimal("100000.00")},
+#             4: {"min": Decimal("100000.01"), "max": None},  # 1L & above
+#         }
+
+#         selected_range = price_ranges.get(price_id)
+#         if not selected_range:
+#             return Response({"error": "Invalid price_id."}, status=status.HTTP_400_BAD_REQUEST)
+
+#         # Filter products by grand_total
+#         products = Product.objects.all()
+#         filtered_products = []
+#         for product in products:
+#             if product.grand_total is None:
+#                 continue
+#             price = product.grand_total
+#             if selected_range["max"] is None:
+#                 if price >= selected_range["min"]:
+#                     filtered_products.append(product)
+#             elif selected_range["min"] <= price <= selected_range["max"]:
+#                 filtered_products.append(product)
+
+#         serializer = ProductSerializer(filtered_products, many=True, context={"request": request})
+#         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class PriceRangeProductAPIView(APIView):
+    """
+    GET: /api/products/by-price-range/?range_id=1
+    Returns products filtered by predefined price range.
+    """
+
+    def get_price_range(self, range_id):
+        """
+        Maps static range_id to min and max prices.
+        """
+        price_map = {
+            1: (0, 25000),
+            2: (25000, 50000),
+            3: (50000, 100000),
+            4: (100000, None),  # 1L & above
+        }
+        return price_map.get(range_id, (None, None))
+
+    def get(self, request):
+        try:
+            range_id = int(request.GET.get('range_id'))
+        except (TypeError, ValueError):
+            return Response({"detail": "Invalid or missing range_id"}, status=400)
+
+        min_price, max_price = self.get_price_range(range_id)
+        if min_price is None:
+            return Response({"detail": "Invalid range_id"}, status=400)
+
+        products = Product.objects.all()
+        filtered_products = []
+
+        for product in products:
+            if product.grand_total is None:
+                continue
+
+            price = float(product.grand_total)
+
+            if (min_price is not None and price < min_price):
+                continue
+            if (max_price is not None and price >= max_price):
+                continue
+
+            filtered_products.append(product)
+
+        serializer = ProductSerializer(filtered_products, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+
 # Gender API
 class GenderListCreateAPIView(BaseListCreateAPIView):
     model = Gender

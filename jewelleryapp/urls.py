@@ -101,6 +101,11 @@ urlpatterns = [
 
     path('api/categories/seven/<int:pk>/', SevenCategoryDetailAPIView.as_view(), name='category-detail'),
     path('api/products-by-occasion/<int:pk>/', ProductByOccasion.as_view(), name='products-by-occasion'),
+    path('api/price-range-labels/', PriceRangeLabelsView.as_view(), name='price-range-labels'),
+
+    path('api/products/by-price-range/', PriceRangeProductAPIView.as_view(), name='price-range-products'),
+
+
 
     # path('api/filter-options/<int:category_id>/', CategoryFilterOptionsAPIView.as_view()),
     path('api/combined-suggestions/', CombinedSuggestionsView.as_view(), name='combined-suggestions'),

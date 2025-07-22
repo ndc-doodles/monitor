@@ -1395,16 +1395,649 @@ from django.db.models import F, ExpressionWrapper, DecimalField
 #         serializer = ProductSerializer(filtered_products, many=True, context={"request": request})
 #         return Response(serializer.data, status=status.HTTP_200_OK)
     
+# class PriceRangeProductAPIView(APIView):
+#     """
+#     GET: /api/products/by-price-range/?range_id=1
+#     Returns products filtered by predefined price range.
+#     """
+
+#     def get_price_range(self, range_id):
+#         """
+#         Maps static range_id to min and max prices.
+#         """
+#         price_map = {
+#             1: (0, 25000),
+#             2: (25000, 50000),
+#             3: (50000, 100000),
+#             4: (100000, None),  # 1L & above
+#         }
+#         return price_map.get(range_id, (None, None))
+
+#     def get(self, request):
+#         try:
+#             range_id = int(request.GET.get('range_id'))
+#         except (TypeError, ValueError):
+#             return Response({"detail": "Invalid or missing range_id"}, status=400)
+
+#         min_price, max_price = self.get_price_range(range_id)
+#         if min_price is None:
+#             return Response({"detail": "Invalid range_id"}, status=400)
+
+#         products = Product.objects.all()
+#         filtered_products = []
+
+#         for product in products:
+#             if product.grand_total is None:
+#                 continue
+
+#             price = float(product.grand_total)
+
+#             if (min_price is not None and price < min_price):
+#                 continue
+#             if (max_price is not None and price >= max_price):
+#                 continue
+
+#             filtered_products.append(product)
+
+#         serializer = ProductSerializer(filtered_products, many=True)
+#         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+
+
+# class PriceRangeProductAPIView(APIView):
+#     """
+#     GET: /api/products/by-price-range/?range_id=1&category=1&metal=Gold&gemstone=Ruby
+#     Returns products filtered by predefined price range and optional dynamic filters,
+#     along with filter options and dynamic price range.
+#     """
+
+#     def get_price_range(self, range_id):
+#         price_map = {
+#             1: (0, 25000),
+#             2: (25000, 50000),
+#             3: (50000, 100000),
+#             4: (100000, None),  # 1L & above
+#         }
+#         return price_map.get(range_id, (None, None))
+
+#     def get(self, request):
+#         try:
+#             range_id = int(request.GET.get("range_id"))
+#         except (TypeError, ValueError):
+#             return Response({"detail": "Invalid or missing range_id"}, status=400)
+
+#         min_price, max_price = self.get_price_range(range_id)
+#         if min_price is None:
+#             return Response({"detail": "Invalid range_id"}, status=400)
+
+#         # Dynamic filters
+#         category = request.GET.get("category")
+#         metal = request.GET.get("metal")
+#         gemstone = request.GET.get("gemstone")
+
+#         products = Product.objects.all()
+
+#         if category:
+#             products = products.filter(category_id=category)
+#         if metal:
+#             products = products.filter(metal__name__iexact=metal)
+#         if gemstone:
+#             products = products.filter(stones__name__iexact=gemstone)
+
+#         filtered_products = []
+#         prices = []
+
+#         for product in products:
+#             price = float(product.grand_total or 0)
+#             if (min_price is not None and price < min_price) or \
+#                (max_price is not None and price >= max_price):
+#                 continue
+
+#             prices.append(price)
+
+#             filtered_products.append({
+#                 "id": product.id,
+#                 "unit_price": str(product.frozen_unit_price or product.metal.unit_price),
+#                 "value": str((product.metal_weight * (product.frozen_unit_price or product.metal.unit_price)).quantize(Decimal('0.001'))),
+#                 "items": [
+#                     {
+#                         "type": "product",
+#                         "name": product.metal.name,
+#                         "subLabel": f"{product.karat}KT" if product.karat else "",
+#                         "rate": f"₹ {(product.frozen_unit_price or product.metal.unit_price):.2f}/g",
+#                         "weight": f"{product.metal_weight}g",
+#                         "discount": "_",
+#                         "value": f"₹ {(product.metal_weight * (product.frozen_unit_price or product.metal.unit_price)).quantize(Decimal('0.01'))}",
+#                         "image": product.images[0] if product.images else ""
+#                     },
+#                     {
+#                         "type": "charges",
+#                         "label": "Making Charges",
+#                         "rate": "_",
+#                         "weight": "_",
+#                         "discount": "-",
+#                         "value": f"₹ {product.making_charge:.2f}"
+#                     },
+#                     {
+#                         "type": "subtotal",
+#                         "label": "Sub Total",
+#                         "rate": "_",
+#                         "weight": f"{product.metal_weight}g Gross Wt.",
+#                         "discount": "-",
+#                         "value": f"₹ {product.subtotal:.2f}"
+#                     },
+#                     {
+#                         "type": "gst",
+#                         "label": "GST",
+#                         "rate": "",
+#                         "weight": "_",
+#                         "discount": "-",
+#                         "value": f"₹ {(product.subtotal * (product.gst / 100)).quantize(Decimal('0.01'))}"
+#                     },
+#                     {
+#                         "type": "charges",
+#                         "label": "Grand Total",
+#                         "rate": "_",
+#                         "weight": "_",
+#                         "discount": "-",
+#                         "value": f"₹ {product.grand_total:.2f}"
+#                     }
+#                 ],
+#                 "stone_price_total": str(product.stone_price_total),
+#                 "subtotal": str(product.subtotal),
+#                 "grand_total": str(product.grand_total),
+#                 "stones": [s.name for s in product.stones.all()],
+#                 "average_rating": product.average_rating,
+#                 "available_stock": product.available_stock,
+#                 "stock_message": "Out of stock" if product.available_stock == 0 else "In stock",
+#                 "is_wishlisted": False,
+#                 "category": product.category.name,
+#                 "occasion": product.occasion.name,
+#                 "gender": product.gender.name,
+#                 "metal": product.metal.name,
+#                 "brand": "My Jewellery",
+#                 "details": [
+#                     {
+#                         "title": "Metal Details",
+#                         "content": [
+#                             {"heading": f"{product.karat}K", "discription": "Karatage"},
+#                             {"heading": "Yellow", "discription": "Material Colour"},
+#                             {"heading": f"{product.metal_weight}g", "discription": "Gross Weight"},
+#                             {"heading": product.metal.name, "discription": "Metal"},
+#                         ],
+#                     },
+#                     {
+#                         "title": "General Details",
+#                         "content": [
+#                             {"heading": "Jewelry", "discription": "Jewellery Type"},
+#                             {"heading": "My Jewellery", "discription": "Brand"},
+#                             {"heading": "Best Sellers", "discription": "Collection"},
+#                             {"heading": product.gender.name, "discription": "Gender"},
+#                             {"heading": product.occasion.name, "discription": "Occasion"},
+#                         ],
+#                     },
+#                     {
+#                         "title": "Description",
+#                         "content": [
+#                             {"description": product.description or ""}
+#                         ]
+#                     }
+#                 ],
+#                 "head": product.head,
+#                 "size": product.size,
+#                 "metal_weight": str(product.metal_weight),
+#                 "karat": product.karat,
+#                 "images": product.images if product.images else [],
+#                 "ar_model_glb": product.ar_model_glb,
+#                 "ar_model_gltf": product.ar_model_gltf,
+#                 "description": product.description,
+#                 "pendant_width": product.pendant_width,
+#                 "pendant_height": product.pendant_height,
+#                 "frozen_unit_price": str(product.frozen_unit_price),
+#                 "making_charge": str(product.making_charge),
+#                 "making_discount": str(product.making_discount),
+#                 "product_discount": str(product.product_discount),
+#                 "gst": str(product.gst),
+#                 "handcrafted_charge": str(product.handcrafted_charge),
+#                 "is_handcrafted": product.is_handcrafted,
+#                 "is_classic": product.is_classic,
+#                 "designing_charge": str(product.designing_charge),
+#                 "total_stock": product.total_stock,
+#                 "sold_count": product.sold_count,
+#                 "created_at": product.created_at,
+#                 "Subcategories": product.Subcategories.id if product.Subcategories else None,
+#             })
+
+#         # Final filters data including new 'colors' section
+#         filters = {
+#             "category": list(Category.objects.values("id", "name")),
+#             "metal": list(Metal.objects.values_list("name", flat=True)),
+#             "gemstone": list(Gemstone.objects.values_list("name", flat=True)),
+#             "brand": "My Jewellery",
+#             "colors": [
+#                 {
+#                     "color": "Yellow",
+#                     "code": "#ffff00"
+#                 }
+#             ]
+#         }
+
+#         # Dynamic price range from the filtered results
+#         price_range = {
+#             "min": min(prices) if prices else None,
+#             "max": max(prices) if prices else None
+#         }
+
+#         return Response({
+#             "products": filtered_products,
+#             "filters": filters,
+#             "price_range": price_range
+#         }, status=status.HTTP_200_OK)
+
+
+# class PriceRangeProductAPIView(APIView):
+#     """
+#     GET: /api/products/by-price-range/?range_id=1&category=1&metal=Gold&gemstone=Ruby
+#     Returns products filtered by predefined price range and optional dynamic filters,
+#     along with filter options and dynamic price range.
+#     """
+
+#     def get_price_range(self, range_id):
+#         price_map = {
+#             1: (0, 25000),
+#             2: (25000, 50000),
+#             3: (50000, 100000),
+#             4: (100000, None),  # 1L & above
+#         }
+#         return price_map.get(range_id, (None, None))
+
+#     def get(self, request):
+#         try:
+#             range_id = int(request.GET.get("range_id"))
+#         except (TypeError, ValueError):
+#             return Response({"detail": "Invalid or missing range_id"}, status=400)
+
+#         min_price, max_price = self.get_price_range(range_id)
+#         if min_price is None:
+#             return Response({"detail": "Invalid range_id"}, status=400)
+
+#         # Dynamic filters
+#         category = request.GET.get("category")
+#         metal = request.GET.get("metal")
+#         gemstone = request.GET.get("gemstone")
+
+#         products = Product.objects.all()
+
+#         if category:
+#             products = products.filter(category_id=category)
+#         if metal:
+#             products = products.filter(metal__name__iexact=metal)
+#         if gemstone:
+#             products = products.filter(stones__name__iexact=gemstone)
+
+#         filtered_products = []
+#         prices = []
+
+#         for product in products:
+#             price = float(product.grand_total or 0)
+#             if (min_price is not None and price < min_price) or \
+#                (max_price is not None and price >= max_price):
+#                 continue
+
+#             prices.append(price)
+
+#             filtered_products.append({
+#                 "id": product.id,
+#                 "unit_price": str(product.frozen_unit_price or product.metal.unit_price),
+#                 "value": str((product.metal_weight * (product.frozen_unit_price or product.metal.unit_price)).quantize(Decimal('0.001'))),
+#                 "items": [
+#                     {
+#                         "type": "product",
+#                         "name": product.metal.name,
+#                         "subLabel": f"{product.karat}KT" if product.karat else "",
+#                         "rate": f"₹ {(product.frozen_unit_price or product.metal.unit_price):.2f}/g",
+#                         "weight": f"{product.metal_weight}g",
+#                         "discount": "_",
+#                         "value": f"₹ {(product.metal_weight * (product.frozen_unit_price or product.metal.unit_price)).quantize(Decimal('0.01'))}",
+#                         "image": product.images[0] if product.images else ""
+#                     },
+#                     {
+#                         "type": "charges",
+#                         "label": "Making Charges",
+#                         "rate": "_",
+#                         "weight": "_",
+#                         "discount": "-",
+#                         "value": f"₹ {product.making_charge:.2f}"
+#                     },
+#                     {
+#                         "type": "subtotal",
+#                         "label": "Sub Total",
+#                         "rate": "_",
+#                         "weight": f"{product.metal_weight}g Gross Wt.",
+#                         "discount": "-",
+#                         "value": f"₹ {product.subtotal:.2f}"
+#                     },
+#                     {
+#                         "type": "gst",
+#                         "label": "GST",
+#                         "rate": "",
+#                         "weight": "_",
+#                         "discount": "-",
+#                         "value": f"₹ {(product.subtotal * (product.gst / 100)).quantize(Decimal('0.01'))}"
+#                     },
+#                     {
+#                         "type": "charges",
+#                         "label": "Grand Total",
+#                         "rate": "_",
+#                         "weight": "_",
+#                         "discount": "-",
+#                         "value": f"₹ {product.grand_total:.2f}"
+#                     }
+#                 ],
+#                 "stone_price_total": str(product.stone_price_total),
+#                 "subtotal": str(product.subtotal),
+#                 "grand_total": str(product.grand_total),
+#                 "stones": [s.name for s in product.stones.all()],
+#                 "average_rating": product.average_rating,
+#                 "available_stock": product.available_stock,
+#                 "stock_message": "Out of stock" if product.available_stock == 0 else "In stock",
+#                 "is_wishlisted": False,
+#                 "category": product.category.name,
+#                 "occasion": product.occasion.name,
+#                 "gender": product.gender.name,
+#                 "metal": product.metal.name,
+#                 "brand": "My Jewellery",
+#                 "details": [
+#                     {
+#                         "title": "Metal Details",
+#                         "content": [
+#                             {"heading": f"{product.karat}K", "discription": "Karatage"},
+#                             {"heading": "Yellow", "discription": "Material Colour"},
+#                             {"heading": f"{product.metal_weight}g", "discription": "Gross Weight"},
+#                             {"heading": product.metal.name, "discription": "Metal"},
+#                         ],
+#                     },
+#                     {
+#                         "title": "General Details",
+#                         "content": [
+#                             {"heading": "Jewelry", "discription": "Jewellery Type"},
+#                             {"heading": "My Jewellery", "discription": "Brand"},
+#                             {"heading": "Best Sellers", "discription": "Collection"},
+#                             {"heading": product.gender.name, "discription": "Gender"},
+#                             {"heading": product.occasion.name, "discription": "Occasion"},
+#                         ],
+#                     },
+#                     {
+#                         "title": "Description",
+#                         "content": [
+#                             {"description": product.description or ""}
+#                         ]
+#                     }
+#                 ],
+#                 "head": product.head,
+#                 "size": product.size,
+#                 "metal_weight": str(product.metal_weight),
+#                 "karat": product.karat,
+#                 "images": product.images if product.images else [],
+#                 "ar_model_glb": product.ar_model_glb,
+#                 "ar_model_gltf": product.ar_model_gltf,
+#                 "description": product.description,
+#                 "pendant_width": product.pendant_width,
+#                 "pendant_height": product.pendant_height,
+#                 "frozen_unit_price": str(product.frozen_unit_price),
+#                 "making_charge": str(product.making_charge),
+#                 "making_discount": str(product.making_discount),
+#                 "product_discount": str(product.product_discount),
+#                 "gst": str(product.gst),
+#                 "handcrafted_charge": str(product.handcrafted_charge),
+#                 "is_handcrafted": product.is_handcrafted,
+#                 "is_classic": product.is_classic,
+#                 "designing_charge": str(product.designing_charge),
+#                 "total_stock": product.total_stock,
+#                 "sold_count": product.sold_count,
+#                 "created_at": product.created_at,
+#                 "Subcategories": product.Subcategories.id if product.Subcategories else None,
+#             })
+
+#         # Final filters data with dynamic price range inside
+#         filters = {
+#             "category": list(Category.objects.values("id", "name")),
+#             "metal": list(Metal.objects.values_list("name", flat=True)),
+#             "gemstone": list(Gemstone.objects.values_list("name", flat=True)),
+#             "brand": "My Jewellery My Design",
+#             "colors": [
+#                 {
+#                     "color": "Yellow",
+#                     "code": "#ffff00"
+#                 }
+#             ],
+#             "price_range": {
+#                 "min": min(prices) if prices else None,
+#                 "max": max(prices) if prices else None
+#             }
+#         }
+
+#         return Response({
+#             "products": filtered_products,
+#             "filters": filters
+#         }, status=status.HTTP_200_OK)
+
+# class PriceRangeProductAPIView(APIView):
+#     """
+#     POST: /api/products/by-price-range/
+#     Accepts form-data: range_id, category (multi), metal (multi), gemstone (multi), brand, colors, min_price, max_price
+#     Returns filtered products and updated filters.
+#     """
+
+#     def get_price_range(self, range_id):
+#         price_map = {
+#             1: (0, 25000),
+#             2: (25000, 50000),
+#             3: (50000, 100000),
+#             4: (100000, None),  # 1L & above
+#         }
+#         return price_map.get(range_id, (None, None))
+
+#     def post(self, request):
+#         try:
+#             range_id = int(request.data.get("range_id"))
+#         except (TypeError, ValueError):
+#             return Response({"detail": "Invalid or missing range_id"}, status=400)
+
+#         range_min, range_max = self.get_price_range(range_id)
+#         if range_min is None:
+#             return Response({"detail": "Invalid range_id"}, status=400)
+
+#         # Form-data filters
+#         category_ids = request.data.getlist("category")
+#         metals = request.data.getlist("metal")
+#         gemstones = request.data.getlist("gemstone")
+#         brand = request.data.get("brand")
+#         color_codes = request.data.getlist("colors")
+#         user_min_price = request.data.get("min_price")
+#         user_max_price = request.data.get("max_price")
+
+#         products = Product.objects.all()
+
+#         if category_ids:
+#             products = products.filter(category__id__in=category_ids)
+
+#         if metals:
+#             products = products.filter(metal__name__in=metals)
+
+#         if gemstones:
+#             products = products.filter(stones__name__in=gemstones).distinct()
+
+#         if brand:
+#             products = products.filter(brand__iexact=brand)
+
+#         if color_codes:
+#             color_filter = Q()
+#             for code in color_codes:
+#                 color_filter |= Q(colors__icontains=code)
+#             products = products.filter(color_filter)
+
+#         # Apply price range filter
+#         if user_min_price and user_max_price:
+#             try:
+#                 min_price = max(float(user_min_price), range_min)
+#                 max_price = min(float(user_max_price), range_max or float('inf'))
+#             except ValueError:
+#                 min_price = range_min
+#                 max_price = range_max or float('inf')
+#         else:
+#             min_price = range_min
+#             max_price = range_max or float('inf')
+
+#         filtered_products = []
+#         prices = []
+
+#         for product in products:
+#             price = float(product.grand_total or 0)
+#             if price < min_price or price >= max_price:
+#                 continue
+
+#             prices.append(price)
+#             filtered_products.append({
+#                 "id": product.id,
+#                 "unit_price": str(product.frozen_unit_price or product.metal.unit_price),
+#                 "value": str((product.metal_weight * (product.frozen_unit_price or product.metal.unit_price)).quantize(Decimal('0.001'))),
+#                 "items": [
+#                     {
+#                         "type": "product",
+#                         "name": product.metal.name,
+#                         "subLabel": f"{product.karat}KT" if product.karat else "",
+#                         "rate": f"₹ {(product.frozen_unit_price or product.metal.unit_price):.2f}/g",
+#                         "weight": f"{product.metal_weight}g",
+#                         "discount": "_",
+#                         "value": f"₹ {(product.metal_weight * (product.frozen_unit_price or product.metal.unit_price)).quantize(Decimal('0.01'))}",
+#                         "image": product.images[0] if product.images else ""
+#                     },
+#                     {
+#                         "type": "charges",
+#                         "label": "Making Charges",
+#                         "rate": "_",
+#                         "weight": "_",
+#                         "discount": "-",
+#                         "value": f"₹ {product.making_charge:.2f}"
+#                     },
+#                     {
+#                         "type": "subtotal",
+#                         "label": "Sub Total",
+#                         "rate": "_",
+#                         "weight": f"{product.metal_weight}g Gross Wt.",
+#                         "discount": "-",
+#                         "value": f"₹ {product.subtotal:.2f}"
+#                     },
+#                     {
+#                         "type": "gst",
+#                         "label": "GST",
+#                         "rate": "",
+#                         "weight": "_",
+#                         "discount": "-",
+#                         "value": f"₹ {(product.subtotal * (product.gst / 100)).quantize(Decimal('0.01'))}"
+#                     },
+#                     {
+#                         "type": "charges",
+#                         "label": "Grand Total",
+#                         "rate": "_",
+#                         "weight": "_",
+#                         "discount": "-",
+#                         "value": f"₹ {product.grand_total:.2f}"
+#                     }
+#                 ],
+#                 "stone_price_total": str(product.stone_price_total),
+#                 "subtotal": str(product.subtotal),
+#                 "grand_total": str(product.grand_total),
+#                 "stones": [s.name for s in product.stones.all()],
+#                 "average_rating": product.average_rating,
+#                 "available_stock": product.available_stock,
+#                 "stock_message": "Out of stock" if product.available_stock == 0 else "In stock",
+#                 "is_wishlisted": False,
+#                 "category": product.category.name,
+#                 "occasion": product.occasion.name,
+#                 "gender": product.gender.name,
+#                 "metal": product.metal.name,
+#                 "brand": "My Jewellery",
+#                 "details": [
+#                     {
+#                         "title": "Metal Details",
+#                         "content": [
+#                             {"heading": f"{product.karat}K", "discription": "Karatage"},
+#                             {"heading": "Yellow", "discription": "Material Colour"},
+#                             {"heading": f"{product.metal_weight}g", "discription": "Gross Weight"},
+#                             {"heading": product.metal.name, "discription": "Metal"},
+#                         ],
+#                     },
+#                     {
+#                         "title": "General Details",
+#                         "content": [
+#                             {"heading": "Jewelry", "discription": "Jewellery Type"},
+#                             {"heading": "My Jewellery", "discription": "Brand"},
+#                             {"heading": "Best Sellers", "discription": "Collection"},
+#                             {"heading": product.gender.name, "discription": "Gender"},
+#                             {"heading": product.occasion.name, "discription": "Occasion"},
+#                         ],
+#                     },
+#                     {
+#                         "title": "Description",
+#                         "content": [
+#                             {"description": product.description or ""}
+#                         ]
+#                     }
+#                 ],
+#                 "head": product.head,
+#                 "size": product.size,
+#                 "metal_weight": str(product.metal_weight),
+#                 "karat": product.karat,
+#                 "images": product.images if product.images else [],
+#                 "ar_model_glb": product.ar_model_glb,
+#                 "ar_model_gltf": product.ar_model_gltf,
+#                 "description": product.description,
+#                 "pendant_width": product.pendant_width,
+#                 "pendant_height": product.pendant_height,
+#                 "frozen_unit_price": str(product.frozen_unit_price),
+#                 "making_charge": str(product.making_charge),
+#                 "making_discount": str(product.making_discount),
+#                 "product_discount": str(product.product_discount),
+#                 "gst": str(product.gst),
+#                 "handcrafted_charge": str(product.handcrafted_charge),
+#                 "is_handcrafted": product.is_handcrafted,
+#                 "is_classic": product.is_classic,
+#                 "designing_charge": str(product.designing_charge),
+#                 "total_stock": product.total_stock,
+#                 "sold_count": product.sold_count,
+#                 "created_at": product.created_at,
+#                 "Subcategories": product.Subcategories.id if product.Subcategories else None,
+#             })
+
+#         filters = {
+#             "category": list(Category.objects.values("id", "name")),
+#             "metal": list(Metal.objects.values_list("name", flat=True)),
+#             "gemstone": list(Gemstone.objects.values_list("name", flat=True)),
+#             "brand": "My Jewellery My Design",
+#             "colors": [{"color": "Yellow", "code": "#ffff00"}],
+#             "price_range": {
+#                 "min": min(prices) if prices else None,
+#                 "max": max(prices) if prices else None
+#             }
+#         }
+
+#         return Response({
+#             "products": filtered_products,
+#             "filters": filters
+#         }, status=status.HTTP_200_OK)
+
+
 class PriceRangeProductAPIView(APIView):
     """
-    GET: /api/products/by-price-range/?range_id=1
-    Returns products filtered by predefined price range.
+    POST or GET: /api/products/by-price-range/
+    Accepts form-data or query params: range_id, category (multi), metal (multi), gemstone (multi), brand, colors, min_price, max_price
+    Returns filtered products and updated filters.
     """
 
     def get_price_range(self, range_id):
-        """
-        Maps static range_id to min and max prices.
-        """
         price_map = {
             1: (0, 25000),
             2: (25000, 50000),
@@ -1414,34 +2047,312 @@ class PriceRangeProductAPIView(APIView):
         return price_map.get(range_id, (None, None))
 
     def get(self, request):
+        return self.filter_products(request.query_params)
+
+    def post(self, request):
+        return self.filter_products(request.data)
+
+    def filter_products(self, data):
         try:
-            range_id = int(request.GET.get('range_id'))
+            range_id = int(data.get("range_id", 0))
         except (TypeError, ValueError):
             return Response({"detail": "Invalid or missing range_id"}, status=400)
 
-        min_price, max_price = self.get_price_range(range_id)
-        if min_price is None:
+        range_min, range_max = self.get_price_range(range_id)
+        if range_min is None:
             return Response({"detail": "Invalid range_id"}, status=400)
 
+        # Filters
+        category_ids = data.getlist("category")
+        metals = data.getlist("metal")
+        gemstones = data.getlist("gemstone")
+        brand = data.get("brand")
+        color_codes = data.getlist("colors")
+        user_min_price = data.get("min_price")
+        user_max_price = data.get("max_price")
+
         products = Product.objects.all()
+
+        if category_ids:
+            products = products.filter(category__id__in=category_ids)
+
+        if metals:
+            products = products.filter(metal__name__in=metals)
+
+        if gemstones:
+            products = products.filter(stones__name__in=gemstones).distinct()
+
+        if brand:
+            products = products.filter(brand__iexact=brand)
+
+        if color_codes:
+            color_filter = Q()
+            for code in color_codes:
+                color_filter |= Q(colors__icontains=code)
+            products = products.filter(color_filter)
+
+        # Price filtering
+        try:
+            min_price = max(float(user_min_price), range_min) if user_min_price else range_min
+            max_price = min(float(user_max_price), range_max or float('inf')) if user_max_price else (range_max or float('inf'))
+        except ValueError:
+            min_price = range_min
+            max_price = range_max or float('inf')
+
         filtered_products = []
+        prices = []
 
         for product in products:
-            if product.grand_total is None:
+            price = float(product.grand_total or 0)
+            if price < min_price or price >= max_price:
                 continue
 
-            price = float(product.grand_total)
+            prices.append(price)
+            filtered_products.append({
+                "id": product.id,
+                "name": str(product),
+                "grand_total": str(product.grand_total),
+                "metal": product.metal.name,
+                "category": product.category.name,
+                # Add other required fields...
+            })
 
-            if (min_price is not None and price < min_price):
-                continue
-            if (max_price is not None and price >= max_price):
-                continue
+        filters = {
+            "category": list(Category.objects.values("id", "name")),
+            "metal": list(Metal.objects.values_list("name", flat=True)),
+            "gemstone": list(Gemstone.objects.values_list("name", flat=True)),
+            "brand": "My Jewellery My Design",
+            "colors": [{"color": "Yellow", "code": "#ffff00"}],
+            "price_range": {
+                "min": min(prices) if prices else None,
+                "max": max(prices) if prices else None
+            }
+        }
 
-            filtered_products.append(product)
+        return Response({
+            "products": filtered_products,
+            "filters": filters
+        }, status=status.HTTP_200_OK)
 
-        serializer = ProductSerializer(filtered_products, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
+
+
+
+
+
+
+
+
+
+
+# class PriceRangeProductAPIView(APIView):
+#     """
+#     POST: /api/products/by-price-range/
+#     Accepts form-data: range_id, category (multi), metal (multi), gemstone (multi), brand, colors, min_price, max_price
+#     Returns filtered products and updated filters.
+#     """
+
+#     def get_price_range(self, range_id):
+#         price_map = {
+#             1: (0, 25000),
+#             2: (25000, 50000),
+#             3: (50000, 100000),
+#             4: (100000, None),  # 1L & above
+#         }
+#         return price_map.get(range_id, (None, None))
+
+#     def get(self, request):
+#         return self.post(request)
+
+#     def post(self, request):
+#         try:
+#             range_id = int(request.data.get("range_id"))
+#         except (TypeError, ValueError):
+#             return Response({"detail": "Invalid or missing range_id"}, status=400)
+
+#         range_min, range_max = self.get_price_range(range_id)
+#         if range_min is None:
+#             return Response({"detail": "Invalid range_id"}, status=400)
+
+#         # Form-data filters
+#         category_ids = request.data.getlist("category")
+#         metals = request.data.getlist("metal")
+#         gemstones = request.data.getlist("gemstone")
+#         brand = request.data.get("brand")
+#         color_codes = request.data.getlist("colors")
+#         user_min_price = request.data.get("min_price")
+#         user_max_price = request.data.get("max_price")
+
+#         products = Product.objects.all()
+
+#         if category_ids:
+#             products = products.filter(category__id__in=category_ids)
+
+#         if metals:
+#             products = products.filter(metal__name__in=metals)
+
+#         if gemstones:
+#             products = products.filter(stones__name__in=gemstones).distinct()
+
+#         if brand:
+#             products = products.filter(brand__iexact=brand)
+
+#         if color_codes:
+#             color_filter = Q()
+#             for code in color_codes:
+#                 color_filter |= Q(colors__icontains=code)
+#             products = products.filter(color_filter)
+
+#         # Apply price range filter
+#         if user_min_price and user_max_price:
+#             try:
+#                 min_price = max(float(user_min_price), range_min)
+#                 max_price = min(float(user_max_price), range_max or float('inf'))
+#             except ValueError:
+#                 min_price = range_min
+#                 max_price = range_max or float('inf')
+#         else:
+#             min_price = range_min
+#             max_price = range_max or float('inf')
+
+#         filtered_products = []
+#         prices = []
+
+#         for product in products:
+#             price = float(product.grand_total or 0)
+#             if price < min_price or price >= max_price:
+#                 continue
+
+#             prices.append(price)
+#             filtered_products.append({
+#                 "id": product.id,
+#                 "unit_price": str(product.frozen_unit_price or product.metal.unit_price),
+#                 "value": str((product.metal_weight * (product.frozen_unit_price or product.metal.unit_price)).quantize(Decimal('0.001'))),
+#                 "items": [
+#                     {
+#                         "type": "product",
+#                         "name": product.metal.name,
+#                         "subLabel": f"{product.karat}KT" if product.karat else "",
+#                         "rate": f"₹ {(product.frozen_unit_price or product.metal.unit_price):.2f}/g",
+#                         "weight": f"{product.metal_weight}g",
+#                         "discount": "_",
+#                         "value": f"₹ {(product.metal_weight * (product.frozen_unit_price or product.metal.unit_price)).quantize(Decimal('0.01'))}",
+#                         "image": product.images[0] if product.images else ""
+#                     },
+#                     {
+#                         "type": "charges",
+#                         "label": "Making Charges",
+#                         "rate": "_",
+#                         "weight": "_",
+#                         "discount": "-",
+#                         "value": f"₹ {product.making_charge:.2f}"
+#                     },
+#                     {
+#                         "type": "subtotal",
+#                         "label": "Sub Total",
+#                         "rate": "_",
+#                         "weight": f"{product.metal_weight}g Gross Wt.",
+#                         "discount": "-",
+#                         "value": f"₹ {product.subtotal:.2f}"
+#                     },
+#                     {
+#                         "type": "gst",
+#                         "label": "GST",
+#                         "rate": "",
+#                         "weight": "_",
+#                         "discount": "-",
+#                         "value": f"₹ {(product.subtotal * (product.gst / 100)).quantize(Decimal('0.01'))}"
+#                     },
+#                     {
+#                         "type": "charges",
+#                         "label": "Grand Total",
+#                         "rate": "_",
+#                         "weight": "_",
+#                         "discount": "-",
+#                         "value": f"₹ {product.grand_total:.2f}"
+#                     }
+#                 ],
+#                 "stone_price_total": str(product.stone_price_total),
+#                 "subtotal": str(product.subtotal),
+#                 "grand_total": str(product.grand_total),
+#                 "stones": [s.name for s in product.stones.all()],
+#                 "average_rating": product.average_rating,
+#                 "available_stock": product.available_stock,
+#                 "stock_message": "Out of stock" if product.available_stock == 0 else "In stock",
+#                 "is_wishlisted": False,
+#                 "category": product.category.name,
+#                 "occasion": product.occasion.name,
+#                 "gender": product.gender.name,
+#                 "metal": product.metal.name,
+#                 "brand": "My Jewellery",
+#                 "details": [
+#                     {
+#                         "title": "Metal Details",
+#                         "content": [
+#                             {"heading": f"{product.karat}K", "discription": "Karatage"},
+#                             {"heading": "Yellow", "discription": "Material Colour"},
+#                             {"heading": f"{product.metal_weight}g", "discription": "Gross Weight"},
+#                             {"heading": product.metal.name, "discription": "Metal"},
+#                         ],
+#                     },
+#                     {
+#                         "title": "General Details",
+#                         "content": [
+#                             {"heading": "Jewelry", "discription": "Jewellery Type"},
+#                             {"heading": "My Jewellery", "discription": "Brand"},
+#                             {"heading": "Best Sellers", "discription": "Collection"},
+#                             {"heading": product.gender.name, "discription": "Gender"},
+#                             {"heading": product.occasion.name, "discription": "Occasion"},
+#                         ],
+#                     },
+#                     {
+#                         "title": "Description",
+#                         "content": [
+#                             {"description": product.description or ""}
+#                         ]
+#                     }
+#                 ],
+#                 "head": product.head,
+#                 "size": product.size,
+#                 "metal_weight": str(product.metal_weight),
+#                 "karat": product.karat,
+#                 "images": product.images if product.images else [],
+#                 "ar_model_glb": product.ar_model_glb,
+#                 "ar_model_gltf": product.ar_model_gltf,
+#                 "description": product.description,
+#                 "pendant_width": product.pendant_width,
+#                 "pendant_height": product.pendant_height,
+#                 "frozen_unit_price": str(product.frozen_unit_price),
+#                 "making_charge": str(product.making_charge),
+#                 "making_discount": str(product.making_discount),
+#                 "product_discount": str(product.product_discount),
+#                 "gst": str(product.gst),
+#                 "handcrafted_charge": str(product.handcrafted_charge),
+#                 "is_handcrafted": product.is_handcrafted,
+#                 "is_classic": product.is_classic,
+#                 "designing_charge": str(product.designing_charge),
+#                 "total_stock": product.total_stock,
+#                 "sold_count": product.sold_count,
+#                 "created_at": product.created_at,
+#                 "Subcategories": product.Subcategories.id if product.Subcategories else None,
+#             })
+
+#         filters = {
+#             "category": list(Category.objects.values("id", "name")),
+#             "metal": list(Metal.objects.values_list("name", flat=True)),
+#             "gemstone": list(Gemstone.objects.values_list("name", flat=True)),
+#             "brand": "My Jewellery My Design",
+#             "colors": [{"color": "Yellow", "code": "#ffff00"}],
+#             "price_range": {
+#                 "min": min(prices) if prices else None,
+#                 "max": max(prices) if prices else None
+#             }
+#         }
+
+#         return Response({
+#             "products": filtered_products,
+#             "filters": filters
+#         }, status=status.HTTP_200_OK)
 
 
 
@@ -3047,9 +3958,9 @@ class ProductListByGender(APIView):
                 hex_code = "#CCCCCC"
             colors_with_codes.append({"color": color, "code": hex_code})
 
-        subcategories = Subcategories.objects.filter(
-            category__in=products.values_list('category_id', flat=True)
-        ).values("id", "sub_name").distinct()
+        # subcategories = Subcategories.objects.filter(
+        #     category__in=products.values_list('category_id', flat=True)
+        # ).values("id", "sub_name").distinct()
 
         categories = products.values('category__id', 'category__name').distinct()
         category_list = [{"id": c["category__id"], "name": c["category__name"]} for c in categories]
@@ -3059,8 +3970,8 @@ class ProductListByGender(APIView):
             "materials": list(materials),
             "gemstones": list(gemstones),
             "colors": colors_with_codes,
-            "subcategories": list(subcategories),
-            "categories": category_list,
+            # "subcategories": list(subcategories),
+            "subcategories": category_list,
             "brand": "my jewelry my design"
         }
 
@@ -3101,7 +4012,7 @@ class ProductListByGender(APIView):
 
         # Apply filters
         category_name = request.data.get("category")
-        subcategory_name = request.data.get("subcategory")
+        # subcategory_name = request.data.get("subcategory")
         material_name = request.data.get("material")
         gemstone_name = request.data.get("gemstone")
         color_name = request.data.get("color")
@@ -3110,8 +4021,8 @@ class ProductListByGender(APIView):
         if category_name:
             products = products.filter(category__name__iexact=category_name)
 
-        if subcategory_name:
-            products = products.filter(subcategory__sub_name__iexact=subcategory_name)
+        # if subcategory_name:
+        #     products = products.filter(subcategory__sub_name__iexact=subcategory_name)
 
         if material_name:
             # Assuming Material name filter is related via metal__material__name

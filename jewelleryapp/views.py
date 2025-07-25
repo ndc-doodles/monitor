@@ -3445,6 +3445,8 @@ if not all([TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER, ADMIN
     raise ImproperlyConfigured("One or more Twilio environment variables are missing.")
 
 class ProductEnquiryAPIView(APIView):
+    authentication_classes = [CombinedJWTAuthentication]
+    permission_classes = [IsAuthenticated]
     parser_classes = [parsers.MultiPartParser, parsers.FormParser]
 
     def post(self, request, pk, *args, **kwargs):
@@ -3506,6 +3508,8 @@ class ProductEnquiryAPIView(APIView):
 
 
 class ProductEnquiryListAPIView(APIView):
+    authentication_classes = [CombinedJWTAuthentication]
+    permission_classes = [IsAuthenticated]
     def get(self, request, *args, **kwargs):
         enquiries = ProductEnquiry.objects.all().order_by('-created_at')
         serializer = ProductEnquirySerializer(enquiries, many=True)

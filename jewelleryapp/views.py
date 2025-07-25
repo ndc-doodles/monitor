@@ -577,6 +577,8 @@ class CategoryListCreateAPIView(APIView):
         return Response(serializer.errors, status=400)
 
 class CategoryDetailAPIView(APIView):
+    authentication_classes = [CombinedJWTAuthentication]
+    permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
     def get_object(self, pk):
@@ -2828,21 +2830,153 @@ from django.db.models import F, ExpressionWrapper, DecimalField
 #         }, status=status.HTTP_200_OK)
 
 
+
+# important
+
+# class PriceRangeProductAPIView(APIView):
+#     """
+#     GET: /api/products/by-price-range/?range_id=3
+#         - Uses predefined price ranges via `range_id`.
+
+#     POST: /api/products/by-price-range/?range_id=3
+#         - Uses custom min_price and max_price if provided.
+#         - If not, falls back to `range_id` from query params.
+
+#     Optional Filters (GET & POST):
+#         - category (list of names)
+#         - metal (list of names)
+#         - gemstone (list of names)
+#         - brand (string)
+#         - colors (list of hex codes)
+#     """
+
+#     def get_price_range(self, range_id):
+#         price_map = {
+#             1: (0, 25000),
+#             2: (25000, 50000),
+#             3: (50000, 100000),
+#             4: (100000, None),
+#         }
+#         return price_map.get(range_id, (None, None))
+
+#     def get(self, request):
+#         return self.filter_products(request, use_range_id=True)
+
+#     def post(self, request):
+#         return self.filter_products(request, use_range_id=False)
+
+#     def filter_products(self, request, use_range_id=False):
+#         data = request.data if request.method == "POST" else request.query_params
+
+#         # --- Price Range Logic ---
+#         if use_range_id:
+#             try:
+#                 range_id = int(request.query_params.get("range_id", 0))
+#                 range_min, range_max = self.get_price_range(range_id)
+#                 if range_min is None:
+#                     return Response({"detail": f"Invalid range_id: {range_id}"}, status=400)
+#             except (ValueError, TypeError):
+#                 return Response({"detail": "Invalid or missing range_id"}, status=400)
+
+#         else:
+#             try:
+#                 min_price_raw = data.get("min_price")
+#                 max_price_raw = data.get("max_price")
+
+#                 if min_price_raw is not None and max_price_raw is not None:
+#                     range_min = float(min_price_raw)
+#                     range_max = float(max_price_raw)
+#                 else:
+#                     # Fallback: get range_id from query_params
+#                     try:
+#                         range_id = int(request.query_params.get("range_id", 0))
+#                     except (ValueError, TypeError):
+#                         range_id = 0
+
+#                     range_min, range_max = self.get_price_range(range_id)
+
+#                     # Default to full range if range_id is invalid
+#                     if range_min is None:
+#                         range_min, range_max = 0, float("inf")
+
+#             except (ValueError, TypeError):
+#                 return Response({"detail": "Invalid price values. Must be numeric."}, status=400)
+
+#         # --- Helper to extract lists safely ---
+#         get_list = data.getlist if hasattr(data, "getlist") else lambda k: data.get(k, []) if isinstance(data.get(k, []), list) else [data.get(k)] if data.get(k) else []
+
+#         # --- Extract Filters ---
+#         category_names = get_list("category")
+#         metals = get_list("metal")
+#         gemstones = get_list("gemstone")
+#         brand = data.get("brand")
+#         color_codes = get_list("colors")
+
+#         # --- Query Products ---
+#         products = Product.objects.all()
+
+#         if category_names:
+#             products = products.filter(category__name__in=category_names)
+
+#         if metals:
+#             products = products.filter(metal__name__in=metals)
+
+#         if gemstones:
+#             products = products.filter(stones__name__in=gemstones).distinct()
+
+#         if brand:
+#             products = products.filter(brand__iexact=brand)
+
+#         if color_codes:
+#             color_filter = Q()
+#             for code in color_codes:
+#                 color_filter |= Q(colors__icontains=code)
+#             products = products.filter(color_filter)
+
+#         # --- Price Range Filtering ---
+#         filtered_products = []
+#         prices = []
+
+#         for product in products:
+#             price = float(product.grand_total or 0)
+#             if range_max is not None and (price < range_min or price > range_max):
+#                 continue
+#             elif range_max is None and price < range_min:
+#                 continue
+
+#             prices.append(price)
+#             filtered_products.append({
+#                 "id": product.id,
+#                 "name": str(product),
+#                 "grand_total": str(product.grand_total),
+#                 "metal": product.metal.name,
+#                 "category": product.category.name,
+#             })
+
+#         # --- Return Filters (static or preloaded) ---
+#         filters = {
+#             "category": list(Category.objects.values("id", "name")),
+#             "metal": list(Metal.objects.values_list("name", flat=True)),
+#             "gemstone": list(Gemstone.objects.values_list("name", flat=True)),
+#             "brand": "My Jewellery My Design",
+#             "colors": [{"color": "Yellow", "code": "#ffff00"}],
+#             "price_range": {
+#                 "min": min(prices) if prices else None,
+#                 "max": max(prices) if prices else None,
+#             }
+#         }
+
+#         return Response({
+#             "products": filtered_products,
+#             "filters": filters,
+#         }, status=status.HTTP_200_OK)
+
+
 class PriceRangeProductAPIView(APIView):
     """
     GET: /api/products/by-price-range/?range_id=3
-        - Uses predefined price ranges via `range_id`.
-
     POST: /api/products/by-price-range/?range_id=3
-        - Uses custom min_price and max_price if provided.
-        - If not, falls back to `range_id` from query params.
-
-    Optional Filters (GET & POST):
-        - category (list of names)
-        - metal (list of names)
-        - gemstone (list of names)
-        - brand (string)
-        - colors (list of hex codes)
+        Accepts optional 'price': {"min_price": ..., "max_price": ...}
     """
 
     def get_price_range(self, range_id):
@@ -2874,28 +3008,34 @@ class PriceRangeProductAPIView(APIView):
                 return Response({"detail": "Invalid or missing range_id"}, status=400)
 
         else:
-            try:
-                min_price_raw = data.get("min_price")
-                max_price_raw = data.get("max_price")
+            price_data = data.get("price", {})
 
-                if min_price_raw is not None and max_price_raw is not None:
+            # If form-data: parse JSON string manually
+            if isinstance(price_data, str):
+                try:
+                    price_data = json.loads(price_data)
+                except json.JSONDecodeError:
+                    price_data = {}
+
+            min_price_raw = price_data.get("min_price")
+            max_price_raw = price_data.get("max_price")
+
+            if min_price_raw is not None and max_price_raw is not None:
+                try:
                     range_min = float(min_price_raw)
                     range_max = float(max_price_raw)
-                else:
-                    # Fallback: get range_id from query_params
-                    try:
-                        range_id = int(request.query_params.get("range_id", 0))
-                    except (ValueError, TypeError):
-                        range_id = 0
+                except (ValueError, TypeError):
+                    return Response({"detail": "Invalid price values. Must be numeric."}, status=400)
+            else:
+                # fallback to range_id from query
+                try:
+                    range_id = int(request.query_params.get("range_id", 0))
+                except (ValueError, TypeError):
+                    range_id = 0
 
-                    range_min, range_max = self.get_price_range(range_id)
-
-                    # Default to full range if range_id is invalid
-                    if range_min is None:
-                        range_min, range_max = 0, float("inf")
-
-            except (ValueError, TypeError):
-                return Response({"detail": "Invalid price values. Must be numeric."}, status=400)
+                range_min, range_max = self.get_price_range(range_id)
+                if range_min is None:
+                    range_min, range_max = 0, float("inf")
 
         # --- Helper to extract lists safely ---
         get_list = data.getlist if hasattr(data, "getlist") else lambda k: data.get(k, []) if isinstance(data.get(k, []), list) else [data.get(k)] if data.get(k) else []
@@ -2948,7 +3088,7 @@ class PriceRangeProductAPIView(APIView):
                 "category": product.category.name,
             })
 
-        # --- Return Filters (static or preloaded) ---
+        # --- Return Filters ---
         filters = {
             "category": list(Category.objects.values("id", "name")),
             "metal": list(Metal.objects.values_list("name", flat=True)),

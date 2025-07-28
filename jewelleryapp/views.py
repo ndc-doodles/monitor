@@ -3510,6 +3510,7 @@ class ProductEnquiryAPIView(APIView):
 class ProductEnquiryListAPIView(APIView):
     authentication_classes = [CombinedJWTAuthentication]
     permission_classes = [IsAuthenticated]
+
     def get(self, request, *args, **kwargs):
         enquiries = ProductEnquiry.objects.all().order_by('-created_at')
         serializer = ProductEnquirySerializer(enquiries, many=True)
@@ -6552,43 +6553,123 @@ def google_login_callback(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 
+# class CategoryProductImagesAPIView(APIView):
+#     permission_classes = [AllowAny]
+
+#     def get(self, request):
+#         cloud_name = "dvllntzo0"  # ⚠️ Replace this with your actual Cloudinary cloud name
+#         all_images = []
+#         image_id_counter = 1
+
+#         categories = Category.objects.all()
+
+#         category_data = []
+
+#         for category in categories:
+#             # ✅ Add category image to "All"
+#             if category.image:
+#                 all_images.append({
+#                     "id": image_id_counter,
+#                     "url": f"https://res.cloudinary.com/{cloud_name}/image/upload/{category.image.public_id}"
+#                 })
+#                 image_id_counter += 1
+
+#             # ✅ Collect first image from each product in the category
+#             product_images = []
+#             products = Product.objects.filter(category=category)
+
+#             for product in products:
+#                 if isinstance(product.images, list) and product.images:
+#                     for img in product.images:
+#                         product_images.append({
+#                             "id": product.id,
+#                             "url": img
+#                         })
+
+#             category_data.append({
+#                 "name": category.name,
+#                 "images": product_images
+#             })
+
+#         response_data = [
+#             {
+#                 "name": "All",
+#                 "images": all_images
+#             }
+#         ] + category_data
+
+#         return Response(response_data) 
+
+
+# class CategoryProductImagesAPIView(APIView):
+#     permission_classes = [AllowAny]
+
+#     def get(self, request):
+#         all_images = []
+#         image_id_counter = 1  # Unique ID for each image
+
+#         categories = Category.objects.all()
+#         category_data = []
+
+#         for category in categories:
+#             products = Product.objects.filter(category=category)
+#             product_images = []
+
+#             for product in products:
+#                 if isinstance(product.images, list) and product.images:
+#                     for img_url in product.images:
+#                         image_data = {
+#                             "id": image_id_counter,
+#                             "url": img_url
+#                         }
+#                         product_images.append(image_data)
+#                         all_images.append(image_data)
+#                         image_id_counter += 1  # ✅ Ensure each image has a unique ID
+
+#             category_data.append({
+#                 "name": category.name,
+#                 "images": product_images
+#             })
+
+#         response_data = [
+#             {
+#                 "name": "All",
+#                 "images": all_images
+#             }
+#         ] + category_data
+
+#         return Response(response_data)
+
+
 class CategoryProductImagesAPIView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request):
-        cloud_name = "dvllntzo0"  # ⚠️ Replace this with your actual Cloudinary cloud name
-        all_images = []
-        image_id_counter = 1
+        all_images_dict = {}  # Use dict to avoid duplicate URLs
 
         categories = Category.objects.all()
-
         category_data = []
 
         for category in categories:
-            # ✅ Add category image to "All"
-            if category.image:
-                all_images.append({
-                    "id": image_id_counter,
-                    "url": f"https://res.cloudinary.com/{cloud_name}/image/upload/{category.image.public_id}"
-                })
-                image_id_counter += 1
-
-            # ✅ Collect first image from each product in the category
-            product_images = []
             products = Product.objects.filter(category=category)
+            product_images = []
 
             for product in products:
                 if isinstance(product.images, list) and product.images:
-                    for img in product.images:
-                        product_images.append({
+                    for img_url in product.images:
+                        image_data = {
                             "id": product.id,
-                            "url": img
-                        })
+                            "url": img_url
+                        }
+                        product_images.append(image_data)
+                        all_images_dict[img_url] = image_data  # Add once globally
 
             category_data.append({
                 "name": category.name,
                 "images": product_images
             })
+
+        all_images = list(all_images_dict.values())
 
         response_data = [
             {
@@ -6598,3 +6679,5 @@ class CategoryProductImagesAPIView(APIView):
         ] + category_data
 
         return Response(response_data)
+
+

@@ -122,5 +122,6 @@ urlpatterns = [
     path('api/admin-login/', AdminLoginAPIView.as_view(), name='admin-login'),
     path('api/dj-rest-auth/google/', google_login_callback),
     path('api/product/<int:pk>/', ProductPreviewView.as_view(), name='product-preview'),
+    path("api/mobile/products/", CategoryProductImagesAPIView.as_view(), name="category-images-api"),
     
 ]

@@ -6550,3 +6550,51 @@ def google_login_callback(request):
 
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+class CategoryProductImagesAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        cloud_name = "dvllntzo0"  # ⚠️ Replace this with your actual Cloudinary cloud name
+        all_images = []
+        image_id_counter = 1
+
+        categories = Category.objects.all()
+
+        category_data = []
+
+        for category in categories:
+            # ✅ Add category image to "All"
+            if category.image:
+                all_images.append({
+                    "id": image_id_counter,
+                    "url": f"https://res.cloudinary.com/{cloud_name}/image/upload/{category.image.public_id}"
+                })
+                image_id_counter += 1
+
+            # ✅ Collect first image from each product in the category
+            product_images = []
+            products = Product.objects.filter(category=category)
+
+            for product in products:
+                if isinstance(product.images, list) and product.images:
+                    for img in product.images:
+                        product_images.append({
+                            "id": product.id,
+                            "url": img
+                        })
+
+            category_data.append({
+                "name": category.name,
+                "images": product_images
+            })
+
+        response_data = [
+            {
+                "name": "All",
+                "images": all_images
+            }
+        ] + category_data
+
+        return Response(response_data)

@@ -123,5 +123,7 @@ urlpatterns = [
     path('api/dj-rest-auth/google/', google_login_callback),
     path('api/product/<int:pk>/', ProductPreviewView.as_view(), name='product-preview'),
     path("api/mobile/products/", CategoryProductImagesAPIView.as_view(), name="category-images-api"),
+    path('api/products/non-category/', UncategorizedProductListAPIView.as_view(), name='uncategorized-products'),
+    path('api/products/non-category/<int:pk>/', ProductCategoryAssignAPIView.as_view(), name='assign-category'),
     
 ]

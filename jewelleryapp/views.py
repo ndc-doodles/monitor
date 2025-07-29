@@ -3440,6 +3440,7 @@ TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 TWILIO_WHATSAPP_NUMBER = os.getenv("TWILIO_WHATSAPP_NUMBER")
 ADMIN_WHATSAPP_NUMBER = os.getenv("ADMIN_WHATSAPP_NUMBER")
+from django.core.exceptions import ImproperlyConfigured
 
 if not all([TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER, ADMIN_WHATSAPP_NUMBER]):
     raise ImproperlyConfigured("One or more Twilio environment variables are missing.")
@@ -4719,7 +4720,7 @@ class ProductListByGender(APIView):
         # ).values("id", "sub_name").distinct()
 
         categories = products.values('category__id', 'category__name').distinct()
-        category_list = [{"id": c["category__id"], "name": c["category__name"]} for c in categories]
+        category_list = [{"id": c["category__id"], "sub_name": c["category__name"]} for c in categories]
 
         return {
             "price_range": {"min": min_price, "max": max_price},
@@ -5361,7 +5362,9 @@ from django.db.models import Min, Max
 
 
 class SevenCategoryDetailAPIView(APIView):
+    authentication_classes = [CombinedJWTAuthentication]
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
 
     def get(self, request, pk, *args, **kwargs):
         return self.handle_request(request, pk)
@@ -6679,5 +6682,63 @@ class CategoryProductImagesAPIView(APIView):
         ] + category_data
 
         return Response(response_data)
+
+class UncategorizedProductListAPIView(APIView):
+    authentication_classes = [CombinedJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        # Assuming `category` is a ForeignKey field
+        uncategorized_products = Product.objects.filter(category__isnull=True)
+        
+        # If using ManyToManyField for category:
+        # uncategorized_products = Product.objects.filter(category=None)
+
+        serializer = ProductSerializer(uncategorized_products, many=True, context={'request': request})
+        return Response(serializer.data)
+
+class ProductCategoryAssignAPIView(APIView):
+    authentication_classes = [CombinedJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk, *args, **kwargs):
+        try:
+            product = Product.objects.get(pk=pk)
+        except Product.DoesNotExist:
+            raise NotFound("Product not found.")
+
+        if product.category:
+            return Response({"error": "This product already has a category."}, status=400)
+
+        serializer = ProductSerializer(product, context={'request': request})
+        return Response(serializer.data)
+
+    def put(self, request, pk, *args, **kwargs):
+        category_id = request.data.get("category_id")
+
+        if not category_id:
+            return Response({"error": "'category_id' is required."}, status=400)
+
+        try:
+            product = Product.objects.get(pk=pk)
+        except Product.DoesNotExist:
+            raise NotFound("Product not found.")
+
+        if product.category:
+            return Response({"error": "Product already has a category."}, status=400)
+
+        try:
+            category = Category.objects.get(pk=category_id)
+        except Category.DoesNotExist:
+            raise NotFound("Category not found.")
+
+        product.category = category
+        product.save()
+
+        serializer = ProductSerializer(product, context={'request': request})
+        return Response({
+            "message": "Category assigned successfully.",
+            "product": serializer.data
+        })
 
 

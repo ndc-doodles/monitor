@@ -80,7 +80,7 @@ class Product(models.Model):
     head = models.CharField(max_length=255)
     # category = models.ForeignKey(Category, on_delete=models.CASCADE)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
-    occasion = models.ForeignKey(Occasion, on_delete=models.CASCADE)
+    occasion = models.ForeignKey(Occasion, on_delete=models.SET_NULL, null=True, blank=True)
     gender = models.ForeignKey(Gender, on_delete=models.CASCADE)
     metal = models.ForeignKey(Metal, on_delete=models.CASCADE)
     size = models.CharField(max_length=100)

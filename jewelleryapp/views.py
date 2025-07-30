@@ -676,14 +676,61 @@ class NavbarCategoryRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyA
     serializer_class = NavbarCategorySerializer
 
 # Occasion API
-class OccasionListCreateAPIView(BaseListCreateAPIView):
-    model = Occasion
-    serializer_class = OccasionSerializer
+# class OccasionListCreateAPIView(BaseListCreateAPIView):
+#     model = Occasion
+#     serializer_class = OccasionSerializer
 
-class OccasionDetailAPIView(BaseDetailAPIView):
-    model = Occasion
-    serializer_class = OccasionSerializer
 
+class OccasionListCreateAPIView(APIView):
+    authentication_classes = [CombinedJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get(self, request):
+        occasions = Occasion.objects.all()
+        serializer = OccasionSerializer(occasions, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = OccasionSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request):
+        occasion_id = request.data.get("id")
+        if not occasion_id:
+            return Response({"error": "ID is required to delete."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            occasion = Occasion.objects.get(id=occasion_id)
+            occasion.delete()
+            return Response({"message": "Occasion deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+        except Occasion.DoesNotExist:
+            return Response({"error": "Occasion not found."}, status=status.HTTP_404_NOT_FOUND)
+
+
+# class OccasionDetailAPIView(BaseDetailAPIView):
+#     model = Occasion
+#     serializer_class = OccasionSerializer
+class OccasionDetailAPIView(APIView):
+    authentication_classes = [CombinedJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+
+    def get(self, request, pk):
+        occasion = get_object_or_404(Occasion, pk=pk)
+        serializer = OccasionSerializer(occasion)
+        return Response(serializer.data)
+
+    def put(self, request, pk):
+        occasion = get_object_or_404(Occasion, pk=pk)
+        serializer = OccasionSerializer(occasion, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 # class ProductByOccasion(APIView):
@@ -3164,7 +3211,7 @@ class ProductFilterAPIView(ListAPIView):
             elif is_handcrafted.lower() == 'false':
                 queryset = queryset.filter(is_handcrafted=False)
 
-       
+                  
         # Return distinct products based on the applied filters
         return queryset.distinct()
     
@@ -4948,78 +4995,88 @@ class ProductListByGender(APIView):
 
 
 
-
-
 # class ProductListByGender(APIView):
-#     authentication_classes = [CombinedJWTAuthentication]
 #     permission_classes = [AllowAny]
 
 #     def get(self, request, gender_id):
+#         user_id = request.query_params.get("user_id")
+#         wishlist_items = []
+
+#         if user_id:
+#             try:
+#                 user = Register.objects.get(pk=user_id)
+#                 wishlist_items = Wishlist.objects.filter(user=user).values_list("product_id", flat=True)
+#             except Register.DoesNotExist:
+#                 return Response({"error": "Invalid user_id"}, status=status.HTTP_400_BAD_REQUEST)
+
 #         products = Product.objects.filter(gender_id=gender_id)
-#         serializer = ProductSerializer(products, many=True)
-#         filter_data = self.get_filter_data(products)
+#         serializer = ProductSerializer(products, many=True, context={"wishlist_items": wishlist_items})
+#         return Response(serializer.data, status=status.HTTP_200_OK)
 
-#         return Response({
-#             "products": serializer.data,
-#             "filters": filter_data,
-#         })
+#     def post(self, request, gender_id):
+#         user_id = request.data.get("user_id")
+#         subcategory_ids = request.data.get("subcategory_ids", [])
+#         min_price = request.data.get("min_price")
+#         max_price = request.data.get("max_price")
+#         materials = request.data.get("materials", [])
+#         gemstones = request.data.get("gemstones", [])
+#         colors = request.data.get("colors", [])
+#         brand = request.data.get("brand", None)
 
-#     def post(self, request, *args, **kwargs):
-#         data = request.data.get("filter_category", {})
-#         gender = request.data.get("gender")
+#         wishlist_items = []
+#         if user_id:
+#             try:
+#                 user = Register.objects.get(pk=user_id)
+#                 wishlist_items = Wishlist.objects.filter(user=user).values_list("product_id", flat=True)
+#             except Register.DoesNotExist:
+#                 return Response({"error": "Invalid user_id"}, status=status.HTTP_400_BAD_REQUEST)
 
-#         products = Product.objects.filter(gender__name=gender)
+#         filters = Q(gender_id=gender_id)
 
-#         # Material filter
-#         materials = data.get("materials", [])
+#         if subcategory_ids:
+#             filters &= Q(category_id__in=subcategory_ids) | Q(occasion_id__in=subcategory_ids)
 #         if materials:
-#             material_ids = [m.get("id") for m in materials if m.get("id")]
-#             products = products.filter(material_id__in=material_ids)
-
-#         # Color filter
-#         colors = data.get("colors", [])
+#             filters &= Q(metal__material__id__in=materials)
+#         if gemstones:
+#             filters &= Q(productstone__stone__id__in=gemstones)
 #         if colors:
-#             color_values = [c.get("color") for c in colors if c.get("color")]
-#             products = products.filter(color__in=color_values)
-
-#         # Subcategory filter
-#         subcategories = data.get("subcategories", [])
-#         if subcategories:
-#             sub_ids = [s.get("id") for s in subcategories if s.get("id")]
-#             products = products.filter(subcategory_id__in=sub_ids)
-
-#         # Brand filter
-#         brand = data.get("brand")
+#             color_names = [c["color"] for c in colors if "color" in c]
+#             filters &= Q(color__in=color_names)
 #         if brand:
-#             products = products.filter(brand__icontains=brand)
+#             filters &= Q(brand__iexact=brand)
 
-#         # Price filter (Python-level)
-#         price_range = data.get("price_range")
-#         if price_range:
-#             min_price = price_range.get("min")
-#             max_price = price_range.get("max")
-#             if min_price is not None and max_price is not None:
-#                 products = [p for p in products if p.grand_total and min_price <= float(p.grand_total) <= max_price]
+#         products = Product.objects.filter(filters).distinct()
+#         serialized_products = ProductSerializer(products, many=True, context={"wishlist_items": wishlist_items}).data
 
-#         serializer = ProductSerializer(products, many=True)
-#         filter_data = self.get_filter_data(products)
+#         # Filter grand_total by price
+#         if min_price is not None and max_price is not None:
+#             try:
+#                 min_price = float(min_price)
+#                 max_price = float(max_price)
+#                 serialized_products = [
+#                     product for product in serialized_products
+#                     if min_price <= float(product.get("grand_total", 0)) <= max_price
+#                 ]
+#             except ValueError:
+#                 return Response({"error": "Invalid price values"}, status=status.HTTP_400_BAD_REQUEST)
 
-#         return Response({
-#             "products": serializer.data,
-#             "filters": filter_data,
-#         })
-
-#     def get_filter_data(self, queryset):
-#         return {
-#             "categories": list(queryset.values_list("category__name", flat=True).distinct()),
-#             "metals": list(queryset.values_list("metal__name", flat=True).distinct()),
-#             "gemstones": list(queryset.values_list("stones__name", flat=True).distinct()),
-#             "handcrafted": list(queryset.values_list("is_handcrafted", flat=True).distinct()),
-#             "colors": list(queryset.values_list("color", flat=True).distinct()) if hasattr(queryset.model, "color") else [],
-#             "min_price": min([float(p.grand_total) for p in queryset if p.grand_total is not None], default=0),
-#             "max_price": max([float(p.grand_total) for p in queryset if p.grand_total is not None], default=0),
+#         # Prepare filter_category response
+#         filter_category = {
+#             "price_range": {
+#                 "min": min_price,
+#                 "max": max_price
+#             },
+#             "materials": [{"id": m, "name": "Material"} for m in materials],
+#             "gemstones": [{"id": g, "name": "Gemstone"} for g in gemstones],
+#             "colors": colors,
+#             "subcategories": [{"id": s, "sub_name": "Subcategory"} for s in subcategory_ids],
+#             "brand": brand,
 #         }
 
+#         return Response({
+#             "products": serialized_products,
+#             "filter_category": filter_category
+#         }, status=status.HTTP_200_OK)
 
 
 # class SevenCategoriesAPIView(APIView):

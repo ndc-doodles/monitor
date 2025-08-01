@@ -13,6 +13,20 @@ class MaterialSerializer(serializers.ModelSerializer):
         model = Material
         fields = '__all__'
 
+
+
+# serializers.py
+# serializers.py
+# serializers.py
+class ProductSearchSerializer(serializers.ModelSerializer):
+    star = serializers.FloatField(source='average_rating', read_only=True)  # Rename average_rating to star
+
+    class Meta:
+        model = Product
+        fields = ['id', 'images', 'head', 'grand_total', 'description', 'star']
+
+
+
 # class CategorySerializer(serializers.ModelSerializer):
 #     class Meta:
 #         model = Category

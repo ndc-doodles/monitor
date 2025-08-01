@@ -3247,13 +3247,56 @@ class ProductFilterAPIView(ListAPIView):
 
 #         return queryset
     
+# class ProductSearchAPIView(ListAPIView):
+#     authentication_classes = [CombinedJWTAuthentication]
+#     permission_classes = [IsAuthenticated]
+#     serializer_class = ProductSerializer
+
+#     def get_queryset(self):
+#         query = self.request.query_params.get('q', None)
+#         is_handcrafted = self.request.query_params.get('is_handcrafted', None)
+#         min_price = self.request.query_params.get('min_price')
+#         max_price = self.request.query_params.get('max_price')
+
+#         queryset = Product.objects.all()
+
+#         if query:
+#             queryset = queryset.filter(
+#                 Q(head__icontains=query) |
+#                 Q(category__name__icontains=query) |
+#                 Q(metal__name__icontains=query) |
+#                 Q(metal__material__name__icontains=query) |
+#                 Q(stones__name__icontains=query)
+#             ).distinct()
+
+#         if is_handcrafted is not None:
+#             if is_handcrafted.lower() == 'true':
+#                 queryset = queryset.filter(is_handcrafted=True)
+#             elif is_handcrafted.lower() == 'false':
+#                 queryset = queryset.filter(is_handcrafted=False)
+
+#         # Price range filtering using frozen_unit_price
+#         if min_price:
+#             try:
+#                 queryset = queryset.filter(frozen_unit_price__gte=float(min_price))
+#             except ValueError:
+#                 pass  # Ignore invalid min_price
+
+#         if max_price:
+#             try:
+#                 queryset = queryset.filter(frozen_unit_price__lte=float(max_price))
+#             except ValueError:
+#                 pass  # Ignore invalid max_price
+
+#         return queryset
+
 class ProductSearchAPIView(ListAPIView):
     authentication_classes = [CombinedJWTAuthentication]
     permission_classes = [IsAuthenticated]
-    serializer_class = ProductSerializer
+    serializer_class = ProductSearchSerializer
 
     def get_queryset(self):
-        query = self.request.query_params.get('q', None)
+        query = self.request.query_params.get('query', None)
         is_handcrafted = self.request.query_params.get('is_handcrafted', None)
         min_price = self.request.query_params.get('min_price')
         max_price = self.request.query_params.get('max_price')
@@ -3275,18 +3318,17 @@ class ProductSearchAPIView(ListAPIView):
             elif is_handcrafted.lower() == 'false':
                 queryset = queryset.filter(is_handcrafted=False)
 
-        # Price range filtering using frozen_unit_price
         if min_price:
             try:
                 queryset = queryset.filter(frozen_unit_price__gte=float(min_price))
             except ValueError:
-                pass  # Ignore invalid min_price
+                pass
 
         if max_price:
             try:
                 queryset = queryset.filter(frozen_unit_price__lte=float(max_price))
             except ValueError:
-                pass  # Ignore invalid max_price
+                pass
 
         return queryset
 

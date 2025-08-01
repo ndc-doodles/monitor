@@ -3217,37 +3217,80 @@ class ProductFilterAPIView(ListAPIView):
     
 
 
+# class ProductSearchAPIView(ListAPIView):
+#     serializer_class = ProductSerializer
+
+#     def get_queryset(self):
+#         query = self.request.query_params.get('q', None)
+#         is_handcrafted = self.request.query_params.get('is_handcrafted', None)
+
+#         if query:
+#             queryset = Product.objects.filter(
+#                 Q(head__icontains=query) |
+#                 Q(description__icontains=query) |
+#                 Q(category__name__icontains=query) |
+#                 Q(metal__name__icontains=query) |
+#                 Q(metal__material__name__icontains=query) |
+#                 Q(gender__name__icontains=query) |
+#                 Q(occasion__name__icontains=query) |  # fixed field name here
+#                 Q(stones__name__icontains=query)
+#             ).distinct()
+#         else:
+#             queryset = Product.objects.all()
+
+#         # Apply handcrafted filter if provided
+#         if is_handcrafted is not None:
+#             if is_handcrafted.lower() == 'true':
+#                 queryset = queryset.filter(is_handcrafted=True)
+#             elif is_handcrafted.lower() == 'false':
+#                 queryset = queryset.filter(is_handcrafted=False)
+
+#         return queryset
+    
 class ProductSearchAPIView(ListAPIView):
+    authentication_classes = [CombinedJWTAuthentication]
+    permission_classes = [IsAuthenticated]
     serializer_class = ProductSerializer
 
     def get_queryset(self):
         query = self.request.query_params.get('q', None)
         is_handcrafted = self.request.query_params.get('is_handcrafted', None)
+        min_price = self.request.query_params.get('min_price')
+        max_price = self.request.query_params.get('max_price')
+
+        queryset = Product.objects.all()
 
         if query:
-            queryset = Product.objects.filter(
+            queryset = queryset.filter(
                 Q(head__icontains=query) |
-                Q(description__icontains=query) |
                 Q(category__name__icontains=query) |
                 Q(metal__name__icontains=query) |
                 Q(metal__material__name__icontains=query) |
-                Q(gender__name__icontains=query) |
-                Q(occasion__name__icontains=query) |  # fixed field name here
                 Q(stones__name__icontains=query)
             ).distinct()
-        else:
-            queryset = Product.objects.all()
 
-        # Apply handcrafted filter if provided
         if is_handcrafted is not None:
             if is_handcrafted.lower() == 'true':
                 queryset = queryset.filter(is_handcrafted=True)
             elif is_handcrafted.lower() == 'false':
                 queryset = queryset.filter(is_handcrafted=False)
 
+        # Price range filtering using frozen_unit_price
+        if min_price:
+            try:
+                queryset = queryset.filter(frozen_unit_price__gte=float(min_price))
+            except ValueError:
+                pass  # Ignore invalid min_price
+
+        if max_price:
+            try:
+                queryset = queryset.filter(frozen_unit_price__lte=float(max_price))
+            except ValueError:
+                pass  # Ignore invalid max_price
+
         return queryset
-    
-    
+
+
 class ProductShareAPIView(APIView):
     def get(self, request, pk):
         product = get_object_or_404(Product, pk=pk)

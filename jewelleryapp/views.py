@@ -1212,9 +1212,10 @@ class OccasionDetailAPIView(APIView):
 #             response["message"] = message
 
 #         return Response(response)
-
 class ProductByOccasion(APIView):
-    permission_classes = [AllowAny]
+    authentication_classes = [CombinedJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
 
     def get_filter_data(self, products):
         grand_totals = [float(p.grand_total) for p in products if p.grand_total is not None]
@@ -1242,7 +1243,6 @@ class ProductByOccasion(APIView):
                 hex_code = "#CCCCCC"
             colors_with_codes.append({"color": color, "code": hex_code})
 
-        # Categories as list of names only
         categories = products.values_list('category__name', flat=True).distinct()
         category_list = list(categories)
 
@@ -1251,7 +1251,7 @@ class ProductByOccasion(APIView):
             "materials": list(materials),
             "gemstones": list(gemstones),
             "colors": colors_with_codes,
-            "categories": category_list,  # category names only
+            "categories": category_list,
             "brand": "my jewelry my design"
         }
 
@@ -1264,7 +1264,7 @@ class ProductByOccasion(APIView):
             val = data.get(field)
             return [val] if val else []
 
-        categories = parse_list('categories')  # now category names expected
+        categories = parse_list('categories')
         materials = parse_list('materials')
         gemstones = parse_list('gemstones')
         colors = parse_list('colors')
@@ -1299,19 +1299,27 @@ class ProductByOccasion(APIView):
         for product in products:
             try:
                 grand_total = float(product.grand_total)
+                if price_min is not None and price_max is not None:
+                    if grand_total < price_min or grand_total > price_max:
+                        continue
+                filtered.append(product)
             except Exception:
                 continue
-
-            if price_min is not None and price_max is not None:
-                if grand_total < price_min or grand_total > price_max:
-                    continue
-            filtered.append(product)
 
         return filtered
 
     def get(self, request, pk, *args, **kwargs):
         occasion = get_object_or_404(Occasion, pk=pk)
         products = Product.objects.filter(occasion=occasion)
+
+        # Fetch wishlisted IDs based on filtered product IDs
+        product_ids = list(products.values_list("id", flat=True))
+        wishlisted_ids = set()
+        if request.user.is_authenticated:
+            wishlisted_ids = set(
+                Wishlist.objects.filter(user=request.user, product_id__in=product_ids)
+                .values_list('product_id', flat=True)
+            )
 
         product_list = [{
             "id": p.id,
@@ -1320,7 +1328,7 @@ class ProductByOccasion(APIView):
             "first_image": p.images[0] if p.images else None,
             "average_rating": p.average_rating,
             "grand_total": str(p.grand_total),
-            "is_wishlisted": True  # Replace with your wishlist logic
+            "is_wishlisted": p.id in wishlisted_ids
         } for p in products]
 
         filter_data = self.get_filter_data(products)
@@ -1342,6 +1350,14 @@ class ProductByOccasion(APIView):
         if not clear_filter:
             products = self.filter_products(products, request.data)
 
+        product_ids = list(products.values_list("id", flat=True))
+        wishlisted_ids = set()
+        if request.user.is_authenticated:
+            wishlisted_ids = set(
+                Wishlist.objects.filter(user=request.user, product_id__in=product_ids)
+                .values_list('product_id', flat=True)
+            )
+
         product_list = [{
             "id": p.id,
             "head": p.head,
@@ -1349,7 +1365,7 @@ class ProductByOccasion(APIView):
             "first_image": p.images[0] if p.images else None,
             "average_rating": p.average_rating,
             "grand_total": str(p.grand_total),
-            "is_wishlisted": True  # Replace with your wishlist logic
+            "is_wishlisted": p.id in wishlisted_ids
         } for p in products]
 
         filter_data = self.get_filter_data(Product.objects.filter(occasion=occasion))
@@ -1370,7 +1386,6 @@ class ProductByOccasion(APIView):
             response["message"] = message
 
         return Response(response)
-
 
 class PriceRangeLabelsView(APIView):
     permission_classes = [AllowAny]
@@ -3157,8 +3172,12 @@ class PriceRangeProductAPIView(APIView):
     """
     GET: /api/products/by-price-range/?range_id=3
     POST: /api/products/by-price-range/?range_id=3
-        Accepts optional 'price': {"min_price": ..., "max_price": ...}
+           Accepts optional 'price': {"min_price": ..., "max_price": ...}
     """
+
+    authentication_classes = [CombinedJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
 
     def get_price_range(self, range_id):
         price_map = {
@@ -3169,6 +3188,15 @@ class PriceRangeProductAPIView(APIView):
         }
         return price_map.get(range_id, (None, None))
 
+    def get_price_label(self, range_id):
+        label_map = {
+            1: "<25K",
+            2: "25K - 50K",
+            3: "50K - 1L",
+            4: "1L & Above",
+        }
+        return label_map.get(range_id, "Price Range")
+
     def get(self, request):
         return self.filter_products(request, use_range_id=True)
 
@@ -3178,18 +3206,19 @@ class PriceRangeProductAPIView(APIView):
     def filter_products(self, request, use_range_id=False):
         data = request.data if request.method == "POST" else request.query_params
 
-        # --- Price Range Logic ---
+        range_id = 0
+        price_min = price_max = None
+
         if use_range_id:
             try:
                 range_id = int(request.query_params.get("range_id", 0))
-                range_min, range_max = self.get_price_range(range_id)
-                if range_min is None:
+                price_min, price_max = self.get_price_range(range_id)
+                if price_min is None:
                     return Response({"detail": f"Invalid range_id: {range_id}"}, status=400)
             except (ValueError, TypeError):
                 return Response({"detail": "Invalid or missing range_id"}, status=400)
         else:
             price_data = data.get("price", {})
-
             if isinstance(price_data, str):
                 try:
                     price_data = json.loads(price_data)
@@ -3201,8 +3230,8 @@ class PriceRangeProductAPIView(APIView):
 
             if min_price_raw is not None and max_price_raw is not None:
                 try:
-                    range_min = float(min_price_raw)
-                    range_max = float(max_price_raw)
+                    price_min = float(min_price_raw)
+                    price_max = float(max_price_raw)
                 except (ValueError, TypeError):
                     return Response({"detail": "Invalid price values. Must be numeric."}, status=400)
             else:
@@ -3210,76 +3239,68 @@ class PriceRangeProductAPIView(APIView):
                     range_id = int(request.query_params.get("range_id", 0))
                 except (ValueError, TypeError):
                     range_id = 0
+                price_min, price_max = self.get_price_range(range_id)
+                if price_min is None:
+                    price_min, price_max = 0, float("inf")
 
-                range_min, range_max = self.get_price_range(range_id)
-                if range_min is None:
-                    range_min, range_max = 0, float("inf")
-
-        # --- Helper to extract lists safely ---
         get_list = data.getlist if hasattr(data, "getlist") else lambda k: (
             data.get(k, []) if isinstance(data.get(k, []), list)
             else [data.get(k)] if data.get(k) else []
         )
 
-        # --- Extract Filters ---
         category_names = get_list("category")
         metals = get_list("metal")
         gemstones = get_list("gemstone")
         brand = data.get("brand")
         color_codes = get_list("colors")
 
-        # --- Query Products ---
         products = Product.objects.all()
 
         if category_names:
             products = products.filter(category__name__in=category_names)
-
         if metals:
             products = products.filter(metal__name__in=metals)
-
         if gemstones:
             products = products.filter(stones__name__in=gemstones).distinct()
-
         if brand:
             products = products.filter(brand__iexact=brand)
-
         if color_codes:
             color_filter = Q()
             for code in color_codes:
                 color_filter |= Q(colors__icontains=code)
             products = products.filter(color_filter)
 
-        # --- Wishlist logic ---
+        # Use only IDs of filtered products for wishlist check
+        product_ids = list(products.values_list("id", flat=True))
         user = request.user if request.user.is_authenticated else None
         wishlisted_ids = set()
-        if user:
+        if user and product_ids:
             wishlisted_ids = set(
-                Wishlist.objects.filter(user=user, product__in=products)
-                .values_list('product_id', flat=True)
+                Wishlist.objects.filter(user=user, product_id__in=product_ids)
+                .values_list("product_id", flat=True)
             )
 
-        # --- Price Range Filtering ---
         filtered_products = []
         prices = []
 
         for product in products:
             price = float(product.grand_total or 0)
-            if range_max is not None and (price < range_min or price > range_max):
+            if price_max is not None and (price < price_min or price > price_max):
                 continue
-            elif range_max is None and price < range_min:
+            elif price_max is None and price < price_min:
                 continue
 
             prices.append(price)
             filtered_products.append({
                 "id": product.id,
-                "name": str(product),
+                "head": product.head,
+                "description": product.description,
+                "first_image": product.images[0] if product.images else None,
+                "average_rating": product.average_rating,
                 "grand_total": str(product.grand_total),
-                "metal": product.metal.name if product.metal else None,
-                "category": product.category.name if product.category else None,
                 "is_wishlisted": product.id in wishlisted_ids
             })
 
-        # --- Filters Data ---
         filter_category = {
             "category": list(Category.objects.values("id", "name")),
             "metal": list(Metal.objects.values_list("name", flat=True)),
@@ -3292,11 +3313,13 @@ class PriceRangeProductAPIView(APIView):
             }
         }
 
+        category_label = self.get_price_label(range_id)
+
         return Response({
+            "category": category_label,
             "products": filtered_products,
             "filter_category": filter_category,
         }, status=status.HTTP_200_OK)
-
 
 # Gender API
 class GenderListCreateAPIView(BaseListCreateAPIView):

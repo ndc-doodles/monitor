@@ -3301,7 +3301,7 @@ class PriceRangeProductAPIView(APIView):
                 "is_wishlisted": product.id in wishlisted_ids
             })
 
-        filter_category = {
+        filter_category = [{
             "category": list(Category.objects.values("id", "name")),
             "metal": list(Metal.objects.values_list("name", flat=True)),
             "gemstone": list(Gemstone.objects.values_list("name", flat=True)),
@@ -3311,7 +3311,7 @@ class PriceRangeProductAPIView(APIView):
                 "min": min(prices) if prices else None,
                 "max": max(prices) if prices else None,
             }
-        }
+            }]
 
         category_label = self.get_price_label(range_id)
 

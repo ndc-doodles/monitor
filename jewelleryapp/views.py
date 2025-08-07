@@ -1248,10 +1248,10 @@ class ProductByOccasion(APIView):
 
         return {
             "price_range": {"min": min_price, "max": max_price},
-            "materials": list(materials),
-            "gemstones": list(gemstones),
+            "metal": list(materials),
+            "gemstone": list(gemstones),
             "colors": colors_with_codes,
-            "categories": category_list,
+            "category": category_list,
             "brand": "my jewelry my design"
         }
 
@@ -1264,9 +1264,9 @@ class ProductByOccasion(APIView):
             val = data.get(field)
             return [val] if val else []
 
-        categories = parse_list('categories')
-        materials = parse_list('materials')
-        gemstones = parse_list('gemstones')
+        category = parse_list('category')
+        metal = parse_list('metal')
+        gemstone = parse_list('gemstone')
         colors = parse_list('colors')
         brand = data.get('brand')
         price_raw = data.get('price')
@@ -1286,12 +1286,12 @@ class ProductByOccasion(APIView):
 
         if brand:
             products = products.filter(head__icontains=brand)
-        if categories:
-            products = products.filter(category__name__in=categories)
-        if materials:
-            products = products.filter(metal__material__name__in=materials)
-        if gemstones:
-            products = products.filter(productstone__stone__name__in=gemstones).distinct()
+        if category:
+            products = products.filter(category__name__in=category)
+        if metal:
+            products = products.filter(metal__material__name__in=metal)
+        if gemstone:
+            products = products.filter(productstone__stone__name__in=gemstone).distinct()
         if colors:
             products = products.filter(metal__color__in=colors)
 

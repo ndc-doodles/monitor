@@ -1334,10 +1334,7 @@ class ProductByOccasion(APIView):
         filter_data = self.get_filter_data(products)
 
         return Response({
-            "occasion": {
-                "id": occasion.id,
-                "name": occasion.name
-            },
+           "category":occasion.name,
             "products": product_list,
             "filter_category": [filter_data],
         })

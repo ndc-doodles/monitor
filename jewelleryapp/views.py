@@ -1339,7 +1339,7 @@ class ProductByOccasion(APIView):
                 "name": occasion.name
             },
             "products": product_list,
-            "filter_occasion": [filter_data],
+            "filter_category": [filter_data],
         })
 
     def post(self, request, pk, *args, **kwargs):

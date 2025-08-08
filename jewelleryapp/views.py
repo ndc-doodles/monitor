@@ -713,6 +713,8 @@ class OccasionListCreateAPIView(APIView):
 # class OccasionDetailAPIView(BaseDetailAPIView):
 #     model = Occasion
 #     serializer_class = OccasionSerializer
+
+
 class OccasionDetailAPIView(APIView):
     authentication_classes = [CombinedJWTAuthentication]
     permission_classes = [IsAuthenticated]
@@ -726,11 +728,30 @@ class OccasionDetailAPIView(APIView):
 
     def put(self, request, pk):
         occasion = get_object_or_404(Occasion, pk=pk)
-        serializer = OccasionSerializer(occasion, data=request.data)
+
+        # Make request data mutable
+        data = request.data.copy()
+
+        # Get actual list of serializer fields
+        serializer_fields = OccasionSerializer().get_fields()
+
+        # Preserve existing values for fields not in the request
+        for field in serializer_fields:
+            if field not in data:
+                value = getattr(occasion, field)
+                if field == 'image' and value:
+                    data[field] = value  # ImageField needs special care
+                elif value is not None:
+                    data[field] = value
+
+        serializer = OccasionSerializer(occasion, data=data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
 
 
 # class ProductByOccasion(APIView):
@@ -7070,6 +7091,7 @@ class VerifyOTP(APIView):
 #                 "refresh": str(refresh),
 #             })
 #         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 class AdminLoginAPIView(APIView):
     def post(self, request):
         serializer = AdminLoginSerializer(data=request.data)
@@ -7412,5 +7434,20 @@ class ProductCategoryAssignAPIView(APIView):
             "message": "Category assigned successfully.",
             "product": serializer.data
         })
+
+
+class ModelCountsAPIView(APIView):
+    authentication_classes = [CombinedJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        data = {
+            "product_count": Product.objects.count(),
+            "category_count": Category.objects.count(),
+            "product_enquiry_count": ProductEnquiry.objects.count(),
+            "user_count": Register.objects.count(),
+        }
+        return Response(data)
+
 
 

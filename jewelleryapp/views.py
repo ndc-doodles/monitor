@@ -750,6 +750,10 @@ class OccasionDetailAPIView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    def delete(self, request, pk):
+        occasion = get_object_or_404(Occasion, pk=pk)
+        occasion.delete()
+        return Response({"message": "Occasion deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 
 
 
@@ -7439,7 +7443,7 @@ class ProductCategoryAssignAPIView(APIView):
 class ModelCountsAPIView(APIView):
     authentication_classes = [CombinedJWTAuthentication]
     permission_classes = [IsAuthenticated]
-    
+
     def get(self, request):
         data = {
             "product_count": Product.objects.count(),
@@ -7448,6 +7452,59 @@ class ModelCountsAPIView(APIView):
             "user_count": Register.objects.count(),
         }
         return Response(data)
+
+
+
+
+class GlobalSearchAPIView(APIView):
+    authentication_classes = [CombinedJWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        query = request.GET.get('q', '').strip()
+
+        if not query:
+            return Response({"detail": "Please provide a search query."}, status=400)
+
+        # Products
+        product_results = Product.objects.filter(
+            Q(head__icontains=query) | Q(description__icontains=query)
+        )
+        product_data = ProductSerializer(product_results, many=True).data
+
+        # Categories
+        category_results = Category.objects.filter(name__icontains=query)
+        category_data = CategorySerializer(category_results, many=True).data
+
+        # Product Enquiries
+        enquiry_results = ProductEnquiry.objects.filter(
+            Q(name__icontains=query) |
+            Q(email__icontains=query) |
+            Q(phone__icontains=query) |
+            Q(message__icontains=query)
+        )
+        enquiry_data = ProductEnquirySerializer(enquiry_results, many=True).data
+
+        # Users
+        user_results = Register.objects.filter(
+            Q(username__icontains=query) |
+            Q(email__icontains=query) |
+            Q(name__icontains=query)
+        )
+        user_data = RegisterSerializer(user_results, many=True).data
+
+        # ✅ Occasions
+        occasion_results = Occasion.objects.filter(name__icontains=query)
+        occasion_data = OccasionSerializer(occasion_results, many=True).data
+
+        return Response({
+            "products": product_data,
+            "categories": category_data,
+            "enquiries": enquiry_data,
+            "users": user_data,
+            "occasions": occasion_data  # ✅ Add to response
+        })
+
 
 
 

@@ -126,5 +126,6 @@ urlpatterns = [
     path('api/products/non-category/', UncategorizedProductListAPIView.as_view(), name='uncategorized-products'),
     path('api/products/non-category/<int:pk>/', ProductCategoryAssignAPIView.as_view(), name='assign-category'),
     path('api/model-counts/', ModelCountsAPIView.as_view(), name='model-counts'),
+    path('api/search/', GlobalSearchAPIView.as_view(), name='global-search'),
     
 ]

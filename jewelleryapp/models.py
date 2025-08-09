@@ -81,8 +81,8 @@ class Product(models.Model):
     # category = models.ForeignKey(Category, on_delete=models.CASCADE)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
     occasion = models.ForeignKey(Occasion, on_delete=models.SET_NULL, null=True, blank=True)
-    gender = models.ForeignKey(Gender, on_delete=models.CASCADE)
-    metal = models.ForeignKey(Metal, on_delete=models.CASCADE)
+    gender = models.ForeignKey(Gender, on_delete=models.CASCADE, default=2)
+    metal = models.ForeignKey(Metal, on_delete=models.CASCADE, default=1)
     size = models.CharField(max_length=100)
     Subcategories=models.ForeignKey(Subcategories, on_delete=models.CASCADE, null=True, blank=True)
     metal_weight = models.DecimalField(max_digits=10, decimal_places=3, default=0)
@@ -140,7 +140,9 @@ class Product(models.Model):
     @property
     def grand_total(self):
         subtotal = self.subtotal
-        total_with_gst = subtotal * (1 + (self.gst / 100))
+        # Ensure gst calculation stays in Decimal
+        gst_multiplier = Decimal("1") + (self.gst / Decimal("100"))
+        total_with_gst = subtotal * gst_multiplier
 
         if self.is_handcrafted:
             total_with_gst += self.handcrafted_charge
@@ -167,6 +169,8 @@ class Product(models.Model):
 
     def __str__(self):
         return self.head
+
+
 class ProductStone(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     stone = models.ForeignKey(Gemstone, on_delete=models.CASCADE, null=True, blank=True)

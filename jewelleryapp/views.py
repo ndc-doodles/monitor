@@ -3479,7 +3479,7 @@ class ProductFilterAPIView(ListAPIView):
 
 #         return queryset
 
-class ProductSearchAPIView(ListAPIView):
+# class ProductSearchAPIView(ListAPIView):
     authentication_classes = [CombinedJWTAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = ProductSearchSerializer
@@ -3520,6 +3520,106 @@ class ProductSearchAPIView(ListAPIView):
                 pass
 
         return queryset
+
+
+# class ProductSearchAPIView(APIView):
+#     authentication_classes = [CombinedJWTAuthentication]
+#     permission_classes = [IsAuthenticated]
+
+#     def get(self, request, *args, **kwargs):
+#         # Example gif URL (you can make this dynamic if you want)
+#         gif_url = "http://res.cloudinary.com/dvllntzo0/image/upload/v1749821189/b04x42fkkfw20vkyesgx.webp"
+
+#         # For categories, just empty lists for now (you can replace with real queries)
+#         suggested_categories = []
+#         popular_categories = []
+
+#         # For suggested products, reuse your serializer and queryset from your ProductSearchAPIView logic
+#         from .models import Product
+#         from .serializers import ProductSearchSerializer
+
+#         # Example: get some products (or your filtered queryset)
+#         products_qs = Product.objects.all()[:5]  # or your custom queryset
+
+#         serializer = ProductSearchSerializer(products_qs, many=True)
+
+#         # popular products example (empty or your logic)
+#         popular_products = []
+
+#         return Response({
+#             "gif": gif_url,
+#             "suggested_categories": suggested_categories,
+#             "popular_categories": popular_categories,
+#             "suggested_products": serializer.data,
+#             "popular_products": popular_products
+#         })
+
+
+class ProductSearchAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        user = request.user if request.user.is_authenticated else None
+        query = request.GET.get('q', '').strip()
+
+        suggested_categories = []
+        suggested_products = []
+        popular_categories = []
+        popular_products = []
+
+        if query:
+            # Show suggestions based on query (material or category/product name)
+            material_match = Material.objects.filter(name__icontains=query).first()
+            if material_match:
+                suggested_categories = Category.objects.filter(
+                    product__metal__material=material_match
+                ).distinct()
+                if not suggested_categories.exists():
+                    suggested_categories = Category.objects.filter(name__icontains=query)
+            else:
+                suggested_categories = Category.objects.filter(name__icontains=query)
+
+            suggested_products = Product.objects.filter(head__icontains=query)
+
+        else:
+            # Show popular items when no query is provided
+            pop_cat_ids = (
+                UserVisit.objects
+                .values('product__category')
+                .annotate(visits=Count('id'))
+                .order_by('-visits')
+                .values_list('product__category', flat=True)[:5]
+            )
+            popular_categories = Category.objects.filter(id__in=pop_cat_ids) if pop_cat_ids else Category.objects.order_by('?')[:5]
+
+            pop_prod_ids = (
+                UserVisit.objects
+                .values('product')
+                .annotate(visits=Count('id'))
+                .order_by('-visits')
+                .values_list('product', flat=True)[:10]
+            )
+            popular_products = Product.objects.filter(id__in=pop_prod_ids) if pop_prod_ids else Product.objects.order_by('?')[:10]
+
+        # Optional: Search GIF
+        gif = SearchGif.objects.first()
+        gif_url = gif.image.url if gif else None
+
+        data = {
+            "gif": gif_url,
+            "suggested_categories": CategoryNameSerializer(suggested_categories, many=True).data,
+            "popular_categories": CategoryNameSerializer(popular_categories, many=True).data,
+            "suggested_products": PopularProductSerializer(suggested_products, many=True).data,
+            "popular_products": PopularProductSerializer(popular_products, many=True).data,
+        }
+
+        return Response(data)
+
+
+
+
+
+
 
 
 class ProductShareAPIView(APIView):

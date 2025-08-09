@@ -26,6 +26,28 @@ class ProductSearchSerializer(serializers.ModelSerializer):
         fields = ['id', 'images', 'head', 'grand_total', 'description', 'star']
 
 
+class SuggestedProductSerializer(serializers.ModelSerializer):
+    star = serializers.FloatField(source='average_rating', read_only=True)
+    image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Product
+        fields = ['id', 'head', 'grand_total', 'star', 'description', 'image']
+
+    def get_image(self, obj):
+        images = getattr(obj, 'images', None)
+        if images:
+            if isinstance(images, list) and len(images) > 0:
+                return images[0]
+            elif hasattr(images, 'all'):
+                first_img = images.all().first()
+                if first_img:
+                    return getattr(first_img, 'url', None)
+        return None
+
+
+
+
 
 # class CategorySerializer(serializers.ModelSerializer):
 #     class Meta:

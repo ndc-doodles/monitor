@@ -3558,7 +3558,7 @@ class ProductFilterAPIView(ListAPIView):
 class ProductSearchAPIView(APIView):
     permission_classes = [AllowAny]
 
-    def get(self, request):
+    def get(self, request, *args, **kwargs):
         user = request.user if request.user.is_authenticated else None
         query = request.GET.get('q', '').strip()
 
@@ -3568,7 +3568,7 @@ class ProductSearchAPIView(APIView):
         popular_products = []
 
         if query:
-            # Show suggestions based on query (material or category/product name)
+            # Suggested categories
             material_match = Material.objects.filter(name__icontains=query).first()
             if material_match:
                 suggested_categories = Category.objects.filter(
@@ -3579,10 +3579,11 @@ class ProductSearchAPIView(APIView):
             else:
                 suggested_categories = Category.objects.filter(name__icontains=query)
 
+            # Suggested products
             suggested_products = Product.objects.filter(head__icontains=query)
 
         else:
-            # Show popular items when no query is provided
+            # Popular categories
             pop_cat_ids = (
                 UserVisit.objects
                 .values('product__category')
@@ -3592,6 +3593,7 @@ class ProductSearchAPIView(APIView):
             )
             popular_categories = Category.objects.filter(id__in=pop_cat_ids) if pop_cat_ids else Category.objects.order_by('?')[:5]
 
+            # Popular products
             pop_prod_ids = (
                 UserVisit.objects
                 .values('product')
@@ -3601,7 +3603,7 @@ class ProductSearchAPIView(APIView):
             )
             popular_products = Product.objects.filter(id__in=pop_prod_ids) if pop_prod_ids else Product.objects.order_by('?')[:10]
 
-        # Optional: Search GIF
+        # Optional: GIF
         gif = SearchGif.objects.first()
         gif_url = gif.image.url if gif else None
 
@@ -3609,12 +3611,13 @@ class ProductSearchAPIView(APIView):
             "gif": gif_url,
             "suggested_categories": CategoryNameSerializer(suggested_categories, many=True).data,
             "popular_categories": CategoryNameSerializer(popular_categories, many=True).data,
-            "suggested_products": PopularProductSerializer(suggested_products, many=True).data,
+            # 👇 Suggested products with extra fields
+            "suggested_products": SuggestedProductSerializer(suggested_products, many=True).data,
+            # 👇 Popular products untouched
             "popular_products": PopularProductSerializer(popular_products, many=True).data,
         }
 
         return Response(data)
-
 
 
 

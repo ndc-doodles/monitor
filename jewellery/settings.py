@@ -230,9 +230,15 @@ CORS_ALLOW_ALL_ORIGINS = True  # OR
 #     "http://localhost:3000",
 # ]
 
+# CSRF_TRUSTED_ORIGINS = [
+#     "http://localhost:5173",
+# ]
+
 CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",
+    "https://nme360.com",
+    "https://www.nme360.com",  # Optional but recommended if www is used
 ]
+
 
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend',

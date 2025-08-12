@@ -57,7 +57,8 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",   # e.g., if you're using React or other frontend
-    "http://127.0.0.1:8000", 
+    # "http://127.0.0.1:8000", 
+    "https://nme360.com",
 ]
 
 MIDDLEWARE = [
@@ -206,9 +207,11 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 
-# Load .env file
-env_path = Path(__file__).resolve().parent.parent / '.env'
+env_path = Path(__file__).resolve().parent / '.env'
 load_dotenv(dotenv_path=env_path)
+# Load .env file
+# env_path = Path(__file__).resolve().parent.parent / '.env'
+# load_dotenv(dotenv_path=env_path)
 
 # Use the values
 BASE_APP_URL = os.getenv("BASE_APP_URL")

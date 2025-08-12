@@ -59,6 +59,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",   # e.g., if you're using React or other frontend
     # "http://127.0.0.1:8000", 
     "https://nme360.com",
+    "https://nme360.com/dj-rest-auth/google/",
 ]
 
 MIDDLEWARE = [

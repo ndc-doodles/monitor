@@ -25,8 +25,8 @@ SECRET_KEY = 'django-insecure-zix@k93889k@4ql_fzb-p!l2qy_3^zi*bldf7929jgwu1%)=4=
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-# ALLOWED_HOSTS = []
-ALLOWED_HOSTS = ['0.0.0.0', '127.0.0.1', 'localhost', 'nme360.com']
+ALLOWED_HOSTS = []
+# ALLOWED_HOSTS = ['0.0.0.0', '127.0.0.1', 'localhost', 'nme360.com']
 
 # Application definition
 
@@ -57,9 +57,9 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",   # e.g., if you're using React or other frontend
-    # "http://127.0.0.1:8000", 
+    "http://127.0.0.1:8000", 
     "https://nme360.com",
-    "https://nme360.com/dj-rest-auth/google/",
+    # "https://nme360.com/dj-rest-auth/google/",
 ]
 
 MIDDLEWARE = [
@@ -241,6 +241,8 @@ CORS_ALLOW_ALL_ORIGINS = True  # OR
 CSRF_TRUSTED_ORIGINS = [
     "https://nme360.com",
     "https://www.nme360.com",  # Optional but recommended if www is used
+    "https://nme360.com/dj-rest-auth/google/",
+    "http://127.0.0.1:8000",
 ]
 
 

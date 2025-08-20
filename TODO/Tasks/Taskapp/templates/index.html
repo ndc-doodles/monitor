@@ -1,0 +1,422 @@
+{% comment %} {% load static %} 
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Task Dashboard</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+</head>
+<body style="min-height: 100vh; display: flex;">
+
+<!-- Sidebar -->
+<div class="bg-dark text-white p-3" style="width: 250px;">
+    <h4 class="mb-4">Welcome, {{ username }}</h4>
+    <ul class="nav flex-column">
+        <li class="nav-item"><a class="nav-link text-white" href="?status=all">All Tasks</a></li>
+        <li class="nav-item"><a class="nav-link text-white" href="?status=pending">Pending</a></li>
+        <li class="nav-item"><a class="nav-link text-white" href="?status=inprogress">In Progress</a></li>
+        <li class="nav-item"><a class="nav-link text-white" href="?status=completed">Completed</a></li>
+        <li class="nav-item mt-3"><a class="btn btn-danger" href="{% url 'logout' %}">Logout</a></li>
+    </ul>
+</div>
+
+<!-- Main Content -->
+<div class="container-fluid p-4" style="flex: 1;">
+    <div class="d-flex justify-content-between mb-3">
+        <h2>Task Dashboard</h2>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#taskModal" onclick="resetForm()">➕ Add Task</button>
+    </div>
+
+    {% if reminder_tasks %}
+    <div class="alert alert-warning">
+        <strong>Reminder:</strong>
+        {% for r in reminder_tasks %}
+            <div>{{ r.title }} (Due: {{ r.end_date }})</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    <!-- Audio element -->
+<audio id="reminderSound" src="{% static 'sounds/audio.mp3' %}" preload="auto"></audio>
+
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const reminderTasks = {{ reminder_tasks|length }};
+        if (reminderTasks > 0) {
+            // Play reminder sound
+            const sound = document.getElementById('reminderSound');
+            sound.play().catch((e) => {
+                console.warn("Autoplay failed. User interaction needed.");
+            });
+
+            // Show alert box
+            alert("🔔 You have tasks due within the next 5 days. Please check your task list.");
+        }
+    });
+</script>
+
+
+
+    <table class="table table-bordered table-hover">
+        <thead class="table-dark">
+            <tr>
+                <th>Title</th>
+                <th>Description</th>
+                <th>Start</th>
+                <th>End</th>
+                <th>Status</th>
+                <th>Remarks</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for task in tasks %}
+            <tr>
+                <td>{{ task.title }}</td>
+                <td>{{ task.description }}</td>
+                <td>{{ task.start_date }}</td>
+                <td>{{ task.end_date }}</td>
+                <td>{{ task.status }}</td>
+                <td>{{ task.remarks }}</td>
+                <td>
+                    <button class="btn btn-sm btn-info" onclick="editTask({{ task.id }})">Edit</button>
+                    <a href="{% url 'delete_task' task.id %}" class="btn btn-sm btn-danger" onclick="return confirm('Delete this task?')">Delete</a>
+                </td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="7" class="text-center">No tasks available.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="taskModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form class="modal-content" method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="task_id" id="task_id">
+            <div class="modal-header">
+                <h5 class="modal-title" id="formTitle">Add Task</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" name="title" id="title" class="form-control mb-2" placeholder="Title" required>
+                <textarea name="description" id="description" class="form-control mb-2" placeholder="Description"></textarea>
+                <input type="date" name="start_date" id="start_date" class="form-control mb-2" required>
+                <input type="date" name="end_date" id="end_date" class="form-control mb-2" required>
+                <select name="status" id="status" class="form-control mb-2" required>
+                    <option value="">-- Status --</option>
+                    <option value="Pending">Pending</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Completed">Completed</option>
+                </select>
+                <textarea name="remarks" id="remarks" class="form-control" placeholder="Remarks"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-success">Save Task</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function resetForm() {
+    $('#formTitle').text('Add Task');
+    $('#task_id').val('');
+    $('#title').val('');
+    $('#description').val('');
+    $('#start_date').val('');
+    $('#end_date').val('');
+    $('#status').val('');
+    $('#remarks').val('');
+}
+
+function editTask(taskId) {
+    $.get(`/edit/${taskId}/`, function(data) {
+        $('#formTitle').text('Edit Task');
+        $('#task_id').val(data.id);
+        $('#title').val(data.title);
+        $('#description').val(data.description);
+        $('#start_date').val(data.start_date);
+        $('#end_date').val(data.end_date);
+        $('#status').val(data.status);
+        $('#remarks').val(data.remarks);
+        let modal = new bootstrap.Modal(document.getElementById('taskModal'));
+        modal.show();
+    });
+}
+</script>
+</body>
+</html> {% endcomment %}
+
+
+{% load static %} 
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Task Dashboard</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+    .filter-buttons {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        margin: 2rem 0;
+    }
+
+    .btn-link {
+        text-decoration: none;
+    }
+
+    .filter_buttons .btn {
+        width: 9rem;
+        height: 3rem;
+        border: none;
+        border-radius: 30px;
+        font-weight: 600;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .btn.all {
+        background-color: #4a6cf7;
+        color: #fff;
+    }
+
+    .btn.pending {
+        background-color: #ffc107;
+        color: #212529;
+    }
+
+    .btn.completed {
+        background-color: #28a745;
+        color: #fff;
+    }
+
+    .btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
+        opacity: 0.9;
+    }
+</style>
+</head>
+<body style="min-height: 100vh; display: flex;">
+
+<!-- Sidebar -->
+<div class="bg-dark text-white p-3" style="width: 250px;">
+    <h4 class="mb-4  text-center"> {{ username }}</h4><hr>
+    <ul class="nav flex-column">
+        <li class="nav-item"><a class="nav-link text-white" href="{% url 'daily_plan' %}">Daily  Reports</a></li>
+        <a href="{% url 'change_password' %}">Change Password</a>
+        <!-- <li class="nav-item"><a class="nav-link text-white" href="?status=pending">Pending</a></li>
+        <li class="nav-item"><a class="nav-link text-white" href="?status=inprogress">In Progress</a></li>
+        <li class="nav-item"><a class="nav-link text-white" href="?status=completed">Completed</a></li> -->
+        <li class="nav-item mt-3"><a class="btn btn-danger" href="{% url 'logout' %}">Logout</a></li>
+    </ul>
+</div>
+
+<!-- Main Content -->
+<div class="container-fluid p-4" style="flex: 1;">
+    <div class="d-flex justify-content-between mb-3">
+        <h2>Task Dashboard</h2>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#taskModal" onclick="resetForm()">➕ Add Task</button>
+    </div>
+<div class="filter-buttons">
+    <a href="?status=all" class="btn-link">
+        <button class="btn all">All Tasks</button>
+    </a>
+    <a href="?status=In Progress" class="btn-link">
+        <button class="btn all">In Progress</button>
+    </a>
+    <a href="?status=pending" class="btn-link">
+        <button class="btn pending">Pending</button>
+    </a>
+    <a href="?status=completed" class="btn-link">
+        <button class="btn completed">Completed</button>
+    </a>
+</div>
+
+    {% if reminder_tasks %}
+    <div class="alert alert-warning">
+        <strong>Reminder:</strong>
+        {% for r in reminder_tasks %}
+            <div>{{ r.title }} (Due: {{ r.end_date }})</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Audio element -->
+    <audio id="reminderSound" src="{% static 'sounds/audio.mp3' %}" preload="auto"></audio>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const reminderTasks = {{ reminder_tasks|length }};
+            if (reminderTasks > 0) {
+                const sound = document.getElementById('reminderSound');
+                sound.play().catch((e) => {
+                    console.warn("Autoplay failed. User interaction needed.");
+                });
+                alert("🔔 You have tasks due within the next 5 days. Please check your task list.");
+            }
+        });
+    </script>
+
+ 
+<div class="table-responsive task-table-wrapper">
+    <table class="table table-bordered table-hover align-middle task-table">
+        <thead class="table-primary text-center">
+            <tr>
+                <th>📌 Title</th>
+                <th>📝 Description</th>
+                <th>⏰ Start</th>
+                <th>⏳ End</th>
+                <th>📍 Status</th>
+                <th>🗒️ Remarks</th>
+                <th>⚙️ Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for task in tasks %}
+                <tr>
+                    <td>{{ task.title }}</td>
+                    <td>{{ task.description }}</td>
+                    <td>{{ task.start_date }}</td>
+                    <td>{{ task.end_date }}</td>
+                    <td>
+                        {% if task.status == "completed" %}
+                            <span class="badge bg-success">Completed</span>
+                        {% elif task.status == "pending" %}
+                            <span class="badge bg-warning text-dark">Pending</span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ task.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ task.remarks }}</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-info me-1" onclick="editTask({{ task.id }})">
+                            ✏️ Edit
+                        </button>
+                        <a href="{% url 'delete_task' task.id %}" 
+                           class="btn btn-sm btn-outline-danger"
+                           onclick="return confirm('Delete this task?')">
+                           🗑️ Delete
+                        </a>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted">No tasks available.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<style>
+    .task-table-wrapper {
+        margin-top: 2rem;
+        border-radius: 10px;
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+    }
+
+    .task-table thead {
+        font-size: 1rem;
+    }
+
+    .task-table tbody tr:nth-child(even) {
+        background-color: #f8f9fa;
+    }
+
+    .task-table tbody tr:hover {
+        background-color: #eef6ff;
+        transition: background-color 0.2s ease-in-out;
+    }
+
+    .task-table td,
+    .task-table th {
+        padding: 1rem;
+        vertical-align: middle;
+    }
+
+    .btn-sm {
+        font-size: 0.85rem;
+        padding: 0.3rem 0.7rem;
+        border-radius: 0.375rem;
+    }
+</style>
+
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="taskModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form class="modal-content" method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="task_id" id="task_id">
+            <div class="modal-header">
+                <h5 class="modal-title" id="formTitle">Add Task</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" name="title" id="title" class="form-control mb-2" placeholder="Title" required>
+                <textarea name="description" id="description" class="form-control mb-2" placeholder="Description"></textarea>
+                <input type="date" name="start_date" id="start_date" class="form-control mb-2" required>
+                <input type="date" name="end_date" id="end_date" class="form-control mb-2" required>
+                <select name="status" id="status" class="form-control mb-2" required>
+                    <option value="">-- Status --</option>
+                    <option value="Pending">Pending</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Completed">Completed</option>
+                </select>
+                <textarea name="remarks" id="remarks" class="form-control" placeholder="Remarks"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-success">Save Task</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function resetForm() {
+    $('#formTitle').text('Add Task');
+    $('#task_id').val('');
+    $('#title').val('');
+    $('#description').val('');
+    $('#start_date').val('');
+    $('#end_date').val('');
+    $('#status').val('');
+    $('#remarks').val('');
+}
+
+function editTask(taskId) {
+    $.get(`/edit/${taskId}/`, function(data) {
+        $('#formTitle').text('Edit Task');
+        $('#task_id').val(data.id);
+        $('#title').val(data.title);
+        $('#description').val(data.description);
+        $('#start_date').val(data.start_date);
+        $('#end_date').val(data.end_date);
+        $('#status').val(data.status);
+        $('#remarks').val(data.remarks);
+        let modal = new bootstrap.Modal(document.getElementById('taskModal'));
+        modal.show();
+    });
+}
+</script>
+</body>
+</html>

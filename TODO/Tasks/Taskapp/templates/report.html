@@ -1,0 +1,489 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>🗓️ Daily Planner</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            background-color: #f1f5f9;
+            color: #1f2937;
+        }
+
+        nav {
+            width: 220px;
+            height: 100vh;
+            background-color: #1e293b;
+            color: white;
+            padding: 2rem 1rem;
+        }
+
+        nav h2 {
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        nav a {
+            color: white;
+            display: block;
+            padding: 0.75rem 1rem;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: background 0.2s ease-in-out;
+        }
+
+        nav a:hover {
+            background-color: #334155;
+        }
+
+        main {
+            flex: 1;
+            padding: 2rem;
+        }
+
+        form {
+            background-color: white;
+            padding: 1.5rem 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+            margin-bottom: 2rem;
+        }
+
+        h3 {
+            margin-top: 1.5rem;
+            color: #0f172a;
+        }
+
+        input[type="text"], input[type="date"], select {
+            padding: 0.5rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            margin-top: 0.5rem;
+            width: 260px;
+        }
+
+        select {
+            width: auto;
+            margin-left: 10px;
+        }
+
+        button {
+            padding: 0.45rem 1rem;
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #2563eb;
+        }
+
+        .remove-btn {
+            background-color: #ef4444;
+            margin-left: 10px;
+        }
+
+        .remove-btn:hover {
+            background-color: #dc2626;
+        }
+
+        .plan-box {
+            background-color: white;
+            border: 1px solid #e2e8f0;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .inline-form {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .section-title {
+            font-size: 1.2rem;
+            margin-bottom: 0.5rem;
+            color: #334155;
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <h2>📋 Planner</h2>
+    <a href="{% url 'index' %}">➕ View Tasks</a>
+    <a href="{% url 'daily_plan' %}">📄 View Plans</a>
+</nav>
+
+<main>
+    <form method="POST">
+        {% csrf_token %}
+        <label for="date"><strong>Select Date:</strong></label><br>
+        <input type="date" name="date" id="date" value="{{ date }}" required>
+
+        <h3 class="section-title">🌅 Morning Points</h3>
+        <div id="morning-section">
+            {% for plan in plans %}
+                {% if plan.session == "Morning" %}
+                    <div>
+                        <input type="text" name="point_text_morning_{{ forloop.counter0 }}" value="{{ plan.point_text }}" required>
+                        <select name="status_morning_{{ forloop.counter0 }}">
+                            <option value="Pending" {% if plan.status == "Pending" %}selected{% endif %}>Pending</option>
+                            <option value="In Progress" {% if plan.status == "In Progress" %}selected{% endif %}>In Progress</option>
+                            <option value="Done" {% if plan.status == "Done" %}selected{% endif %}>Done</option>
+                        </select>
+                        <button type="button" class="remove-btn" onclick="this.parentElement.remove()">Remove</button>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        <button type="button" onclick="addPoint('morning')">+ Add Morning Task</button>
+
+        <h3 class="section-title">🌇 Afternoon Points</h3>
+        <div id="afternoon-section">
+            {% for plan in plans %}
+                {% if plan.session == "Afternoon" %}
+                    <div>
+                        <input type="text" name="point_text_afternoon_{{ forloop.counter0 }}" value="{{ plan.point_text }}" required>
+                        <select name="status_afternoon_{{ forloop.counter0 }}">
+                            <option value="Pending" {% if plan.status == "Pending" %}selected{% endif %}>Pending</option>
+                            <option value="In Progress" {% if plan.status == "In Progress" %}selected{% endif %}>In Progress</option>
+                            <option value="Done" {% if plan.status == "Done" %}selected{% endif %}>Done</option>
+                        </select>
+                        <button type="button" class="remove-btn" onclick="this.parentElement.remove()">Remove</button>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        <button type="button" onclick="addPoint('afternoon')">+ Add Afternoon Task</button>
+
+        <br><br>
+        <button type="submit">✅ Save Plan</button>
+    </form>
+
+    <h2 class="section-title">📋 Existing Plans</h2>
+    {% for plan in plans %}
+        <div class="plan-box">
+            <form method="post" action="{% url 'daily_plan'  %}" class="inline-form">
+                {% csrf_token %}
+                <select name="session">
+                    <option value="Morning" {% if plan.session == 'Morning' %}selected{% endif %}>Morning</option>
+                    <option value="Afternoon" {% if plan.session == 'Afternoon' %}selected{% endif %}>Afternoon</option>
+                </select>
+                <input type="text" name="point_text" value="{{ plan.point_text }}" required>
+                <select name="status">
+                    <option value="Pending" {% if plan.status == 'Pending' %}selected{% endif %}>Pending</option>
+                    <option value="Done" {% if plan.status == 'Done' %}selected{% endif %}>Done</option>
+                </select>
+                <button type="submit">✏️ Update</button>
+            </form>
+
+            <form method="post" action="{% url 'delete_plan' plan.id %}" class="inline-form" onsubmit="return confirm('Delete this plan?');">
+                {% csrf_token %}
+                <button type="submit" class="remove-btn">🗑️ Delete</button>
+            </form>
+        </div>
+    {% empty %}
+        <p>No plans found for this date.</p>
+    {% endfor %}
+</main>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const today = new Date().toISOString().split('T')[0];
+        if (!document.getElementById("date").value) {
+            document.getElementById("date").value = today;
+        }
+    });
+
+    let pointCounter = document.querySelectorAll("input[name^='point_text']").length;
+
+    function addPoint(period) {
+        const section = document.getElementById(`${period}-section`);
+        const div = document.createElement('div');
+        div.innerHTML = `
+            <input type="text" name="point_text_${period}_${pointCounter}" placeholder="Task point" required>
+            <select name="status_${period}_${pointCounter}">
+                <option value="Pending">Pending</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Done">Done</option>
+            </select>
+            <button type="button" class="remove-btn" onclick="this.parentElement.remove()">Remove</button>
+            <br><br>
+        `;
+        section.appendChild(div);
+        pointCounter++;
+    }
+</script>
+
+<section>
+    
+</section>
+
+</body>
+</html> -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>🗓️ Daily Planner</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            background-color: #f1f5f9;
+            color: #1f2937;
+        }
+        nav {
+            width: 220px;
+            height: 100vh;
+            background-color: #1e293b;
+            color: white;
+            padding: 2rem 1rem;
+        }
+        nav h2 { font-size: 1.5rem; margin-bottom: 2rem; text-align: center; }
+        nav a {
+            color: white;
+            display: block;
+            padding: 0.75rem 1rem;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: background 0.2s ease-in-out;
+        }
+        nav a:hover { background-color: #334155; }
+        main { flex: 1; padding: 2rem; }
+        form {
+            background-color: white;
+            padding: 1.5rem 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+            margin-bottom: 2rem;
+        }
+        h3 { margin-top: 1.5rem; color: #0f172a; }
+        input[type="text"], input[type="date"], select {
+            padding: 0.5rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            margin-top: 0.5rem;
+        }
+        select { margin-left: 10px; }
+        button {
+            padding: 0.45rem 1rem;
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #2563eb; }
+        .remove-btn { background-color: #ef4444; margin-left: 10px; }
+        .remove-btn:hover { background-color: #dc2626; }
+        .plan-box {
+            background-color: white;
+            border: 1px solid #e2e8f0;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .inline-form { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .section-title { font-size: 1.2rem; margin-bottom: 0.5rem; color: #334155; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <h2>📋 Planner</h2>
+    <a href="{% url 'index' %}">➕ View Tasks</a>
+    <a href="{% url 'daily_plan' %}">📄 View Plans</a>
+</nav>
+
+<main>
+    
+<form method="get" action="{% url 'download_excel' %}">
+  <label for="date">Select Date:</label>
+  <input type="date" id="date" name="date" required>
+  <button type="submit">Download Excel</button>
+</form>
+
+    <!-- Add / Edit Plan Form -->
+    <form method="POST">
+        {% csrf_token %}
+        <label for="date"><strong>Select Date:</strong></label><br>
+        <input type="date" name="date" id="date" value="{{ date }}" required>
+
+        <!-- Morning Section -->
+        <h3 class="section-title">🌅 Morning Points</h3>
+        <div id="morning-section">
+            {% for plan in plans %}
+                {% if plan.session == "Morning" %}
+                    <div>
+                        <input type="text" name="point_text_morning_{{ forloop.counter0 }}" value="{{ plan.point_text }}" required>
+                        <select name="status_morning_{{ forloop.counter0 }}">
+                            <option value="Pending" {% if plan.status == "Pending" %}selected{% endif %}>Pending</option>
+                            <option value="In Progress" {% if plan.status == "In Progress" %}selected{% endif %}>In Progress</option>
+                            <option value="Done" {% if plan.status == "Done" %}selected{% endif %}>Done</option>
+                        </select>
+                        <button type="button" class="remove-btn" onclick="this.parentElement.remove()">Remove</button>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        <button type="button" onclick="addPoint('morning')">+ Add Morning Task</button>
+
+        <!-- Afternoon Section -->
+        <h3 class="section-title">🌇 Afternoon Points</h3>
+        <div id="afternoon-section">
+            {% for plan in plans %}
+                {% if plan.session == "Afternoon" %}
+                    <div>
+                        <input type="text" name="point_text_afternoon_{{ forloop.counter0 }}" value="{{ plan.point_text }}" required>
+                        <select name="status_afternoon_{{ forloop.counter0 }}">
+                            <option value="Pending" {% if plan.status == "Pending" %}selected{% endif %}>Pending</option>
+                            <option value="In Progress" {% if plan.status == "In Progress" %}selected{% endif %}>In Progress</option>
+                            <option value="Done" {% if plan.status == "Done" %}selected{% endif %}>Done</option>
+                        </select>
+                        <button type="button" class="remove-btn" onclick="this.parentElement.remove()">Remove</button>
+                    </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        <button type="button" onclick="addPoint('afternoon')">+ Add Afternoon Task</button>
+
+        <br><br>
+        <button id="savePlanBtn" type="submit">✅ Save Plan</button>
+    </form>
+
+    <!-- Existing Plans List -->
+    <h2 class="section-title">📋 Existing Plans</h2>
+    {% for plan in plans %}
+        <div class="plan-box">
+            <form method="post" action="{% url 'daily_plan' %}" class="inline-form">
+                {% csrf_token %}
+                <select name="session">
+                    <option value="Morning" {% if plan.session == 'Morning' %}selected{% endif %}>Morning</option>
+                    <option value="Afternoon" {% if plan.session == 'Afternoon' %}selected{% endif %}>Afternoon</option>
+                </select>
+                <input type="text" name="point_text" value="{{ plan.point_text }}" required>
+                <select name="status">
+                    <option value="Pending" {% if plan.status == 'Pending' %}selected{% endif %}>Pending</option>
+                    <option value="Done" {% if plan.status == 'Done' %}selected{% endif %}>Done</option>
+                </select>
+                <button type="submit">✏️ Update</button>
+            </form>
+            <form method="post" action="{% url 'delete_plan' plan.id %}" class="inline-form" onsubmit="return confirm('Delete this plan?');">
+    {% csrf_token %}
+    <button type="submit" class="remove-btn">🗑️ Delete</button>
+</form>
+
+
+        </div>
+    {% empty %}
+        <p>No plans found for this date.</p>
+    {% endfor %}
+</main>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const dateField = document.getElementById("date");
+        if (!dateField.value) {
+            dateField.value = new Date().toISOString().split('T')[0];
+        }
+    });
+
+    let pointCounter = document.querySelectorAll("input[name^='point_text']").length;
+
+    function addPoint(period) {
+        const section = document.getElementById(`${period}-section`);
+        const div = document.createElement('div');
+        div.innerHTML = `
+            <input type="text" name="point_text_${period}_${pointCounter}" placeholder="Task point" required>
+            <select name="status_${period}_${pointCounter}">
+                <option value="Pending">Pending</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Done">Done</option>
+            </select>
+            <button type="button" class="remove-btn" onclick="this.parentElement.remove()">Remove</button>
+        `;
+        section.appendChild(div);
+        pointCounter++;
+    }
+</script>
+<script>
+function toggleSaveButton() {
+    const now = new Date();
+    const day = now.getDay(); // 0=Sunday, 1=Monday, ... 6=Saturday
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    
+    const btn = document.getElementById("savePlanBtn");
+
+    let enable = false;
+
+    if (day >= 1 && day <= 5) {
+        // Monday to Friday: 9:00 - 18:00
+        if ((hours > 9 && hours < 18) || 
+            (hours === 9 && minutes >= 30) || 
+            (hours === 18 && minutes <= 5)) {
+            enable = true;
+        }
+    } 
+    else if (day === 6) {
+        // Saturday: 8:30 - 16:30
+        if ((hours > 8 && hours < 16) || 
+            (hours === 8 && minutes >= 30) || 
+            (hours === 16 && minutes <= 30)) {
+            enable = true;
+        }
+    }
+
+    if (enable) {
+        btn.disabled = false;
+        btn.innerText = "✅ Save Plan";
+    } else {
+        btn.disabled = true;
+        if (day === 0) {
+            btn.innerText = "⏳ Disabled (Sunday)";
+        } else {
+            btn.innerText = "⏳ Disabled until next open time";
+        }
+    }
+}
+
+// Run on page load
+toggleSaveButton();
+
+// Check every minute
+setInterval(toggleSaveButton, 60000);
+</script>
+</body>
+</html>
+
+
+
